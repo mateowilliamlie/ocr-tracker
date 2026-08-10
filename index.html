@@ -38,8 +38,7 @@
   body {
     margin: 0;
     font-family: var(--font);
-    /* PLACEHOLDER — swap assets/background-placeholder.png for the real HK street photo once you have it */
-    background: url("assets/background-placeholder.png") center / cover fixed no-repeat;
+    background: var(--bg);
     color: var(--text);
     min-height: 100vh;
     padding-bottom: 64px;
@@ -62,46 +61,31 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background: var(--topbar-bg);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     padding: 12px 16px;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
   }
 
   .topbar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    grid-column: 2;
+    justify-self: center;
   }
 
-  .figure-mark {
-    width: 30px;
-    height: 30px;
+  .topbar .admin-area {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .brand-logo {
+    height: 40px;
+    width: auto;
     object-fit: contain;
-    flex-shrink: 0;
-  }
-
-  .we-are-here-badge {
-    background: var(--accent);
-    color: white;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-family: var(--display-font);
-    font-size: 15px;
-    line-height: 1.05;
-    letter-spacing: 0.01em;
-  }
-
-  .topbar .admin-area .admin-status {
-    color: rgba(255, 255, 255, 0.75);
-  }
-
-  .topbar .admin-area .toggle-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: #fff;
   }
 
   .add-row {
@@ -462,8 +446,7 @@
 <body>
 <div class="topbar">
   <div class="topbar-brand">
-    <img class="figure-mark" src="assets/logo-mark.png" alt="OCR mark" />
-    <div class="we-are-here-badge">WE ARE<br>HERE</div>
+    <img class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
   </div>
   <div class="admin-area" id="admin-area"></div>
 </div>
