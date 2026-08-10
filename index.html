@@ -38,14 +38,8 @@
   body {
     margin: 0;
     font-family: var(--font);
-    /* PLACEHOLDER background — swap this for the real HK street photo:
-       background: url("your-photo.jpg") center / cover fixed no-repeat; */
-    background:
-      linear-gradient(180deg, #BFD6E0 0%, #E3D2A9 55%, #C99B65 100%),
-      url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22900%22%20height%3D%22220%22%20viewBox%3D%220%200%20900%20220%22%3E%0A%3Crect%20x%3D%220%22%20y%3D%2280%22%20width%3D%2246%22%20height%3D%22140%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.45%22/%3E%0A%3Crect%20x%3D%2250%22%20y%3D%2240%22%20width%3D%2260%22%20height%3D%22180%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.5%22/%3E%0A%3Crect%20x%3D%22114%22%20y%3D%22100%22%20width%3D%2238%22%20height%3D%22120%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.4%22/%3E%0A%3Crect%20x%3D%22156%22%20y%3D%2260%22%20width%3D%2250%22%20height%3D%22160%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.48%22/%3E%0A%3Crect%20x%3D%22210%22%20y%3D%2220%22%20width%3D%2244%22%20height%3D%22200%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.55%22/%3E%0A%3Crect%20x%3D%22258%22%20y%3D%2290%22%20width%3D%2260%22%20height%3D%22130%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.42%22/%3E%0A%3Crect%20x%3D%22322%22%20y%3D%2250%22%20width%3D%2240%22%20height%3D%22170%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.5%22/%3E%0A%3Crect%20x%3D%22366%22%20y%3D%22110%22%20width%3D%2254%22%20height%3D%22110%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.4%22/%3E%0A%3Crect%20x%3D%22424%22%20y%3D%2230%22%20width%3D%2246%22%20height%3D%22190%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.55%22/%3E%0A%3Crect%20x%3D%22474%22%20y%3D%2270%22%20width%3D%2260%22%20height%3D%22150%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.45%22/%3E%0A%3Crect%20x%3D%22538%22%20y%3D%22100%22%20width%3D%2238%22%20height%3D%22120%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.4%22/%3E%0A%3Crect%20x%3D%22580%22%20y%3D%2245%22%20width%3D%2250%22%20height%3D%22175%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.5%22/%3E%0A%3Crect%20x%3D%22634%22%20y%3D%2215%22%20width%3D%2244%22%20height%3D%22205%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.55%22/%3E%0A%3Crect%20x%3D%22682%22%20y%3D%2285%22%20width%3D%2260%22%20height%3D%22135%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.42%22/%3E%0A%3Crect%20x%3D%22746%22%20y%3D%2255%22%20width%3D%2240%22%20height%3D%22165%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.5%22/%3E%0A%3Crect%20x%3D%22790%22%20y%3D%22105%22%20width%3D%2254%22%20height%3D%22115%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.4%22/%3E%0A%3Crect%20x%3D%22848%22%20y%3D%2235%22%20width%3D%2246%22%20height%3D%22185%22%20fill%3D%22%236b5a4a%22%20opacity%3D%220.55%22/%3E%0A%3C/svg%3E") repeat-x bottom;
-    background-blend-mode: multiply, normal;
-    background-attachment: fixed;
-    background-size: cover, 900px 220px;
+    /* PLACEHOLDER — swap assets/background-placeholder.png for the real HK street photo once you have it */
+    background: url("assets/background-placeholder.png") center / cover fixed no-repeat;
     color: var(--text);
     min-height: 100vh;
     padding-bottom: 64px;
@@ -85,7 +79,7 @@
   .figure-mark {
     width: 30px;
     height: 30px;
-    color: var(--figure-color);
+    object-fit: contain;
     flex-shrink: 0;
   }
 
@@ -468,10 +462,7 @@
 <body>
 <div class="topbar">
   <div class="topbar-brand">
-    <svg class="figure-mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="32" cy="11" r="7" fill="currentColor"/>
-      <path d="M32 20 L19 33 L8 29 M32 20 L45 34 L56 45 M32 33 L23 57 M32 33 L45 51" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <img class="figure-mark" src="assets/logo-mark.png" alt="OCR mark" />
     <div class="we-are-here-badge">WE ARE<br>HERE</div>
   </div>
   <div class="admin-area" id="admin-area"></div>
