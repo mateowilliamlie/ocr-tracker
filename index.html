@@ -346,6 +346,38 @@
     cursor: default;
   }
 
+  .admin-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .admin-status {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  #login-error {
+    display: none;
+    font-size: 13px;
+    color: var(--danger);
+    margin-bottom: 12px;
+  }
+
+  .detail-actions {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+  }
+
+  .delete-btn {
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
   @media (max-width: 520px) {
     .col-headers, .row { grid-template-columns: 1.6fr 1.1fr 1.4fr 24px; }
     .detail { grid-template-columns: 1fr 1fr; }
@@ -359,8 +391,12 @@
       <div class="title">OCR</div>
       <div class="subtitle">We Are Here · 2026/27</div>
     </div>
-    <button id="open-add">+ New</button>
+    <div class="admin-area" id="admin-area"></div>
   </header>
+
+  <div class="toolbar" style="justify-content: flex-end; margin-bottom: 4px;">
+    <button id="open-add">+ New</button>
+  </div>
 
   <div id="confirm-banner"></div>
 
@@ -380,6 +416,25 @@
     <div id="rows"></div>
     <div id="empty-state" class="empty-state" style="display:none;"></div>
   </div>
+
+  <dialog id="login-dialog">
+    <form id="login-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Admin login</h2>
+      <div id="login-error"></div>
+      <div class="field">
+        <label for="l-email">Email</label>
+        <input id="l-email" name="email" type="email" required />
+      </div>
+      <div class="field">
+        <label for="l-password">Password</label>
+        <input id="l-password" name="password" type="password" required />
+      </div>
+      <div class="form-actions">
+        <button type="button" id="login-cancel-btn">Cancel</button>
+        <button type="submit" id="login-submit-btn">Sign in</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="add-dialog">
     <form id="add-form">
@@ -462,10 +517,18 @@
   const searchInput = document.getElementById("search-input");
   const sortSelect = document.getElementById("sort-select");
   const followupsToggle = document.getElementById("followups-toggle");
+  const adminArea = document.getElementById("admin-area");
+  const loginDialog = document.getElementById("login-dialog");
+  const loginForm = document.getElementById("login-form");
+  const loginCancelBtn = document.getElementById("login-cancel-btn");
+  const loginSubmitBtn = document.getElementById("login-submit-btn");
+  const loginError = document.getElementById("login-error");
 
   let contacts = [];
   let openDetailId = null;
   let followupsOnly = false;
+  let isAdmin = false;
+  let pendingDeleteId = null;
 
   function reminderStatus(dateStr) {
     if (!dateStr) return "none";
@@ -603,12 +666,22 @@
       ["Reminder note", c.reminder_note],
       ["Other", c.other]
     ];
-    return fields.map(([label, value]) => `
+    const fieldsHtml = fields.map(([label, value]) => `
       <div>
         <div class="field-label">${label}</div>
         <div>${escapeHtml(value || "—")}</div>
       </div>
     `).join("");
+
+    const actionsHtml = isAdmin ? `
+      <div class="detail-actions">
+        <button class="delete-btn" data-delete="${c.id}">
+          ${pendingDeleteId === c.id ? "Click again to confirm" : "Delete contact"}
+        </button>
+      </div>
+    ` : "";
+
+    return fieldsHtml + actionsHtml;
   }
 
   function escapeHtml(str) {
@@ -617,7 +690,33 @@
     }[m]));
   }
 
+  async function deleteContact(id) {
+    const { error } = await sb.from("contacts").delete().eq("id", id);
+    if (error) {
+      showBanner(`Couldn't delete — ${error.message}`, true);
+      return;
+    }
+    showBanner("Contact deleted", false);
+    pendingDeleteId = null;
+    openDetailId = null;
+    await loadContacts();
+  }
+
   rowsEl.addEventListener("click", (e) => {
+    const delBtn = e.target.closest("[data-delete]");
+    if (delBtn) {
+      const id = delBtn.dataset.delete;
+      if (pendingDeleteId === id) {
+        deleteContact(id);
+      } else {
+        pendingDeleteId = id;
+        render();
+        clearTimeout(rowsEl._deleteTimer);
+        rowsEl._deleteTimer = setTimeout(() => { pendingDeleteId = null; render(); }, 3000);
+      }
+      return;
+    }
+
     const toggle = e.target.closest("[data-toggle]");
     if (!toggle) return;
     const id = toggle.dataset.toggle;
@@ -739,6 +838,62 @@
     render();
   });
 
+  function updateAdminUI() {
+    adminArea.innerHTML = isAdmin
+      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
+  }
+
+  adminArea.addEventListener("click", async (e) => {
+    if (e.target.id === "admin-login-btn") {
+      loginForm.reset();
+      loginError.style.display = "none";
+      loginDialog.showModal();
+    } else if (e.target.id === "signout-btn") {
+      await sb.auth.signOut();
+      showBanner("Signed out", false);
+    }
+  });
+
+  loginCancelBtn.addEventListener("click", () => loginDialog.close());
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = loginForm.email.value.trim();
+    const password = loginForm.password.value;
+
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = "Signing in...";
+    loginError.style.display = "none";
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+
+    loginSubmitBtn.disabled = false;
+    loginSubmitBtn.textContent = "Sign in";
+
+    if (error) {
+      loginError.textContent = "Incorrect email or password.";
+      loginError.style.display = "block";
+      return;
+    }
+
+    loginDialog.close();
+    showBanner("Signed in as admin", false);
+  });
+
+  sb.auth.onAuthStateChange((event, session) => {
+    isAdmin = !!session;
+    updateAdminUI();
+    render();
+  });
+
+  async function initAdminState() {
+    const { data } = await sb.auth.getSession();
+    isAdmin = !!data.session;
+    updateAdminUI();
+  }
+
+  initAdminState();
   loadContacts();
 </script>
 </body>
