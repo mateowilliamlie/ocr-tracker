@@ -21,6 +21,8 @@
     --danger-bg: #FEE2E2;
     --warn: #B45309;
     --warn-bg: #FEF3C7;
+    --info: #1D4ED8;
+    --info-bg: #DBEAFE;
     --radius: 10px;
     --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
@@ -177,10 +179,39 @@
     color: var(--text);
   }
 
-  .row select.reminder-select.has-reminder {
+  .row select.reminder-select.has-reminder-overdue {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-soon {
     background: var(--warn-bg);
     color: var(--warn);
     border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-future {
+    background: var(--info-bg);
+    color: var(--info);
+    border-color: transparent;
+  }
+
+  .toggle-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }
 
   .chevron {
@@ -328,6 +359,7 @@
       <option value="recent">Most recent</option>
       <option value="reminder">Soonest reminder</option>
     </select>
+    <button id="followups-toggle" class="toggle-btn">Follow-ups only</button>
   </div>
 
   <div class="board">
@@ -418,9 +450,28 @@
   const emptyStateEl = document.getElementById("empty-state");
   const searchInput = document.getElementById("search-input");
   const sortSelect = document.getElementById("sort-select");
+  const followupsToggle = document.getElementById("followups-toggle");
 
   let contacts = [];
   let openDetailId = null;
+  let followupsOnly = false;
+
+  function reminderStatus(dateStr) {
+    if (!dateStr) return "none";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(dateStr + "T00:00:00");
+    const diffDays = Math.round((d - today) / 86400000);
+    if (diffDays < 0) return "overdue";
+    if (diffDays <= 3) return "soon";
+    return "future";
+  }
+
+  function reminderClass(dateStr) {
+    const status = reminderStatus(dateStr);
+    if (status === "none") return "";
+    return `has-reminder-${status}`;
+  }
 
   function showBanner(message, isError) {
     banner.textContent = message;
@@ -460,6 +511,10 @@
     const q = searchInput.value.trim().toLowerCase();
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
 
+    if (followupsOnly) {
+      list = list.filter(c => !!c.reminder_date);
+    }
+
     if (sortSelect.value === "reminder") {
       list = list.slice().sort((a, b) => {
         if (!a.reminder_date && !b.reminder_date) return 0;
@@ -482,7 +537,9 @@
     }
     if (list.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = "No matches for that search.";
+      emptyStateEl.textContent = followupsOnly
+        ? "No upcoming follow-ups right now."
+        : "No matches for that search.";
       return;
     }
     emptyStateEl.style.display = "none";
@@ -492,13 +549,12 @@
       wrap.className = "row-wrap";
 
       const isOpen = openDetailId === c.id;
-      const hasReminder = !!c.reminder_date;
 
       wrap.innerHTML = `
         <div class="row">
           <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}</span>
           <span class="connector">${escapeHtml(c.connector || "—")}</span>
-          <select class="reminder-select ${hasReminder ? "has-reminder" : ""}" data-id="${c.id}">
+          <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}">
             ${reminderOptionsHtml(c)}
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
@@ -587,6 +643,12 @@
 
   searchInput.addEventListener("input", render);
   sortSelect.addEventListener("change", render);
+
+  followupsToggle.addEventListener("click", () => {
+    followupsOnly = !followupsOnly;
+    followupsToggle.classList.toggle("active", followupsOnly);
+    render();
+  });
 
   openBtn.addEventListener("click", () => {
     form.reset();
