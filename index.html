@@ -135,7 +135,7 @@
 
   .col-headers {
     display: grid;
-    grid-template-columns: 2fr 1.4fr 1.8fr 28px;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
     gap: 8px;
     padding: 10px 14px;
     font-size: 11px;
@@ -151,7 +151,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: 2fr 1.4fr 1.8fr 28px;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
     gap: 8px;
     align-items: center;
     padding: 12px 14px;
@@ -231,7 +231,7 @@
     font-size: 15px;
     color: var(--text-muted);
     transition: transform 0.15s ease;
-    padding: 4px;
+    padding: 8px;
     line-height: 1;
   }
 
@@ -379,8 +379,13 @@
   }
 
   @media (max-width: 520px) {
-    .col-headers, .row { grid-template-columns: 1.6fr 1.1fr 1.4fr 24px; }
+    header { flex-wrap: wrap; gap: 8px; }
+    .toolbar { flex-wrap: wrap; }
+    #search-input { flex: 1 1 100%; }
+    .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
     .detail { grid-template-columns: 1fr 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+    dialog { max-height: 88vh; overflow-y: auto; }
   }
 </style>
 </head>
@@ -414,6 +419,7 @@
       <span>Name</span><span>Connected by</span><span>Reminder</span><span></span>
     </div>
     <div id="rows"></div>
+    <div id="loading-state" class="empty-state">Loading contacts…</div>
     <div id="empty-state" class="empty-state" style="display:none;"></div>
   </div>
 
@@ -513,6 +519,7 @@
   const submitBtn = document.getElementById("submit-btn");
   const banner = document.getElementById("confirm-banner");
   const rowsEl = document.getElementById("rows");
+  const loadingStateEl = document.getElementById("loading-state");
   const emptyStateEl = document.getElementById("empty-state");
   const searchInput = document.getElementById("search-input");
   const sortSelect = document.getElementById("sort-select");
@@ -568,17 +575,25 @@
   }
 
   async function loadContacts() {
-    const { data, error } = await sb
-      .from("contacts")
-      .select("*")
-      .order("created_at", { ascending: false });
+    loadingStateEl.style.display = "block";
+    loadingStateEl.textContent = "Loading contacts…";
+    emptyStateEl.style.display = "none";
 
-    if (error) {
-      showBanner(`Couldn't load contacts — ${error.message}`, true);
-      return;
+    try {
+      const { data, error } = await sb
+        .from("contacts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      contacts = data;
+      loadingStateEl.style.display = "none";
+      render();
+    } catch (err) {
+      loadingStateEl.textContent = "Couldn't load contacts — check your connection and try refreshing.";
+      showBanner(`Couldn't load contacts — ${err.message || "network error"}`, true);
     }
-    contacts = data;
-    render();
   }
 
   function getFilteredSorted() {
@@ -691,15 +706,16 @@
   }
 
   async function deleteContact(id) {
-    const { error } = await sb.from("contacts").delete().eq("id", id);
-    if (error) {
-      showBanner(`Couldn't delete — ${error.message}`, true);
-      return;
+    try {
+      const { error } = await sb.from("contacts").delete().eq("id", id);
+      if (error) throw error;
+      showBanner("Contact deleted", false);
+      pendingDeleteId = null;
+      openDetailId = null;
+      await loadContacts();
+    } catch (err) {
+      showBanner(`Couldn't delete — ${err.message || "check your connection"}`, true);
     }
-    showBanner("Contact deleted", false);
-    pendingDeleteId = null;
-    openDetailId = null;
-    await loadContacts();
   }
 
   rowsEl.addEventListener("click", (e) => {
@@ -738,15 +754,16 @@
 
     dateInput.addEventListener("change", async () => {
       committed = true;
-      const { error } = await sb.from("contacts")
-        .update({ reminder_date: dateInput.value || null })
-        .eq("id", id);
-      if (error) {
-        showBanner(`Couldn't update reminder — ${error.message}`, true);
-        return;
+      try {
+        const { error } = await sb.from("contacts")
+          .update({ reminder_date: dateInput.value || null })
+          .eq("id", id);
+        if (error) throw error;
+        showBanner("Reminder updated", false);
+        await loadContacts();
+      } catch (err) {
+        showBanner(`Couldn't update reminder — ${err.message || "check your connection"}`, true);
       }
-      showBanner("Reminder updated", false);
-      await loadContacts();
     });
 
     dateInput.addEventListener("blur", () => {
@@ -772,13 +789,14 @@
     else if (value === "3days") reminder_date = addDays(3);
     else if (value === "1week") reminder_date = addDays(7);
 
-    const { error } = await sb.from("contacts").update({ reminder_date }).eq("id", id);
-    if (error) {
-      showBanner(`Couldn't update reminder — ${error.message}`, true);
-      return;
+    try {
+      const { error } = await sb.from("contacts").update({ reminder_date }).eq("id", id);
+      if (error) throw error;
+      showBanner("Reminder updated", false);
+      await loadContacts();
+    } catch (err) {
+      showBanner(`Couldn't update reminder — ${err.message || "check your connection"}`, true);
     }
-    showBanner("Reminder updated", false);
-    await loadContacts();
   });
 
   searchInput.addEventListener("input", render);
@@ -822,20 +840,20 @@
       reminder_note: form.reminder_note.value.trim() || null
     };
 
-    const { data, error } = await sb.from("contacts").insert(payload).select();
+    try {
+      const { data, error } = await sb.from("contacts").insert(payload).select();
+      if (error) throw error;
 
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Save contact";
-
-    if (error) {
-      showBanner(`Couldn't save — ${error.message}`, true);
-      return;
+      dialog.close();
+      showBanner(`${name} added`, false);
+      contacts.unshift(data[0]);
+      render();
+    } catch (err) {
+      showBanner(`Couldn't save — ${err.message || "check your connection and try again"}`, true);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save contact";
     }
-
-    dialog.close();
-    showBanner(`${name} added`, false);
-    contacts.unshift(data[0]);
-    render();
   });
 
   function updateAdminUI() {
@@ -866,19 +884,22 @@
     loginSubmitBtn.textContent = "Signing in...";
     loginError.style.display = "none";
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-
-    loginSubmitBtn.disabled = false;
-    loginSubmitBtn.textContent = "Sign in";
-
-    if (error) {
-      loginError.textContent = "Incorrect email or password.";
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        loginError.textContent = "Incorrect email or password.";
+        loginError.style.display = "block";
+        return;
+      }
+      loginDialog.close();
+      showBanner("Signed in as admin", false);
+    } catch (err) {
+      loginError.textContent = "Couldn't sign in — check your connection and try again.";
       loginError.style.display = "block";
-      return;
+    } finally {
+      loginSubmitBtn.disabled = false;
+      loginSubmitBtn.textContent = "Sign in";
     }
-
-    loginDialog.close();
-    showBanner("Signed in as admin", false);
   });
 
   sb.auth.onAuthStateChange((event, session) => {
