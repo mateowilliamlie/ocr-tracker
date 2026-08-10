@@ -9,6 +9,7 @@
   :root {
     --bg: #F4F5F7;
     --surface: #FFFFFF;
+    --surface-2: #F9FAFB;
     --text: #1A1D23;
     --text-muted: #6B7280;
     --border: #E2E4E9;
@@ -18,6 +19,8 @@
     --success-bg: #DCFCE7;
     --danger: #B91C1C;
     --danger-bg: #FEE2E2;
+    --warn: #B45309;
+    --warn-bg: #FEF3C7;
     --radius: 10px;
     --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
@@ -33,7 +36,7 @@
   }
 
   main {
-    max-width: 640px;
+    max-width: 760px;
     margin: 0 auto;
   }
 
@@ -41,7 +44,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   header .title {
@@ -69,6 +72,7 @@
     border-radius: var(--radius);
     padding: 10px 18px;
     font-weight: 500;
+    white-space: nowrap;
   }
 
   #open-add:hover { background: var(--accent-hover); }
@@ -88,37 +92,129 @@
     color: var(--danger);
   }
 
-  .card {
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  #search-input {
+    flex: 1;
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  #search-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  #sort-select {
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .board {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px 18px;
+    overflow: hidden;
   }
 
-  .card h2 {
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0 0 8px;
-    color: var(--text-muted);
+  .col-headers {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 28px;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--surface-2);
   }
 
-  #recent-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 14px;
-  }
-
-  #recent-list li {
-    padding: 8px 0;
+  .row-wrap {
     border-top: 1px solid var(--border);
   }
 
-  #recent-list li:first-child { border-top: none; }
+  .row {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 28px;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 14px;
+  }
 
-  #recent-empty {
+  .row .name {
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .row .connector {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .row select.reminder-select {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .row select.reminder-select.has-reminder {
+    background: var(--warn-bg);
+    color: var(--warn);
+    border-color: transparent;
+  }
+
+  .chevron {
+    background: none;
+    border: none;
+    font-size: 15px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    padding: 4px;
+    line-height: 1;
+  }
+
+  .chevron.open { transform: rotate(180deg); }
+
+  .detail {
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 20px;
+    padding: 6px 14px 18px;
+    background: var(--surface-2);
+    font-size: 13px;
+  }
+
+  .detail.open { display: grid; }
+
+  .detail .field-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .empty-state {
+    padding: 32px 14px;
+    text-align: center;
     color: var(--text-muted);
     font-size: 14px;
   }
@@ -207,6 +303,11 @@
     opacity: 0.6;
     cursor: default;
   }
+
+  @media (max-width: 520px) {
+    .col-headers, .row { grid-template-columns: 1.6fr 1.1fr 1.4fr 24px; }
+    .detail { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -221,10 +322,20 @@
 
   <div id="confirm-banner"></div>
 
-  <div class="card">
-    <h2>Recently added</h2>
-    <p id="recent-empty">Nothing added yet this session — the full dashboard is coming in Chapter 4.</p>
-    <ul id="recent-list"></ul>
+  <div class="toolbar">
+    <input id="search-input" type="text" placeholder="Search by name" />
+    <select id="sort-select">
+      <option value="recent">Most recent</option>
+      <option value="reminder">Soonest reminder</option>
+    </select>
+  </div>
+
+  <div class="board">
+    <div class="col-headers">
+      <span>Name</span><span>Connected by</span><span>Reminder</span><span></span>
+    </div>
+    <div id="rows"></div>
+    <div id="empty-state" class="empty-state" style="display:none;"></div>
   </div>
 
   <dialog id="add-dialog">
@@ -303,15 +414,13 @@
   const form = document.getElementById("add-form");
   const submitBtn = document.getElementById("submit-btn");
   const banner = document.getElementById("confirm-banner");
-  const recentList = document.getElementById("recent-list");
-  const recentEmpty = document.getElementById("recent-empty");
+  const rowsEl = document.getElementById("rows");
+  const emptyStateEl = document.getElementById("empty-state");
+  const searchInput = document.getElementById("search-input");
+  const sortSelect = document.getElementById("sort-select");
 
-  openBtn.addEventListener("click", () => {
-    form.reset();
-    dialog.showModal();
-  });
-
-  cancelBtn.addEventListener("click", () => dialog.close());
+  let contacts = [];
+  let openDetailId = null;
 
   function showBanner(message, isError) {
     banner.textContent = message;
@@ -321,14 +430,170 @@
     showBanner._timer = setTimeout(() => { banner.style.display = "none"; }, 4000);
   }
 
-  function addToRecentList(row) {
-    recentEmpty.style.display = "none";
-    const li = document.createElement("li");
-    li.textContent = row.connector
-      ? `${row.name} — connected by ${row.connector}`
-      : row.name;
-    recentList.prepend(li);
+  function formatDate(d) {
+    if (!d) return "";
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
+
+  function addDays(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function loadContacts() {
+    const { data, error } = await sb
+      .from("contacts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      showBanner(`Couldn't load contacts — ${error.message}`, true);
+      return;
+    }
+    contacts = data;
+    render();
+  }
+
+  function getFilteredSorted() {
+    const q = searchInput.value.trim().toLowerCase();
+    let list = contacts.filter(c => c.name.toLowerCase().includes(q));
+
+    if (sortSelect.value === "reminder") {
+      list = list.slice().sort((a, b) => {
+        if (!a.reminder_date && !b.reminder_date) return 0;
+        if (!a.reminder_date) return 1;
+        if (!b.reminder_date) return -1;
+        return a.reminder_date.localeCompare(b.reminder_date);
+      });
+    }
+    return list;
+  }
+
+  function render() {
+    const list = getFilteredSorted();
+    rowsEl.innerHTML = "";
+
+    if (contacts.length === 0) {
+      emptyStateEl.style.display = "block";
+      emptyStateEl.textContent = "No contacts yet — add your first one.";
+      return;
+    }
+    if (list.length === 0) {
+      emptyStateEl.style.display = "block";
+      emptyStateEl.textContent = "No matches for that search.";
+      return;
+    }
+    emptyStateEl.style.display = "none";
+
+    list.forEach(c => {
+      const wrap = document.createElement("div");
+      wrap.className = "row-wrap";
+
+      const isOpen = openDetailId === c.id;
+      const hasReminder = !!c.reminder_date;
+
+      wrap.innerHTML = `
+        <div class="row">
+          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}</span>
+          <span class="connector">${escapeHtml(c.connector || "—")}</span>
+          <select class="reminder-select ${hasReminder ? "has-reminder" : ""}" data-id="${c.id}">
+            ${reminderOptionsHtml(c)}
+          </select>
+          <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
+        </div>
+        <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
+          ${detailFieldsHtml(c)}
+        </div>
+      `;
+      rowsEl.appendChild(wrap);
+    });
+  }
+
+  function reminderOptionsHtml(c) {
+    const opts = [];
+    if (c.reminder_date) {
+      opts.push(`<option value="current" selected>${formatDate(c.reminder_date)}</option>`);
+      opts.push(`<option value="none">Clear reminder</option>`);
+    } else {
+      opts.push(`<option value="none" selected>No reminder</option>`);
+    }
+    opts.push(`<option value="tomorrow">Tomorrow</option>`);
+    opts.push(`<option value="3days">In 3 days</option>`);
+    opts.push(`<option value="1week">In 1 week</option>`);
+    opts.push(`<option value="custom">Custom date…</option>`);
+    return opts.join("");
+  }
+
+  function detailFieldsHtml(c) {
+    const fields = [
+      ["Nationality", c.nationality],
+      ["Course", c.course],
+      ["Age", c.age],
+      ["Year", c.year],
+      ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
+      ["Reminder note", c.reminder_note],
+      ["Other", c.other]
+    ];
+    return fields.map(([label, value]) => `
+      <div>
+        <div class="field-label">${label}</div>
+        <div>${escapeHtml(value || "—")}</div>
+      </div>
+    `).join("");
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  rowsEl.addEventListener("click", (e) => {
+    const toggle = e.target.closest("[data-toggle]");
+    if (!toggle) return;
+    const id = toggle.dataset.toggle;
+    openDetailId = openDetailId === id ? null : id;
+    render();
+  });
+
+  rowsEl.addEventListener("change", async (e) => {
+    const select = e.target.closest(".reminder-select");
+    if (!select) return;
+    const id = select.dataset.id;
+    const value = select.value;
+
+    let reminder_date;
+    if (value === "current") return;
+    if (value === "none") reminder_date = null;
+    else if (value === "tomorrow") reminder_date = addDays(1);
+    else if (value === "3days") reminder_date = addDays(3);
+    else if (value === "1week") reminder_date = addDays(7);
+    else if (value === "custom") {
+      const input = prompt("Enter reminder date (YYYY-MM-DD):");
+      if (!input) { render(); return; }
+      reminder_date = input;
+    }
+
+    const { error } = await sb.from("contacts").update({ reminder_date }).eq("id", id);
+    if (error) {
+      showBanner(`Couldn't update reminder — ${error.message}`, true);
+      return;
+    }
+    showBanner("Reminder updated", false);
+    await loadContacts();
+  });
+
+  searchInput.addEventListener("input", render);
+  sortSelect.addEventListener("change", render);
+
+  openBtn.addEventListener("click", () => {
+    form.reset();
+    dialog.showModal();
+  });
+
+  cancelBtn.addEventListener("click", () => dialog.close());
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -367,8 +632,11 @@
 
     dialog.close();
     showBanner(`${name} added`, false);
-    addToRecentList(data[0]);
+    contacts.unshift(data[0]);
+    render();
   });
+
+  loadContacts();
 </script>
 </body>
 </html>
