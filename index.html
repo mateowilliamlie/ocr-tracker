@@ -339,6 +339,7 @@
   }
 
   .field input,
+  .field select,
   .field textarea {
     width: 100%;
     font-family: var(--font);
@@ -351,9 +352,23 @@
   }
 
   .field input:focus,
+  .field select:focus,
   .field textarea:focus {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+  }
+
+  .interest-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .interest-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
   }
 
   .row-2 {
@@ -479,7 +494,7 @@
 
   <div class="board">
     <div class="col-headers">
-      <span>Name</span><span>Connected by</span><span>Reminder</span><span></span>
+      <span>Name</span><span>Point person</span><span>Reminder</span><span></span>
     </div>
     <div id="rows"></div>
     <div id="loading-state" class="empty-state">Loading contacts…</div>
@@ -526,8 +541,38 @@
       </div>
 
       <div class="field">
-        <label for="f-connector">Connected by</label>
-        <input id="f-connector" name="connector" type="text" placeholder="Which OCR member reached out" />
+        <label for="f-connector">Point person</label>
+        <input id="f-connector" name="connector" type="text" placeholder="Which OCR member is their point person" />
+      </div>
+
+      <div class="field">
+        <label for="f-phone">Phone number</label>
+        <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" />
+      </div>
+
+      <div class="field">
+        <label for="f-faith">Faith background</label>
+        <select id="f-faith" name="faith_background">
+          <option value="">Not specified</option>
+          <option value="Christian">Christian</option>
+          <option value="Exploring / curious">Exploring / curious</option>
+          <option value="Other faith">Other faith</option>
+          <option value="No faith background">No faith background</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="f-suggested">Suggest to connect with</label>
+        <input id="f-suggested" name="suggested_connection" type="text" placeholder="A member, group, or event" />
+      </div>
+
+      <div class="field">
+        <label>Interested in</label>
+        <div class="interest-row">
+          <label class="interest-toggle"><input type="checkbox" id="f-interest-event" name="interest_event" /> Event</label>
+          <label class="interest-toggle"><input type="checkbox" id="f-interest-lg" name="interest_lg" /> LG</label>
+          <label class="interest-toggle"><input type="checkbox" id="f-interest-church" name="interest_church" /> Church</label>
+        </div>
       </div>
 
       <div class="row-2">
@@ -558,8 +603,8 @@
       </div>
 
       <div class="field">
-        <label for="f-other">Other</label>
-        <textarea id="f-other" name="other" rows="2"></textarea>
+        <label for="f-progress">Progress</label>
+        <textarea id="f-progress" name="progress" rows="2"></textarea>
       </div>
 
       <div class="form-actions">
@@ -736,15 +781,27 @@
     return opts.join("");
   }
 
+  function interestsSummary(c) {
+    const list = [];
+    if (c.interest_event) list.push("Event");
+    if (c.interest_lg) list.push("LG");
+    if (c.interest_church) list.push("Church");
+    return list.length ? list.join(", ") : "—";
+  }
+
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
       ["Course", c.course],
+      ["Phone", c.phone],
       ["Age", c.age],
       ["Year", c.year],
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
+      ["Faith background", c.faith_background],
+      ["Interested in", interestsSummary(c)],
+      ["Suggest to connect with", c.suggested_connection],
       ["Reminder note", c.reminder_note],
-      ["Other", c.other]
+      ["Progress", c.progress]
     ];
     const fieldsHtml = fields.map(([label, value]) => `
       <div>
@@ -795,12 +852,18 @@
     form.nationality.value = c.nationality || "";
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
+    form.phone.value = c.phone || "";
+    form.faith_background.value = c.faith_background || "";
+    form.suggested_connection.value = c.suggested_connection || "";
+    form.interest_event.checked = !!c.interest_event;
+    form.interest_lg.checked = !!c.interest_lg;
+    form.interest_church.checked = !!c.interest_church;
     form.age.value = c.age ?? "";
     form.year.value = c.year || "";
     form.birthday.value = c.birthday || "";
     form.reminder_date.value = c.reminder_date || "";
     form.reminder_note.value = c.reminder_note || "";
-    form.other.value = c.other || "";
+    form.progress.value = c.progress || "";
 
     dialog.showModal();
   }
@@ -929,10 +992,16 @@
       nationality: form.nationality.value.trim() || null,
       course: form.course.value.trim() || null,
       connector: form.connector.value.trim() || null,
+      phone: form.phone.value.trim() || null,
+      faith_background: form.faith_background.value || null,
+      suggested_connection: form.suggested_connection.value.trim() || null,
+      interest_event: form.interest_event.checked,
+      interest_lg: form.interest_lg.checked,
+      interest_church: form.interest_church.checked,
       age: form.age.value ? parseInt(form.age.value, 10) : null,
       year: form.year.value.trim() || null,
       birthday: form.birthday.value || null,
-      other: form.other.value.trim() || null,
+      progress: form.progress.value.trim() || null,
       reminder_date: form.reminder_date.value || null,
       reminder_note: form.reminder_note.value.trim() || null
     };
