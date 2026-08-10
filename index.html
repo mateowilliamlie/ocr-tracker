@@ -412,6 +412,17 @@
   .detail-actions {
     grid-column: 1 / -1;
     margin-top: 6px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
   }
 
   .delete-btn {
@@ -496,7 +507,7 @@
 
   <dialog id="add-dialog">
     <form id="add-form">
-      <h2>Add a contact</h2>
+      <h2 id="add-dialog-title">Add a contact</h2>
 
       <div class="field">
         <label for="f-name">Name *</label>
@@ -588,6 +599,8 @@
   let followupsOnly = false;
   let isAdmin = false;
   let pendingDeleteId = null;
+  let editingId = null;
+  const addDialogTitle = document.getElementById("add-dialog-title");
 
   function reminderStatus(dateStr) {
     if (!dateStr) return "none";
@@ -740,13 +753,16 @@
       </div>
     `).join("");
 
-    const actionsHtml = isAdmin ? `
+    const actionsHtml = `
       <div class="detail-actions">
-        <button class="delete-btn" data-delete="${c.id}">
-          ${pendingDeleteId === c.id ? "Click again to confirm" : "Delete contact"}
-        </button>
+        <button class="edit-btn" data-edit="${c.id}">Edit</button>
+        ${isAdmin ? `
+          <button class="delete-btn" data-delete="${c.id}">
+            ${pendingDeleteId === c.id ? "Click again to confirm" : "Delete contact"}
+          </button>
+        ` : ""}
       </div>
-    ` : "";
+    `;
 
     return fieldsHtml + actionsHtml;
   }
@@ -770,7 +786,33 @@
     }
   }
 
+  function openEditDialog(c) {
+    editingId = c.id;
+    addDialogTitle.textContent = "Edit contact";
+    submitBtn.textContent = "Save changes";
+
+    form.name.value = c.name || "";
+    form.nationality.value = c.nationality || "";
+    form.course.value = c.course || "";
+    form.connector.value = c.connector || "";
+    form.age.value = c.age ?? "";
+    form.year.value = c.year || "";
+    form.birthday.value = c.birthday || "";
+    form.reminder_date.value = c.reminder_date || "";
+    form.reminder_note.value = c.reminder_note || "";
+    form.other.value = c.other || "";
+
+    dialog.showModal();
+  }
+
   rowsEl.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit]");
+    if (editBtn) {
+      const c = contacts.find(x => x.id === editBtn.dataset.edit);
+      if (c) openEditDialog(c);
+      return;
+    }
+
     const delBtn = e.target.closest("[data-delete]");
     if (delBtn) {
       const id = delBtn.dataset.delete;
@@ -861,6 +903,9 @@
   });
 
   openBtn.addEventListener("click", () => {
+    editingId = null;
+    addDialogTitle.textContent = "Add a contact";
+    submitBtn.textContent = "Save contact";
     form.reset();
     dialog.showModal();
   });
@@ -877,7 +922,7 @@
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Saving...";
+    submitBtn.textContent = editingId ? "Saving..." : "Saving...";
 
     const payload = {
       name,
@@ -893,18 +938,28 @@
     };
 
     try {
-      const { data, error } = await sb.from("contacts").insert(payload).select();
-      if (error) throw error;
-
-      dialog.close();
-      showBanner(`${name} added`, false);
-      contacts.unshift(data[0]);
-      render();
+      if (editingId) {
+        const { data, error } = await sb.from("contacts").update(payload).eq("id", editingId).select();
+        if (error) throw error;
+        dialog.close();
+        showBanner(`${name} updated`, false);
+        const idx = contacts.findIndex(x => x.id === editingId);
+        if (idx !== -1) contacts[idx] = data[0];
+        editingId = null;
+        render();
+      } else {
+        const { data, error } = await sb.from("contacts").insert(payload).select();
+        if (error) throw error;
+        dialog.close();
+        showBanner(`${name} added`, false);
+        contacts.unshift(data[0]);
+        render();
+      }
     } catch (err) {
       showBanner(`Couldn't save — ${err.message || "check your connection and try again"}`, true);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Save contact";
+      submitBtn.textContent = editingId ? "Save changes" : "Save contact";
     }
   });
 
