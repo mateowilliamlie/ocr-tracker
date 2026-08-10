@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — We Are Here</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --text: #1A1D23;
+    --text-muted: #6B7280;
+    --border: #E2E4E9;
+    --accent: #3730A3;
+    --accent-hover: #2E2789;
+    --success: #15803D;
+    --success-bg: #DCFCE7;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --radius: 10px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 64px;
+  }
+
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+  }
+
+  header .title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  header .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  button {
+    font-family: var(--font);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  #open-add {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-weight: 500;
+  }
+
+  #open-add:hover { background: var(--accent-hover); }
+
+  #confirm-banner {
+    display: none;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 16px;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  #confirm-banner.error {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+
+  .card h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  #recent-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  #recent-list li {
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  #recent-list li:first-child { border-top: none; }
+
+  #recent-empty {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  #add-form {
+    padding: 20px;
+  }
+
+  #add-form h2 {
+    margin: 0 0 16px;
+    font-size: 17px;
+  }
+
+  .field {
+    margin-bottom: 12px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .field input,
+  .field textarea {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  #cancel-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: var(--text);
+  }
+
+  #submit-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: white;
+    font-weight: 500;
+  }
+
+  #submit-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="title">OCR</div>
+      <div class="subtitle">We Are Here · 2026/27</div>
+    </div>
+    <button id="open-add">+ New</button>
+  </header>
+
+  <div id="confirm-banner"></div>
+
+  <div class="card">
+    <h2>Recently added</h2>
+    <p id="recent-empty">Nothing added yet this session — the full dashboard is coming in Chapter 4.</p>
+    <ul id="recent-list"></ul>
+  </div>
+
+  <dialog id="add-dialog">
+    <form id="add-form">
+      <h2>Add a contact</h2>
+
+      <div class="field">
+        <label for="f-name">Name *</label>
+        <input id="f-name" name="name" type="text" required />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="f-nationality">Nationality</label>
+          <input id="f-nationality" name="nationality" type="text" />
+        </div>
+        <div class="field">
+          <label for="f-course">Course</label>
+          <input id="f-course" name="course" type="text" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-connector">Connected by</label>
+        <input id="f-connector" name="connector" type="text" placeholder="Which OCR member reached out" />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="f-age">Age</label>
+          <input id="f-age" name="age" type="number" min="0" />
+        </div>
+        <div class="field">
+          <label for="f-year">Year</label>
+          <input id="f-year" name="year" type="text" placeholder="e.g. Year 1" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-birthday">Birthday</label>
+        <input id="f-birthday" name="birthday" type="date" />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="f-reminder-date">Reminder date</label>
+          <input id="f-reminder-date" name="reminder_date" type="date" />
+        </div>
+        <div class="field">
+          <label for="f-reminder-note">Reminder note</label>
+          <input id="f-reminder-note" name="reminder_note" type="text" placeholder="Follow up about..." />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-other">Other</label>
+        <textarea id="f-other" name="other" rows="2"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="cancel-btn">Cancel</button>
+        <button type="submit" id="submit-btn">Save contact</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<script>
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const dialog = document.getElementById("add-dialog");
+  const openBtn = document.getElementById("open-add");
+  const cancelBtn = document.getElementById("cancel-btn");
+  const form = document.getElementById("add-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const banner = document.getElementById("confirm-banner");
+  const recentList = document.getElementById("recent-list");
+  const recentEmpty = document.getElementById("recent-empty");
+
+  openBtn.addEventListener("click", () => {
+    form.reset();
+    dialog.showModal();
+  });
+
+  cancelBtn.addEventListener("click", () => dialog.close());
+
+  function showBanner(message, isError) {
+    banner.textContent = message;
+    banner.className = isError ? "error" : "";
+    banner.style.display = "block";
+    clearTimeout(showBanner._timer);
+    showBanner._timer = setTimeout(() => { banner.style.display = "none"; }, 4000);
+  }
+
+  function addToRecentList(row) {
+    recentEmpty.style.display = "none";
+    const li = document.createElement("li");
+    li.textContent = row.connector
+      ? `${row.name} — connected by ${row.connector}`
+      : row.name;
+    recentList.prepend(li);
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = form.name.value.trim();
+    if (!name) {
+      form.name.focus();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving...";
+
+    const payload = {
+      name,
+      nationality: form.nationality.value.trim() || null,
+      course: form.course.value.trim() || null,
+      connector: form.connector.value.trim() || null,
+      age: form.age.value ? parseInt(form.age.value, 10) : null,
+      year: form.year.value.trim() || null,
+      birthday: form.birthday.value || null,
+      other: form.other.value.trim() || null,
+      reminder_date: form.reminder_date.value || null,
+      reminder_note: form.reminder_note.value.trim() || null
+    };
+
+    const { data, error } = await sb.from("contacts").insert(payload).select();
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Save contact";
+
+    if (error) {
+      showBanner(`Couldn't save — ${error.message}`, true);
+      return;
+    }
+
+    dialog.close();
+    showBanner(`${name} added`, false);
+    addToRecentList(data[0]);
+  });
+</script>
+</body>
+</html>
