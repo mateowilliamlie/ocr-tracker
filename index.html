@@ -197,6 +197,17 @@
     border-color: transparent;
   }
 
+  .row .reminder-date-input {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
   .toggle-btn {
     font-family: var(--font);
     font-size: 13px;
@@ -614,11 +625,46 @@
     render();
   });
 
+  function openCustomDatePicker(select, id) {
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.className = "reminder-date-input";
+    select.replaceWith(dateInput);
+    dateInput.focus();
+    if (dateInput.showPicker) {
+      try { dateInput.showPicker(); } catch (err) { /* fall back to default click behavior */ }
+    }
+
+    let committed = false;
+
+    dateInput.addEventListener("change", async () => {
+      committed = true;
+      const { error } = await sb.from("contacts")
+        .update({ reminder_date: dateInput.value || null })
+        .eq("id", id);
+      if (error) {
+        showBanner(`Couldn't update reminder — ${error.message}`, true);
+        return;
+      }
+      showBanner("Reminder updated", false);
+      await loadContacts();
+    });
+
+    dateInput.addEventListener("blur", () => {
+      if (!committed) render();
+    });
+  }
+
   rowsEl.addEventListener("change", async (e) => {
     const select = e.target.closest(".reminder-select");
     if (!select) return;
     const id = select.dataset.id;
     const value = select.value;
+
+    if (value === "custom") {
+      openCustomDatePicker(select, id);
+      return;
+    }
 
     let reminder_date;
     if (value === "current") return;
@@ -626,11 +672,6 @@
     else if (value === "tomorrow") reminder_date = addDays(1);
     else if (value === "3days") reminder_date = addDays(3);
     else if (value === "1week") reminder_date = addDays(7);
-    else if (value === "custom") {
-      const input = prompt("Enter reminder date (YYYY-MM-DD):");
-      if (!input) { render(); return; }
-      reminder_date = input;
-    }
 
     const { error } = await sb.from("contacts").update({ reminder_date }).eq("id", id);
     if (error) {
