@@ -210,6 +210,7 @@
     max-width: 420px;
     max-height: 88vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background: var(--surface);
     color: var(--text);
   }
@@ -490,6 +491,13 @@
     #search-input { flex: 1 1 100%; }
     .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
     .detail { grid-template-columns: 1fr 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      max-width: 100%;
+    }
 
     #search-input,
     #sort-select,
