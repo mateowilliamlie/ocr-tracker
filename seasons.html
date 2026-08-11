@@ -209,6 +209,7 @@
   dialog {
     border: none; border-radius: 22px; padding: 0;
     width: 100%; max-width: 420px; max-height: 88vh; overflow-y: auto;
+    background: var(--surface); color: var(--text);
   }
   dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 
@@ -231,9 +232,9 @@
   }
   .file-btn {
     display: inline-block; padding: 9px 16px; border: 1px solid var(--border);
-    border-radius: 12px; background: var(--surface-2); font-size: 13px; cursor: pointer; white-space: nowrap;
+    border-radius: 12px; background: #FFFFFF; color: #1A1D23; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
-  .file-btn:hover { background: var(--border); }
+  .file-btn:hover { background: #F3F4F6; }
   .file-name { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
 
   #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
