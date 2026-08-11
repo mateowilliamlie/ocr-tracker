@@ -806,17 +806,27 @@
   let editingId = null;
   const addDialogTitle = document.getElementById("add-dialog-title");
 
+  function flexibleParseDate(datestr) {
+    const native = new Date(datestr);
+    if (!isNaN(native.getTime())) return native;
+    return undefined;
+  }
+
   const fpBirthday = flatpickr("#f-birthday", {
     dateFormat: "Y-m-d",
     altInput: true,
     altFormat: "M j, Y",
-    allowInput: true
+    allowInput: true,
+    appendTo: dialog,
+    parseDate: (datestr) => flexibleParseDate(datestr)
   });
   const fpReminderDate = flatpickr("#f-reminder-date", {
     dateFormat: "Y-m-d",
     altInput: true,
     altFormat: "M j, Y",
-    allowInput: true
+    allowInput: true,
+    appendTo: dialog,
+    parseDate: (datestr) => flexibleParseDate(datestr)
   });
 
   function reminderStatus(dateStr) {
