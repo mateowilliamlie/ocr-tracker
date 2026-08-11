@@ -251,9 +251,6 @@
     selectedCampus = campus;
     formHeading.textContent = `Tell us about you`;
 
-    if (campus.logo_url) brandLogo.src = campus.logo_url;
-    if (campus.photo_url) document.body.style.backgroundImage = `url("${campus.photo_url}")`;
-
     const { data: seasons, error } = await sb
       .from("seasons")
       .select("*")
@@ -267,6 +264,12 @@
       return;
     }
     resolvedSeasonId = seasons[0].id;
+
+    const season = seasons[0];
+    const logoUrl = season.logo_url || campus.logo_url;
+    const bgUrl = season.background_override_url || season.photo_url || campus.photo_url;
+    if (logoUrl) brandLogo.src = logoUrl;
+    if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
 
     stepCampus.style.display = "none";
     stepForm.style.display = "block";
