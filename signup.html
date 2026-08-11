@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — Sign Up</title>
 <script src="theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -52,6 +55,13 @@
   }
   .brand-row { display: flex; justify-content: center; margin-bottom: 18px; }
   .brand-logo { height: 48px; width: auto; object-fit: contain; }
+  .ocr-wordmark-fallback {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
   h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
   .subtitle { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
 
@@ -112,7 +122,10 @@
 </head>
 <body>
   <div class="card" id="card">
-    <div class="brand-row"><img class="brand-logo" id="brand-logo" src="assets/logo-mark.png" alt="OCR" /></div>
+    <div class="brand-row">
+      <span class="ocr-wordmark-fallback" id="wordmark-fallback">OCR</span>
+      <img class="brand-logo" id="brand-logo" alt="OCR" style="display:none;" />
+    </div>
 
     <div id="step-campus">
       <h1>Let's get connected</h1>
@@ -204,6 +217,24 @@
   const submitBtn = document.getElementById("submit-btn");
   const errorMsg = document.getElementById("error-msg");
   const brandLogo = document.getElementById("brand-logo");
+  const wordmarkFallback = document.getElementById("wordmark-fallback");
+
+  function setBrandLogo(url) {
+    if (!url) {
+      brandLogo.style.display = "none";
+      wordmarkFallback.style.display = "block";
+      return;
+    }
+    brandLogo.onload = () => {
+      brandLogo.style.display = "block";
+      wordmarkFallback.style.display = "none";
+    };
+    brandLogo.onerror = () => {
+      brandLogo.style.display = "none";
+      wordmarkFallback.style.display = "block";
+    };
+    brandLogo.src = url;
+  }
 
   let selectedCampus = null;
   let resolvedSeasonId = null;
@@ -268,7 +299,7 @@
     const season = seasons[0];
     const logoUrl = season.logo_url || campus.logo_url;
     const bgUrl = season.background_override_url || season.photo_url || campus.photo_url;
-    if (logoUrl) brandLogo.src = logoUrl;
+    setBrandLogo(logoUrl);
     if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
 
     stepCampus.style.display = "none";
@@ -279,7 +310,7 @@
     stepForm.style.display = "none";
     stepCampus.style.display = "block";
     errorMsg.style.display = "none";
-    brandLogo.src = "assets/logo-mark.png";
+    setBrandLogo(null);
     document.body.style.backgroundImage = "";
   });
 

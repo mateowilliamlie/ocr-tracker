@@ -34,11 +34,11 @@
 
   .field { margin-bottom: 13px; }
   .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
-  .field input, .field select {
+  .field input, .field select, .field textarea {
     width: 100%; font-family: var(--font); font-size: 14px; padding: 9px 12px;
     border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; color: #1A1D23;
   }
-  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   .interest-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 2px; }
@@ -219,6 +219,10 @@
             </label>
           </div>
         </div>
+        <div class="field">
+          <label for="f-note">Quick note</label>
+          <textarea id="f-note" rows="2" placeholder="Anything worth remembering — what they said, where you met, vibe..."></textarea>
+        </div>
         <button type="submit" id="submit-btn">Save contact</button>
       </form>
     `;
@@ -245,6 +249,7 @@
         course: document.getElementById("f-course").value.trim() || null,
         phone: document.getElementById("f-phone").value.trim() || null,
         connector: connector || null,
+        progress: document.getElementById("f-note").value.trim() || null,
         interest_event: document.getElementById("f-interest-event").checked,
         interest_lg: document.getElementById("f-interest-lg").checked,
         interest_church: document.getElementById("f-interest-church").checked,
