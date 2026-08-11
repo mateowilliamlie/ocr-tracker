@@ -7,19 +7,17 @@
   document.documentElement.setAttribute("data-theme", getPreferredTheme());
 })();
 
-function toggleOcrTheme() {
-  var current = document.documentElement.getAttribute("data-theme") || "light";
-  var next = current === "dark" ? "light" : "dark";
-  localStorage.setItem("ocr-theme", next);
-  document.documentElement.setAttribute("data-theme", next);
-  var btn = document.getElementById("theme-toggle-btn");
-  if (btn) btn.textContent = next === "dark" ? "☀️" : "🌙";
+function applyOcrTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("ocr-theme", theme);
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  var btn = document.getElementById("theme-toggle-btn");
-  if (!btn) return;
+  var checkbox = document.getElementById("theme-toggle-checkbox");
+  if (!checkbox) return;
   var current = document.documentElement.getAttribute("data-theme") || "light";
-  btn.textContent = current === "dark" ? "☀️" : "🌙";
-  btn.addEventListener("click", toggleOcrTheme);
+  checkbox.checked = current === "dark";
+  checkbox.addEventListener("change", function () {
+    applyOcrTheme(checkbox.checked ? "dark" : "light");
+  });
 });
