@@ -211,14 +211,17 @@
     width: 100%;
     max-width: 420px;
     max-height: 88vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     background: var(--surface);
     color: var(--text);
   }
   dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 
-  #add-form, #login-form { padding: 22px; }
+  #add-form, #login-form {
+    padding: 22px;
+    max-height: 88vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   #add-form h2 { margin: 0 0 18px; font-size: 18px; }
 
   .field { margin-bottom: 14px; }
@@ -1095,6 +1098,7 @@
       altFormat: "M j, Y",
       altInputClass: "reminder-date-input",
       allowInput: true,
+      parseDate: (datestr) => flexibleParseDate(datestr),
       onChange: async (selectedDates, dateStr) => {
         committed = true;
         try {
