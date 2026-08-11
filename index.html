@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — We Are Here</title>
 <script src="theme.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
@@ -253,6 +255,47 @@
     justify-content: flex-end;
     margin-bottom: 16px;
   }
+
+  .flatpickr-calendar {
+    font-family: var(--font);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+  .flatpickr-day.selected,
+  .flatpickr-day.selected:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .flatpickr-day.today { border-color: var(--accent); }
+  .flatpickr-day:hover { background: var(--surface-2); }
+
+  :root[data-theme="dark"] .flatpickr-calendar {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+  :root[data-theme="dark"] .flatpickr-day { color: var(--text); }
+  :root[data-theme="dark"] .flatpickr-day.flatpickr-disabled,
+  :root[data-theme="dark"] .flatpickr-day.prevMonthDay,
+  :root[data-theme="dark"] .flatpickr-day.nextMonthDay {
+    color: var(--text-muted);
+  }
+  :root[data-theme="dark"] .flatpickr-day:hover { background: var(--surface-2); }
+  :root[data-theme="dark"] .flatpickr-months .flatpickr-month,
+  :root[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+  :root[data-theme="dark"] .flatpickr-weekdays {
+    background: var(--surface);
+    color: var(--text-muted);
+    fill: var(--text-muted);
+  }
+  :root[data-theme="dark"] span.flatpickr-weekday { background: var(--surface); color: var(--text-muted); }
+  :root[data-theme="dark"] .flatpickr-current-month input.cur-year { color: var(--text); background: transparent; }
+  :root[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months:hover { background: var(--surface-2); }
+  :root[data-theme="dark"] .flatpickr-prev-month svg,
+  :root[data-theme="dark"] .flatpickr-next-month svg { fill: var(--text-muted); }
+  :root[data-theme="dark"] .numInputWrapper span.arrowUp:after { border-bottom-color: var(--text-muted); }
+  :root[data-theme="dark"] .numInputWrapper span.arrowDown:after { border-top-color: var(--text-muted); }
 
   .toolbar {
     display: flex;
@@ -647,13 +690,13 @@
 
       <div class="field">
         <label for="f-birthday">Birthday</label>
-        <input id="f-birthday" name="birthday" type="date" />
+        <input id="f-birthday" name="birthday" type="text" placeholder="Select a date" />
       </div>
 
       <div class="row-2">
         <div class="field">
           <label for="f-reminder-date">Reminder date</label>
-          <input id="f-reminder-date" name="reminder_date" type="date" />
+          <input id="f-reminder-date" name="reminder_date" type="text" placeholder="Select a date" />
         </div>
         <div class="field">
           <label for="f-reminder-note">Reminder note</label>
@@ -731,6 +774,19 @@
   let pendingDeleteId = null;
   let editingId = null;
   const addDialogTitle = document.getElementById("add-dialog-title");
+
+  const fpBirthday = flatpickr("#f-birthday", {
+    dateFormat: "Y-m-d",
+    altInput: true,
+    altFormat: "M j, Y",
+    allowInput: true
+  });
+  const fpReminderDate = flatpickr("#f-reminder-date", {
+    dateFormat: "Y-m-d",
+    altInput: true,
+    altFormat: "M j, Y",
+    allowInput: true
+  });
 
   function reminderStatus(dateStr) {
     if (!dateStr) return "none";
@@ -946,7 +1002,9 @@
     form.age.value = c.age ?? "";
     form.year.value = c.year || "";
     form.birthday.value = c.birthday || "";
+    fpBirthday.setDate(c.birthday || null, false);
     form.reminder_date.value = c.reminder_date || "";
+    fpReminderDate.setDate(c.reminder_date || null, false);
     form.reminder_note.value = c.reminder_note || "";
     form.progress.value = c.progress || "";
 
@@ -984,33 +1042,37 @@
 
   function openCustomDatePicker(select, id) {
     const dateInput = document.createElement("input");
-    dateInput.type = "date";
+    dateInput.type = "text";
     dateInput.className = "reminder-date-input";
     select.replaceWith(dateInput);
-    dateInput.focus();
-    if (dateInput.showPicker) {
-      try { dateInput.showPicker(); } catch (err) { /* fall back to default click behavior */ }
-    }
 
     let committed = false;
 
-    dateInput.addEventListener("change", async () => {
-      committed = true;
-      try {
-        const { error } = await sb.from("contacts")
-          .update({ reminder_date: dateInput.value || null })
-          .eq("id", id);
-        if (error) throw error;
-        showBanner("Reminder updated", false);
-        await loadContacts();
-      } catch (err) {
-        showBanner(`Couldn't update reminder — ${err.message || "check your connection"}`, true);
+    const fp = flatpickr(dateInput, {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "M j, Y",
+      altInputClass: "reminder-date-input",
+      allowInput: true,
+      onChange: async (selectedDates, dateStr) => {
+        committed = true;
+        try {
+          const { error } = await sb.from("contacts")
+            .update({ reminder_date: dateStr || null })
+            .eq("id", id);
+          if (error) throw error;
+          showBanner("Reminder updated", false);
+          await loadContacts();
+        } catch (err) {
+          showBanner(`Couldn't update reminder — ${err.message || "check your connection"}`, true);
+        }
+      },
+      onClose: () => {
+        if (!committed) render();
       }
     });
 
-    dateInput.addEventListener("blur", () => {
-      if (!committed) render();
-    });
+    fp.open();
   }
 
   rowsEl.addEventListener("change", async (e) => {
@@ -1055,6 +1117,8 @@
     addDialogTitle.textContent = "Add a contact";
     submitBtn.textContent = "Save contact";
     form.reset();
+    fpBirthday.clear();
+    fpReminderDate.clear();
     dialog.showModal();
   });
 
