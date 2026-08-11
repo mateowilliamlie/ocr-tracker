@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — We Are Here</title>
+<script src="theme.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
@@ -18,9 +19,6 @@
     --border: #E2E4E9;
     --accent: #A8452F;
     --accent-hover: #8F3B28;
-    --topbar-bg: #22201D;
-    --figure-color: #3FB8C4;
-    --display-font: "Anton", var(--font);
     --success: #15803D;
     --success-bg: #DCFCE7;
     --danger: #B91C1C;
@@ -31,6 +29,26 @@
     --info-bg: #DBEAFE;
     --radius: 10px;
     --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display-font: "Anton", var(--font);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --surface-2: #262A31;
+    --text: #ECEDEF;
+    --text-muted: #9AA0AC;
+    --border: #33373F;
+    --accent: #C2573D;
+    --accent-hover: #D66748;
+    --success: #22C55E;
+    --success-bg: #123320;
+    --danger: #F87171;
+    --danger-bg: #3A1518;
+    --warn: #FBBF24;
+    --warn-bg: #3A2A0C;
+    --info: #60A5FA;
+    --info-bg: #122A4A;
   }
 
   * { box-sizing: border-box; }
@@ -38,7 +56,7 @@
   body {
     margin: 0;
     font-family: var(--font);
-    background: var(--bg);
+    background: var(--bg) center / cover fixed no-repeat;
     color: var(--text);
     min-height: 100vh;
     padding-bottom: 64px;
@@ -50,12 +68,8 @@
     padding: 20px 16px 0;
   }
 
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 20px;
-  }
+  button { font-family: var(--font); font-size: 14px; cursor: pointer; }
+  a { color: inherit; }
 
   .topbar {
     position: sticky;
@@ -70,59 +84,75 @@
     gap: 12px;
   }
 
-  .topbar-brand {
+  .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .theme-toggle-wrap { grid-column: 1; justify-self: start; }
+  .theme-toggle-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 16px;
     display: flex;
     align-items: center;
-    grid-column: 2;
-    justify-self: center;
-  }
-
-  .topbar .admin-area {
-    grid-column: 3;
-    justify-self: end;
-  }
-
-  .brand-logo {
-    height: 40px;
-    width: auto;
-    object-fit: contain;
-  }
-
-  .add-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-  }
-
-  header .title {
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  header .subtitle {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
-
-  button {
-    font-family: var(--font);
-    font-size: 14px;
+    justify-content: center;
     cursor: pointer;
   }
+  .topbar .admin-area { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; }
+  .brand-logo { height: 40px; width: auto; object-fit: contain; }
 
-  #open-add {
+  .toggle-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .admin-status { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+
+  .breadcrumb {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 10px;
+    display: inline-block;
+    background: var(--surface);
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .breadcrumb:hover { color: var(--text); }
+
+  .btn-primary {
     background: var(--accent);
     color: white;
     border: none;
     border-radius: var(--radius);
     padding: 10px 18px;
     font-weight: 500;
-    white-space: nowrap;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: var(--text);
   }
 
-  #open-add:hover { background: var(--accent-hover); }
+  .btn-submit {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: white;
+    font-weight: 500;
+  }
+  .btn-submit:disabled, .btn-primary:disabled { opacity: 0.6; cursor: default; }
 
   #confirm-banner {
     display: none;
@@ -133,10 +163,55 @@
     background: var(--success-bg);
     color: var(--success);
   }
+  #confirm-banner.error { background: var(--danger-bg); color: var(--danger); }
 
-  #confirm-banner.error {
-    background: var(--danger-bg);
-    color: var(--danger);
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0;
+    width: 100%;
+    max-width: 420px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+
+  #add-form, #login-form { padding: 20px; }
+  #add-form h2 { margin: 0 0 16px; font-size: 17px; }
+
+  .field { margin-bottom: 12px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
+
+  .add-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
   }
 
   .toolbar {
@@ -253,23 +328,6 @@
     color: var(--text);
   }
 
-  .toggle-btn {
-    font-family: var(--font);
-    font-size: 13px;
-    padding: 9px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
-  .toggle-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
   .chevron {
     background: none;
     border: none;
@@ -304,58 +362,6 @@
     text-align: center;
     color: var(--text-muted);
     font-size: 14px;
-  }
-
-  dialog {
-    border: none;
-    border-radius: var(--radius);
-    padding: 0;
-    width: 100%;
-    max-width: 420px;
-  }
-
-  dialog::backdrop {
-    background: rgba(0, 0, 0, 0.4);
-  }
-
-  #add-form {
-    padding: 20px;
-  }
-
-  #add-form h2 {
-    margin: 0 0 16px;
-    font-size: 17px;
-  }
-
-  .field {
-    margin-bottom: 12px;
-  }
-
-  .field > label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .field input,
-  .field select,
-  .field textarea {
-    width: 100%;
-    font-family: var(--font);
-    font-size: 14px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  .field input:focus,
-  .field select:focus,
-  .field textarea:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
   }
 
   .interest-row {
@@ -415,59 +421,6 @@
     outline-offset: 2px;
   }
 
-  .row-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  #cancel-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 16px;
-    color: var(--text);
-  }
-
-  #submit-btn {
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
-    color: white;
-    font-weight: 500;
-  }
-
-  #submit-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  .admin-area {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .admin-status {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  #login-error {
-    display: none;
-    font-size: 13px;
-    color: var(--danger);
-    margin-bottom: 12px;
-  }
-
   .detail-actions {
     grid-column: 1 / -1;
     margin-top: 6px;
@@ -494,18 +447,13 @@
   }
 
   @media (max-width: 520px) {
-    .topbar { flex-wrap: wrap; }
     .toolbar { flex-wrap: wrap; }
     #search-input { flex: 1 1 100%; }
     .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
     .detail { grid-template-columns: 1fr 1fr; }
-    .row-2 { grid-template-columns: 1fr; }
-    dialog { max-height: 88vh; overflow-y: auto; }
 
     #search-input,
     #sort-select,
-    .field input,
-    .field textarea,
     .row select.reminder-select,
     .row .reminder-date-input {
       font-size: 16px;
@@ -515,14 +463,18 @@
 </head>
 <body>
 <div class="topbar">
+  <div class="theme-toggle-wrap">
+    <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
+  </div>
   <div class="topbar-brand">
     <img class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
   </div>
   <div class="admin-area" id="admin-area"></div>
 </div>
 <main>
+  <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
   <div class="add-row">
-    <button id="open-add">+ New</button>
+    <button id="open-add" class="btn-primary">+ New</button>
   </div>
 
   <div id="confirm-banner"></div>
@@ -558,8 +510,8 @@
         <input id="l-password" name="password" type="password" required />
       </div>
       <div class="form-actions">
-        <button type="button" id="login-cancel-btn">Cancel</button>
-        <button type="submit" id="login-submit-btn">Sign in</button>
+        <button type="button" id="login-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="login-submit-btn" class="btn-submit">Sign in</button>
       </div>
     </form>
   </dialog>
@@ -664,8 +616,26 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" id="cancel-btn">Cancel</button>
-        <button type="submit" id="submit-btn">Save contact</button>
+        <button type="button" id="cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="submit-btn" class="btn-submit">Save contact</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bg-dialog">
+    <form id="bg-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Edit page background</h2>
+      <div class="field">
+        <label>New background image</label>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <label class="btn-ghost" style="display:inline-block; cursor:pointer;" for="bg-file">Choose file</label>
+          <input id="bg-file" name="bgfile" type="file" accept="image/*" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;" />
+          <span id="bg-file-name" style="font-size:13px; color:var(--text-muted);">No file chosen</span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="bg-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="bg-submit-btn" class="btn-submit">Save background</button>
       </div>
     </form>
   </dialog>
@@ -694,6 +664,10 @@
   const loginCancelBtn = document.getElementById("login-cancel-btn");
   const loginSubmitBtn = document.getElementById("login-submit-btn");
   const loginError = document.getElementById("login-error");
+  const backLink = document.getElementById("back-link");
+
+  const seasonId = new URLSearchParams(window.location.search).get("season");
+  let currentCampusId = new URLSearchParams(window.location.search).get("campus");
 
   let contacts = [];
   let openDetailId = null;
@@ -1090,7 +1064,7 @@
 
   function updateAdminUI() {
     adminArea.innerHTML = isAdmin
-      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      ? `${seasonId ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
       : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
   }
 
@@ -1102,8 +1076,70 @@
     } else if (e.target.id === "signout-btn") {
       await sb.auth.signOut();
       showBanner("Signed out", false);
+    } else if (e.target.id === "edit-bg-btn") {
+      bgForm.reset();
+      bgFileName.textContent = "No file chosen";
+      bgDialog.showModal();
     }
   });
+
+  const bgDialog = document.getElementById("bg-dialog");
+  const bgForm = document.getElementById("bg-form");
+  const bgCancelBtn = document.getElementById("bg-cancel-btn");
+  const bgSubmitBtn = document.getElementById("bg-submit-btn");
+  const bgFileInput = document.getElementById("bg-file");
+  const bgFileName = document.getElementById("bg-file-name");
+
+  bgFileInput.addEventListener("change", () => {
+    bgFileName.textContent = bgFileInput.files[0] ? bgFileInput.files[0].name : "No file chosen";
+  });
+
+  bgCancelBtn.addEventListener("click", () => bgDialog.close());
+
+  bgForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = bgFileInput.files[0];
+    if (!file) { showBanner("Choose an image first.", true); return; }
+    if (!seasonId) { showBanner("No season selected.", true); return; }
+
+    bgSubmitBtn.disabled = true;
+    bgSubmitBtn.textContent = "Saving...";
+
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `season-bg-override-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: uploadError } = await sb.storage.from("branding").upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = sb.storage.from("branding").getPublicUrl(path);
+
+      const { error } = await sb.from("seasons")
+        .update({ background_override_url: urlData.publicUrl })
+        .eq("id", seasonId);
+      if (error) throw error;
+
+      document.body.style.backgroundImage = `url("${urlData.publicUrl}")`;
+      bgDialog.close();
+      showBanner("Background updated", false);
+    } catch (err) {
+      showBanner(`Couldn't update background — ${err.message || "check your connection"}`, true);
+    } finally {
+      bgSubmitBtn.disabled = false;
+      bgSubmitBtn.textContent = "Save background";
+    }
+  });
+
+  async function loadSeasonContext() {
+    if (!seasonId) return;
+    const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).single();
+    if (error || !data) return;
+
+    if (!currentCampusId) currentCampusId = data.campus_id;
+    backLink.href = `seasons.html?campus=${currentCampusId}`;
+    backLink.style.display = "inline-block";
+
+    const bgUrl = data.background_override_url || data.photo_url;
+    if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
+  }
 
   loginCancelBtn.addEventListener("click", () => loginDialog.close());
 
@@ -1147,6 +1183,7 @@
   }
 
   initAdminState();
+  loadSeasonContext();
   loadContacts();
 </script>
 </body>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — Campuses</title>
+<script src="theme.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
@@ -27,28 +28,41 @@
     --display-font: "Anton", var(--font);
   }
 
+  :root[data-theme="dark"] {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --surface-2: #262A31;
+    --text: #ECEDEF;
+    --text-muted: #9AA0AC;
+    --border: #33373F;
+    --accent: #C2573D;
+    --accent-hover: #D66748;
+    --danger: #F87171;
+    --danger-bg: #3A1518;
+    --success: #22C55E;
+    --success-bg: #123320;
+  }
+
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
     font-family: var(--font);
-    background: var(--bg);
+    background: var(--bg) center / cover fixed no-repeat;
     color: var(--text);
     min-height: 100vh;
     padding-bottom: 64px;
+    transition: background-image 0.3s ease;
   }
 
   main {
-    max-width: 900px;
+    max-width: 720px;
     margin: 0 auto;
     padding: 20px 16px 0;
   }
 
-  button {
-    font-family: var(--font);
-    font-size: 14px;
-    cursor: pointer;
-  }
+  button { font-family: var(--font); font-size: 14px; cursor: pointer; }
+  a { color: inherit; }
 
   .topbar {
     position: sticky;
@@ -63,23 +77,15 @@
     gap: 12px;
   }
 
-  .topbar-brand {
-    display: flex;
-    align-items: center;
-    grid-column: 2;
-    justify-self: center;
+  .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .theme-toggle-wrap { grid-column: 1; justify-self: start; }
+  .theme-toggle-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-
-  .topbar .admin-area {
-    grid-column: 3;
-    justify-self: end;
-  }
-
-  .brand-logo {
-    height: 40px;
-    width: auto;
-    object-fit: contain;
-  }
+  .topbar .admin-area { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; }
+  .brand-logo { height: 40px; width: auto; object-fit: contain; }
 
   .toggle-btn {
     font-family: var(--font);
@@ -92,11 +98,7 @@
     white-space: nowrap;
   }
 
-  .admin-status {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-right: 8px;
-  }
+  .admin-status { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
 
   .page-header {
     display: flex;
@@ -108,6 +110,10 @@
   .page-title {
     font-size: 20px;
     font-weight: 600;
+    background: var(--surface);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
   }
 
   #open-add {
@@ -118,7 +124,6 @@
     padding: 10px 18px;
     font-weight: 500;
   }
-
   #open-add:hover { background: var(--accent-hover); }
 
   #confirm-banner {
@@ -130,84 +135,89 @@
     background: var(--success-bg);
     color: var(--success);
   }
-
-  #confirm-banner.error {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
+  #confirm-banner.error { background: var(--danger-bg); color: var(--danger); }
 
   .empty-state {
     padding: 48px 14px;
     text-align: center;
     color: var(--text-muted);
     font-size: 14px;
+    background: var(--surface);
+    border-radius: var(--radius);
   }
 
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-  }
+  .card-list { display: flex; flex-direction: column; gap: 16px; }
 
-  .campus-card {
+  .banner-card {
     position: relative;
-    aspect-ratio: 4 / 3;
-    border-radius: 16px;
+    width: 100%;
+    aspect-ratio: 3 / 1;
+    border-radius: 28px;
     overflow: hidden;
     background: linear-gradient(135deg, #C9A177, #8B6A4F);
     background-size: cover;
     background-position: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
     cursor: pointer;
-    border: none;
-    padding: 0;
   }
 
-  .campus-card-overlay {
+  .banner-card-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.45) 100%);
   }
 
-  .campus-logo-squircle {
-    position: relative;
+  .banner-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 66.7%;
+    width: 66.7%;
+    object-fit: contain;
     z-index: 2;
-    width: 68px;
-    height: 68px;
-    border-radius: 28%;
-    background: rgba(255,255,255,0.95);
+    filter: drop-shadow(0 3px 8px rgba(0,0,0,0.45));
+  }
+
+  .banner-logo-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--display-font);
+    font-size: clamp(28px, 9vw, 64px);
+    color: white;
+    z-index: 2;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  }
+
+  .banner-card-name {
+    position: absolute;
+    left: 18px;
+    bottom: 14px;
+    z-index: 3;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+  }
+
+  .edit-icon-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 4;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-
-  .campus-logo-squircle img {
-    width: 78%;
-    height: 78%;
-    object-fit: contain;
-  }
-
-  .campus-logo-squircle.placeholder {
-    font-family: var(--display-font);
-    font-size: 22px;
-    color: var(--accent);
-  }
-
-  .campus-card-name {
-    position: absolute;
-    left: 12px;
-    bottom: 10px;
-    z-index: 2;
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 
   dialog {
@@ -219,32 +229,15 @@
     max-height: 88vh;
     overflow-y: auto;
   }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 
-  dialog::backdrop {
-    background: rgba(0, 0, 0, 0.4);
-  }
+  #add-form, #login-form, #bg-form { padding: 20px; }
+  #add-form h2, #bg-form h2 { margin: 0 0 16px; font-size: 17px; }
 
-  #add-form {
-    padding: 20px;
-  }
+  .field { margin-bottom: 14px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 
-  #add-form h2 {
-    margin: 0 0 16px;
-    font-size: 17px;
-  }
-
-  .field {
-    margin-bottom: 14px;
-  }
-
-  .field > label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .field input {
+  .field input[type="text"] {
     width: 100%;
     font-family: var(--font);
     font-size: 14px;
@@ -255,49 +248,43 @@
     color: var(--text);
   }
 
-  #login-error {
-    display: none;
-    font-size: 13px;
-    color: var(--danger);
-    margin-bottom: 12px;
+  .file-field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .file-input-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  #cancel-btn, #login-cancel-btn {
-    background: none;
+  .file-btn {
+    display: inline-block;
+    padding: 8px 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 9px 16px;
-    color: var(--text);
+    background: var(--surface-2);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
   }
+  .file-btn:hover { background: var(--border); }
+  .file-name { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
 
-  #submit-btn, #login-submit-btn {
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
-    color: white;
-    font-weight: 500;
-  }
+  #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
-  #submit-btn:disabled, #login-submit-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #cancel-btn, #login-cancel-btn, #bg-cancel-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 16px; color: var(--text);
   }
-
-  @media (max-width: 480px) {
-    .card-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  #submit-btn, #login-submit-btn, #bg-submit-btn {
+    background: var(--accent); border: none; border-radius: 8px;
+    padding: 9px 16px; color: white; font-weight: 500;
   }
+  #submit-btn:disabled, #login-submit-btn:disabled, #bg-submit-btn:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
 <div class="topbar">
+  <div class="theme-toggle-wrap">
+    <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
+  </div>
   <div class="topbar-brand">
     <img class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
   </div>
@@ -312,15 +299,15 @@
   <div id="confirm-banner"></div>
 
   <div id="empty-state" class="empty-state" style="display:none;"></div>
-  <div id="card-grid" class="card-grid"></div>
+  <div id="card-list" class="card-list"></div>
 
   <dialog id="login-dialog">
-    <form id="login-form" style="padding: 20px;">
+    <form id="login-form">
       <h2 style="margin: 0 0 16px; font-size: 17px;">Admin login</h2>
       <div id="login-error"></div>
       <div class="field">
         <label for="l-email">Email</label>
-        <input id="l-email" name="email" type="email" required />
+        <input id="l-email" name="email" type="text" required />
       </div>
       <div class="field">
         <label for="l-password">Password</label>
@@ -335,22 +322,48 @@
 
   <dialog id="add-dialog">
     <form id="add-form">
-      <h2>New campus</h2>
+      <h2 id="add-dialog-title">New campus</h2>
       <div class="field">
         <label for="f-name">Campus name *</label>
         <input id="f-name" name="name" type="text" required />
       </div>
       <div class="field">
-        <label for="f-photo">Background photo</label>
-        <input id="f-photo" name="photo" type="file" accept="image/*" />
+        <label>Background photo</label>
+        <div class="file-field">
+          <label class="file-btn" for="f-photo">Choose file</label>
+          <input class="file-input-hidden" id="f-photo" name="photo" type="file" accept="image/*" />
+          <span class="file-name" id="f-photo-name">No file chosen</span>
+        </div>
       </div>
       <div class="field">
-        <label for="f-logo">Logo</label>
-        <input id="f-logo" name="logo" type="file" accept="image/*" />
+        <label>Logo</label>
+        <div class="file-field">
+          <label class="file-btn" for="f-logo">Choose file</label>
+          <input class="file-input-hidden" id="f-logo" name="logo" type="file" accept="image/*" />
+          <span class="file-name" id="f-logo-name">No file chosen</span>
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" id="cancel-btn">Cancel</button>
         <button type="submit" id="submit-btn">Create campus</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bg-dialog">
+    <form id="bg-form">
+      <h2>Edit page background</h2>
+      <div class="field">
+        <label>New background image</label>
+        <div class="file-field">
+          <label class="file-btn" for="bg-file">Choose file</label>
+          <input class="file-input-hidden" id="bg-file" name="bgfile" type="file" accept="image/*" />
+          <span class="file-name" id="bg-file-name">No file chosen</span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="bg-cancel-btn">Cancel</button>
+        <button type="submit" id="bg-submit-btn">Save background</button>
       </div>
     </form>
   </dialog>
@@ -370,15 +383,22 @@
 
   const openBtn = document.getElementById("open-add");
   const dialog = document.getElementById("add-dialog");
+  const addDialogTitle = document.getElementById("add-dialog-title");
   const cancelBtn = document.getElementById("cancel-btn");
   const form = document.getElementById("add-form");
   const submitBtn = document.getElementById("submit-btn");
   const banner = document.getElementById("confirm-banner");
-  const cardGrid = document.getElementById("card-grid");
+  const cardList = document.getElementById("card-list");
   const emptyStateEl = document.getElementById("empty-state");
+
+  const bgDialog = document.getElementById("bg-dialog");
+  const bgForm = document.getElementById("bg-form");
+  const bgCancelBtn = document.getElementById("bg-cancel-btn");
+  const bgSubmitBtn = document.getElementById("bg-submit-btn");
 
   let isAdmin = false;
   let campuses = [];
+  let editingId = null;
 
   function showBanner(message, isError) {
     banner.textContent = message;
@@ -394,47 +414,54 @@
     }[m]));
   }
 
-  async function loadCampuses() {
-    const { data, error } = await sb
-      .from("campuses")
-      .select("*")
-      .order("created_at", { ascending: false });
+  function wireFileNameDisplay(inputId, nameId) {
+    const input = document.getElementById(inputId);
+    const nameEl = document.getElementById(nameId);
+    input.addEventListener("change", () => {
+      nameEl.textContent = input.files[0] ? input.files[0].name : "No file chosen";
+    });
+  }
+  wireFileNameDisplay("f-photo", "f-photo-name");
+  wireFileNameDisplay("f-logo", "f-logo-name");
+  wireFileNameDisplay("bg-file", "bg-file-name");
 
-    if (error) {
-      showBanner(`Couldn't load campuses — ${error.message}`, true);
-      return;
-    }
+  async function loadCampuses() {
+    const { data, error } = await sb.from("campuses").select("*").order("created_at", { ascending: false });
+    if (error) { showBanner(`Couldn't load campuses — ${error.message}`, true); return; }
     campuses = data;
     render();
   }
 
   function render() {
-    cardGrid.innerHTML = "";
+    cardList.innerHTML = "";
     if (campuses.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = isAdmin
-        ? "No campuses yet — click + New to add one."
-        : "No campuses yet.";
+      emptyStateEl.textContent = isAdmin ? "No campuses yet — click + New to add one." : "No campuses yet.";
       return;
     }
     emptyStateEl.style.display = "none";
 
     campuses.forEach(c => {
-      const card = document.createElement("a");
-      card.className = "campus-card";
-      card.href = `seasons.html?campus=${c.id}`;
+      const card = document.createElement("div");
+      card.className = "banner-card";
+      card.dataset.href = `seasons.html?campus=${c.id}`;
       if (c.photo_url) card.style.backgroundImage = `url("${c.photo_url}")`;
 
       const logoHtml = c.logo_url
-        ? `<div class="campus-logo-squircle"><img src="${c.logo_url}" alt="" /></div>`
-        : `<div class="campus-logo-squircle placeholder">${escapeHtml((c.name || "?").charAt(0).toUpperCase())}</div>`;
+        ? `<img class="banner-logo" src="${c.logo_url}" alt="" />`
+        : `<div class="banner-logo-placeholder">${escapeHtml((c.name || "?").charAt(0).toUpperCase())}</div>`;
 
       card.innerHTML = `
-        <div class="campus-card-overlay"></div>
+        <div class="banner-card-overlay"></div>
+        ${isAdmin ? `<button class="edit-icon-btn" data-edit="${c.id}" aria-label="Edit ${escapeHtml(c.name)}">&#9998;</button>` : ""}
         ${logoHtml}
-        <div class="campus-card-name">${escapeHtml(c.name)}</div>
+        <div class="banner-card-name">${escapeHtml(c.name)}</div>
       `;
-      cardGrid.appendChild(card);
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("[data-edit]")) return;
+        window.location.href = card.dataset.href;
+      });
+      cardList.appendChild(card);
     });
   }
 
@@ -449,7 +476,27 @@
   }
 
   openBtn.addEventListener("click", () => {
+    editingId = null;
+    addDialogTitle.textContent = "New campus";
+    submitBtn.textContent = "Create campus";
     form.reset();
+    document.getElementById("f-photo-name").textContent = "No file chosen";
+    document.getElementById("f-logo-name").textContent = "No file chosen";
+    dialog.showModal();
+  });
+
+  cardList.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit]");
+    if (!editBtn) return;
+    const c = campuses.find(x => x.id === editBtn.dataset.edit);
+    if (!c) return;
+    editingId = c.id;
+    addDialogTitle.textContent = "Edit campus";
+    submitBtn.textContent = "Save changes";
+    form.reset();
+    form.name.value = c.name || "";
+    document.getElementById("f-photo-name").textContent = "No file chosen";
+    document.getElementById("f-logo-name").textContent = "No file chosen";
     dialog.showModal();
   });
 
@@ -461,39 +508,82 @@
     if (!name) { form.name.focus(); return; }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Creating...";
+    submitBtn.textContent = editingId ? "Saving..." : "Creating...";
 
     try {
       const photoFile = form.photo.files[0];
       const logoFile = form.logo.files[0];
-
       const [photo_url, logo_url] = await Promise.all([
         uploadImage(photoFile, "campus-photo"),
         uploadImage(logoFile, "campus-logo")
       ]);
 
-      const { data, error } = await sb.from("campuses")
-        .insert({ name, photo_url, logo_url })
-        .select();
-      if (error) throw error;
+      const payload = { name };
+      if (photo_url) payload.photo_url = photo_url;
+      if (logo_url) payload.logo_url = logo_url;
 
+      if (editingId) {
+        const { data, error } = await sb.from("campuses").update(payload).eq("id", editingId).select();
+        if (error) throw error;
+        showBanner(`${name} updated`, false);
+        const idx = campuses.findIndex(x => x.id === editingId);
+        if (idx !== -1) campuses[idx] = data[0];
+      } else {
+        const { data, error } = await sb.from("campuses").insert(payload).select();
+        if (error) throw error;
+        showBanner(`${name} created`, false);
+        campuses.unshift(data[0]);
+      }
       dialog.close();
-      showBanner(`${name} created`, false);
-      campuses.unshift(data[0]);
+      editingId = null;
       render();
     } catch (err) {
-      showBanner(`Couldn't create campus — ${err.message || "check your connection"}`, true);
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Create campus";
+      submitBtn.textContent = editingId ? "Save changes" : "Create campus";
+    }
+  });
+
+  async function applyPageBackground() {
+    const { data, error } = await sb.from("site_settings").select("*").eq("id", "default").maybeSingle();
+    if (!error && data && data.background_url) {
+      document.body.style.backgroundImage = `url("${data.background_url}")`;
+    }
+  }
+
+  bgCancelBtn.addEventListener("click", () => bgDialog.close());
+
+  bgForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = bgForm.bgfile.files[0];
+    if (!file) { showBanner("Choose an image first.", true); return; }
+
+    bgSubmitBtn.disabled = true;
+    bgSubmitBtn.textContent = "Saving...";
+
+    try {
+      const url = await uploadImage(file, "site-bg");
+      const { error } = await sb.from("site_settings")
+        .upsert({ id: "default", background_url: url }, { onConflict: "id" });
+      if (error) throw error;
+      document.body.style.backgroundImage = `url("${url}")`;
+      bgDialog.close();
+      showBanner("Background updated", false);
+    } catch (err) {
+      showBanner(`Couldn't update background — ${err.message || "check your connection"}`, true);
+    } finally {
+      bgSubmitBtn.disabled = false;
+      bgSubmitBtn.textContent = "Save background";
     }
   });
 
   function updateAdminUI() {
     openBtn.style.display = isAdmin ? "inline-block" : "none";
     adminArea.innerHTML = isAdmin
-      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      ? `<button id="edit-bg-btn" class="toggle-btn">Edit background</button><span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
       : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
+    render();
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -504,6 +594,10 @@
     } else if (e.target.id === "signout-btn") {
       await sb.auth.signOut();
       showBanner("Signed out", false);
+    } else if (e.target.id === "edit-bg-btn") {
+      bgForm.reset();
+      document.getElementById("bg-file-name").textContent = "No file chosen";
+      bgDialog.showModal();
     }
   });
 
@@ -545,6 +639,7 @@
     const { data } = await sb.auth.getSession();
     isAdmin = !!data.session;
     updateAdminUI();
+    await applyPageBackground();
     await loadCampuses();
   }
 

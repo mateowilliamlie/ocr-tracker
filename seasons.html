@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — Seasons</title>
+<script src="theme.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
@@ -27,35 +28,38 @@
     --display-font: "Anton", var(--font);
   }
 
+  :root[data-theme="dark"] {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --surface-2: #262A31;
+    --text: #ECEDEF;
+    --text-muted: #9AA0AC;
+    --border: #33373F;
+    --accent: #C2573D;
+    --accent-hover: #D66748;
+    --danger: #F87171;
+    --danger-bg: #3A1518;
+    --success: #22C55E;
+    --success-bg: #123320;
+  }
+
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
     font-family: var(--font);
-    background: var(--bg);
+    background: var(--bg) center / cover fixed no-repeat;
     color: var(--text);
     min-height: 100vh;
     padding-bottom: 64px;
   }
 
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px 16px 0;
-  }
-
-  button {
-    font-family: var(--font);
-    font-size: 14px;
-    cursor: pointer;
-  }
-
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 0; }
+  button { font-family: var(--font); font-size: 14px; cursor: pointer; }
   a { color: inherit; }
 
   .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: sticky; top: 0; z-index: 10;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding: 12px 16px;
@@ -64,267 +68,140 @@
     align-items: center;
     gap: 12px;
   }
-
-  .topbar-brand {
-    display: flex;
-    align-items: center;
-    grid-column: 2;
-    justify-self: center;
+  .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .theme-toggle-wrap { grid-column: 1; justify-self: start; }
+  .theme-toggle-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-
-  .topbar .admin-area {
-    grid-column: 3;
-    justify-self: end;
-  }
-
-  .brand-logo {
-    height: 40px;
-    width: auto;
-    object-fit: contain;
-  }
+  .topbar .admin-area { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; }
+  .brand-logo { height: 40px; width: auto; object-fit: contain; }
 
   .toggle-btn {
-    font-family: var(--font);
-    font-size: 13px;
-    padding: 9px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text-muted);
-    white-space: nowrap;
+    font-family: var(--font); font-size: 13px; padding: 9px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--text-muted); white-space: nowrap;
   }
-
-  .admin-status {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-right: 8px;
-  }
+  .admin-status { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
 
   .breadcrumb {
-    font-size: 13px;
-    color: var(--text-muted);
-    text-decoration: none;
-    margin-bottom: 6px;
-    display: inline-block;
+    font-size: 13px; color: var(--text-muted); text-decoration: none;
+    margin-bottom: 6px; display: inline-block;
+    background: var(--surface); padding: 4px 10px; border-radius: 8px;
   }
-
   .breadcrumb:hover { color: var(--text); }
 
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 18px;
-  }
-
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
   .page-title {
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 20px; font-weight: 600;
+    background: var(--surface); display: inline-block; padding: 4px 10px; border-radius: 8px;
   }
 
   #open-add {
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: var(--radius);
-    padding: 10px 18px;
-    font-weight: 500;
+    background: var(--accent); color: white; border: none;
+    border-radius: var(--radius); padding: 10px 18px; font-weight: 500;
   }
-
   #open-add:hover { background: var(--accent-hover); }
 
   #confirm-banner {
-    display: none;
-    padding: 10px 14px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    margin-bottom: 16px;
-    background: var(--success-bg);
-    color: var(--success);
+    display: none; padding: 10px 14px; border-radius: var(--radius);
+    font-size: 14px; margin-bottom: 16px; background: var(--success-bg); color: var(--success);
   }
-
-  #confirm-banner.error {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
+  #confirm-banner.error { background: var(--danger-bg); color: var(--danger); }
 
   .empty-state {
-    padding: 48px 14px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 14px;
+    padding: 48px 14px; text-align: center; color: var(--text-muted); font-size: 14px;
+    background: var(--surface); border-radius: var(--radius);
   }
 
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-  }
+  .card-list { display: flex; flex-direction: column; gap: 16px; }
 
-  .season-card {
-    position: relative;
-    aspect-ratio: 4 / 3;
-    border-radius: 16px;
-    overflow: hidden;
+  .banner-card {
+    position: relative; width: 100%; aspect-ratio: 3 / 1;
+    border-radius: 28px; overflow: hidden;
     background: linear-gradient(135deg, #C9A177, #8B6A4F);
-    background-size: cover;
-    background-position: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    background-size: cover; background-position: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
     cursor: pointer;
-    border: none;
-    padding: 0;
   }
-
-  .season-card-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%);
+  .banner-card-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.45) 100%);
   }
-
-  .season-logo-squircle {
-    position: relative;
-    z-index: 2;
-    width: 68px;
-    height: 68px;
-    border-radius: 28%;
-    background: rgba(255,255,255,0.95);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  .banner-logo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    height: 66.7%; width: 66.7%; object-fit: contain; z-index: 2;
+    filter: drop-shadow(0 3px 8px rgba(0,0,0,0.45));
   }
-
-  .season-logo-squircle img {
-    width: 78%;
-    height: 78%;
-    object-fit: contain;
+  .banner-logo-placeholder {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: var(--display-font); font-size: clamp(28px, 9vw, 64px);
+    color: white; z-index: 2; text-shadow: 0 2px 6px rgba(0,0,0,0.45);
   }
-
-  .season-logo-squircle.placeholder {
-    font-family: var(--display-font);
-    font-size: 22px;
-    color: var(--accent);
+  .banner-card-name {
+    position: absolute; left: 18px; bottom: 14px; z-index: 3;
+    color: white; font-weight: 600; font-size: 16px; text-shadow: 0 1px 4px rgba(0,0,0,0.55);
   }
-
-  .season-card-name {
-    position: absolute;
-    left: 12px;
-    bottom: 10px;
-    z-index: 2;
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  .banner-card-badge {
+    position: absolute; top: 10px; right: 10px; z-index: 3;
+    background: rgba(255,255,255,0.9); color: var(--accent);
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 3px 10px; border-radius: 999px;
   }
-
-  .season-card-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
-    background: rgba(255,255,255,0.9);
-    color: var(--accent);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 3px 8px;
-    border-radius: 999px;
+  .edit-icon-btn {
+    position: absolute; top: 10px; left: 10px; z-index: 4;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.9); border: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 
   dialog {
-    border: none;
-    border-radius: var(--radius);
-    padding: 0;
-    width: 100%;
-    max-width: 420px;
-    max-height: 88vh;
-    overflow-y: auto;
+    border: none; border-radius: var(--radius); padding: 0;
+    width: 100%; max-width: 420px; max-height: 88vh; overflow-y: auto;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+
+  #add-form, #login-form, #bg-form { padding: 20px; }
+  #add-form h2, #bg-form h2 { margin: 0 0 16px; font-size: 17px; }
+
+  .field { margin-bottom: 14px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .field input[type="text"] {
+    width: 100%; font-family: var(--font); font-size: 14px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
   }
 
-  dialog::backdrop {
-    background: rgba(0, 0, 0, 0.4);
+  .file-field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .file-input-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
+  .file-btn {
+    display: inline-block; padding: 8px 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface-2); font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .file-btn:hover { background: var(--border); }
+  .file-name { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
 
-  #add-form {
-    padding: 20px;
-  }
+  #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
-  #add-form h2 {
-    margin: 0 0 16px;
-    font-size: 17px;
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #cancel-btn, #login-cancel-btn, #bg-cancel-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px; padding: 9px 16px; color: var(--text);
   }
-
-  .field {
-    margin-bottom: 14px;
+  #submit-btn, #login-submit-btn, #bg-submit-btn {
+    background: var(--accent); border: none; border-radius: 8px; padding: 9px 16px; color: white; font-weight: 500;
   }
-
-  .field > label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .field input {
-    width: 100%;
-    font-family: var(--font);
-    font-size: 14px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  #login-error {
-    display: none;
-    font-size: 13px;
-    color: var(--danger);
-    margin-bottom: 12px;
-  }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  #cancel-btn, #login-cancel-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 16px;
-    color: var(--text);
-  }
-
-  #submit-btn, #login-submit-btn {
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
-    color: white;
-    font-weight: 500;
-  }
-
-  #submit-btn:disabled, #login-submit-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  @media (max-width: 480px) {
-    .card-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-  }
+  #submit-btn:disabled, #login-submit-btn:disabled, #bg-submit-btn:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
 <div class="topbar">
+  <div class="theme-toggle-wrap">
+    <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
+  </div>
   <div class="topbar-brand">
     <img class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
   </div>
@@ -340,15 +217,15 @@
   <div id="confirm-banner"></div>
 
   <div id="empty-state" class="empty-state" style="display:none;"></div>
-  <div id="card-grid" class="card-grid"></div>
+  <div id="card-list" class="card-list"></div>
 
   <dialog id="login-dialog">
-    <form id="login-form" style="padding: 20px;">
+    <form id="login-form">
       <h2 style="margin: 0 0 16px; font-size: 17px;">Admin login</h2>
       <div id="login-error"></div>
       <div class="field">
         <label for="l-email">Email</label>
-        <input id="l-email" name="email" type="email" required />
+        <input id="l-email" name="email" type="text" required />
       </div>
       <div class="field">
         <label for="l-password">Password</label>
@@ -363,22 +240,48 @@
 
   <dialog id="add-dialog">
     <form id="add-form">
-      <h2>New season</h2>
+      <h2 id="add-dialog-title">New season</h2>
       <div class="field">
         <label for="f-name">Season name *</label>
         <input id="f-name" name="name" type="text" required placeholder="e.g. We Are Here 2026/27" />
       </div>
       <div class="field">
-        <label for="f-photo">Background photo</label>
-        <input id="f-photo" name="photo" type="file" accept="image/*" />
+        <label>Background photo</label>
+        <div class="file-field">
+          <label class="file-btn" for="f-photo">Choose file</label>
+          <input class="file-input-hidden" id="f-photo" name="photo" type="file" accept="image/*" />
+          <span class="file-name" id="f-photo-name">No file chosen</span>
+        </div>
       </div>
       <div class="field">
-        <label for="f-logo">Logo</label>
-        <input id="f-logo" name="logo" type="file" accept="image/*" />
+        <label>Logo</label>
+        <div class="file-field">
+          <label class="file-btn" for="f-logo">Choose file</label>
+          <input class="file-input-hidden" id="f-logo" name="logo" type="file" accept="image/*" />
+          <span class="file-name" id="f-logo-name">No file chosen</span>
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" id="cancel-btn">Cancel</button>
         <button type="submit" id="submit-btn">Create season</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bg-dialog">
+    <form id="bg-form">
+      <h2>Edit page background</h2>
+      <div class="field">
+        <label>New background image</label>
+        <div class="file-field">
+          <label class="file-btn" for="bg-file">Choose file</label>
+          <input class="file-input-hidden" id="bg-file" name="bgfile" type="file" accept="image/*" />
+          <span class="file-name" id="bg-file-name">No file chosen</span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="bg-cancel-btn">Cancel</button>
+        <button type="submit" id="bg-submit-btn">Save background</button>
       </div>
     </form>
   </dialog>
@@ -400,16 +303,23 @@
 
   const openBtn = document.getElementById("open-add");
   const dialog = document.getElementById("add-dialog");
+  const addDialogTitle = document.getElementById("add-dialog-title");
   const cancelBtn = document.getElementById("cancel-btn");
   const form = document.getElementById("add-form");
   const submitBtn = document.getElementById("submit-btn");
   const banner = document.getElementById("confirm-banner");
-  const cardGrid = document.getElementById("card-grid");
+  const cardList = document.getElementById("card-list");
   const emptyStateEl = document.getElementById("empty-state");
   const pageTitleEl = document.getElementById("page-title");
 
+  const bgDialog = document.getElementById("bg-dialog");
+  const bgForm = document.getElementById("bg-form");
+  const bgCancelBtn = document.getElementById("bg-cancel-btn");
+  const bgSubmitBtn = document.getElementById("bg-submit-btn");
+
   let isAdmin = false;
   let seasons = [];
+  let editingId = null;
 
   function showBanner(message, isError) {
     banner.textContent = message;
@@ -425,11 +335,24 @@
     }[m]));
   }
 
-  async function loadCampusName() {
+  function wireFileNameDisplay(inputId, nameId) {
+    const input = document.getElementById(inputId);
+    const nameEl = document.getElementById(nameId);
+    input.addEventListener("change", () => {
+      nameEl.textContent = input.files[0] ? input.files[0].name : "No file chosen";
+    });
+  }
+  wireFileNameDisplay("f-photo", "f-photo-name");
+  wireFileNameDisplay("f-logo", "f-logo-name");
+  wireFileNameDisplay("bg-file", "bg-file-name");
+
+  async function loadCampusAndBackground() {
     if (!campusId) return;
-    const { data, error } = await sb.from("campuses").select("name").eq("id", campusId).single();
+    const { data, error } = await sb.from("campuses").select("*").eq("id", campusId).single();
     if (!error && data) {
       pageTitleEl.textContent = `${data.name} — Seasons`;
+      const bgUrl = data.background_override_url || data.photo_url;
+      if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
     }
   }
 
@@ -439,49 +362,48 @@
       emptyStateEl.textContent = "No campus selected — go back and pick one from the Campuses page.";
       return;
     }
-
     const { data, error } = await sb
       .from("seasons")
       .select("*")
       .eq("campus_id", campusId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      showBanner(`Couldn't load seasons — ${error.message}`, true);
-      return;
-    }
+    if (error) { showBanner(`Couldn't load seasons — ${error.message}`, true); return; }
     seasons = data;
     render();
   }
 
   function render() {
-    cardGrid.innerHTML = "";
+    cardList.innerHTML = "";
     if (seasons.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = isAdmin
-        ? "No seasons yet — click + New to add one."
-        : "No seasons yet.";
+      emptyStateEl.textContent = isAdmin ? "No seasons yet — click + New to add one." : "No seasons yet.";
       return;
     }
     emptyStateEl.style.display = "none";
 
     seasons.forEach((s, i) => {
-      const card = document.createElement("a");
-      card.className = "season-card";
-      card.href = `index.html?season=${s.id}`;
+      const card = document.createElement("div");
+      card.className = "banner-card";
+      card.dataset.href = `index.html?season=${s.id}&campus=${campusId}`;
       if (s.photo_url) card.style.backgroundImage = `url("${s.photo_url}")`;
 
       const logoHtml = s.logo_url
-        ? `<div class="season-logo-squircle"><img src="${s.logo_url}" alt="" /></div>`
-        : `<div class="season-logo-squircle placeholder">${escapeHtml((s.name || "?").charAt(0).toUpperCase())}</div>`;
+        ? `<img class="banner-logo" src="${s.logo_url}" alt="" />`
+        : `<div class="banner-logo-placeholder">${escapeHtml((s.name || "?").charAt(0).toUpperCase())}</div>`;
 
       card.innerHTML = `
-        <div class="season-card-overlay"></div>
-        ${i === 0 ? '<div class="season-card-badge">Current</div>' : ""}
+        <div class="banner-card-overlay"></div>
+        ${isAdmin ? `<button class="edit-icon-btn" data-edit="${s.id}" aria-label="Edit ${escapeHtml(s.name)}">&#9998;</button>` : ""}
+        ${i === 0 ? '<div class="banner-card-badge">Current</div>' : ""}
         ${logoHtml}
-        <div class="season-card-name">${escapeHtml(s.name)}</div>
+        <div class="banner-card-name">${escapeHtml(s.name)}</div>
       `;
-      cardGrid.appendChild(card);
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("[data-edit]")) return;
+        window.location.href = card.dataset.href;
+      });
+      cardList.appendChild(card);
     });
   }
 
@@ -496,7 +418,27 @@
   }
 
   openBtn.addEventListener("click", () => {
+    editingId = null;
+    addDialogTitle.textContent = "New season";
+    submitBtn.textContent = "Create season";
     form.reset();
+    document.getElementById("f-photo-name").textContent = "No file chosen";
+    document.getElementById("f-logo-name").textContent = "No file chosen";
+    dialog.showModal();
+  });
+
+  cardList.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit]");
+    if (!editBtn) return;
+    const s = seasons.find(x => x.id === editBtn.dataset.edit);
+    if (!s) return;
+    editingId = s.id;
+    addDialogTitle.textContent = "Edit season";
+    submitBtn.textContent = "Save changes";
+    form.reset();
+    form.name.value = s.name || "";
+    document.getElementById("f-photo-name").textContent = "No file chosen";
+    document.getElementById("f-logo-name").textContent = "No file chosen";
     dialog.showModal();
   });
 
@@ -506,42 +448,81 @@
     e.preventDefault();
     const name = form.name.value.trim();
     if (!name) { form.name.focus(); return; }
-    if (!campusId) { showBanner("No campus selected.", true); return; }
+    if (!campusId && !editingId) { showBanner("No campus selected.", true); return; }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Creating...";
+    submitBtn.textContent = editingId ? "Saving..." : "Creating...";
 
     try {
       const photoFile = form.photo.files[0];
       const logoFile = form.logo.files[0];
-
       const [photo_url, logo_url] = await Promise.all([
         uploadImage(photoFile, "season-photo"),
         uploadImage(logoFile, "season-logo")
       ]);
 
-      const { data, error } = await sb.from("seasons")
-        .insert({ name, photo_url, logo_url, campus_id: campusId })
-        .select();
-      if (error) throw error;
+      const payload = { name };
+      if (photo_url) payload.photo_url = photo_url;
+      if (logo_url) payload.logo_url = logo_url;
 
+      if (editingId) {
+        const { data, error } = await sb.from("seasons").update(payload).eq("id", editingId).select();
+        if (error) throw error;
+        showBanner(`${name} updated`, false);
+        const idx = seasons.findIndex(x => x.id === editingId);
+        if (idx !== -1) seasons[idx] = data[0];
+      } else {
+        payload.campus_id = campusId;
+        const { data, error } = await sb.from("seasons").insert(payload).select();
+        if (error) throw error;
+        showBanner(`${name} created`, false);
+        seasons.unshift(data[0]);
+      }
       dialog.close();
-      showBanner(`${name} created`, false);
-      seasons.unshift(data[0]);
+      editingId = null;
       render();
     } catch (err) {
-      showBanner(`Couldn't create season — ${err.message || "check your connection"}`, true);
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Create season";
+      submitBtn.textContent = editingId ? "Save changes" : "Create season";
+    }
+  });
+
+  bgCancelBtn.addEventListener("click", () => bgDialog.close());
+
+  bgForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = bgForm.bgfile.files[0];
+    if (!file) { showBanner("Choose an image first.", true); return; }
+    if (!campusId) { showBanner("No campus selected.", true); return; }
+
+    bgSubmitBtn.disabled = true;
+    bgSubmitBtn.textContent = "Saving...";
+
+    try {
+      const url = await uploadImage(file, "campus-bg-override");
+      const { error } = await sb.from("campuses")
+        .update({ background_override_url: url })
+        .eq("id", campusId);
+      if (error) throw error;
+      document.body.style.backgroundImage = `url("${url}")`;
+      bgDialog.close();
+      showBanner("Background updated", false);
+    } catch (err) {
+      showBanner(`Couldn't update background — ${err.message || "check your connection"}`, true);
+    } finally {
+      bgSubmitBtn.disabled = false;
+      bgSubmitBtn.textContent = "Save background";
     }
   });
 
   function updateAdminUI() {
     openBtn.style.display = isAdmin ? "inline-block" : "none";
     adminArea.innerHTML = isAdmin
-      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      ? `<button id="edit-bg-btn" class="toggle-btn">Edit background</button><span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
       : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
+    render();
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -552,6 +533,10 @@
     } else if (e.target.id === "signout-btn") {
       await sb.auth.signOut();
       showBanner("Signed out", false);
+    } else if (e.target.id === "edit-bg-btn") {
+      bgForm.reset();
+      document.getElementById("bg-file-name").textContent = "No file chosen";
+      bgDialog.showModal();
     }
   });
 
@@ -593,7 +578,7 @@
     const { data } = await sb.auth.getSession();
     isAdmin = !!data.session;
     updateAdminUI();
-    await loadCampusName();
+    await loadCampusAndBackground();
     await loadSeasons();
   }
 
