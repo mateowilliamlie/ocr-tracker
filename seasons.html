@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — Seasons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #F9FAFB;
+    --text: #1A1D23;
+    --text-muted: #6B7280;
+    --border: #E2E4E9;
+    --accent: #A8452F;
+    --accent-hover: #8F3B28;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --success: #15803D;
+    --success-bg: #DCFCE7;
+    --radius: 10px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display-font: "Anton", var(--font);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 64px;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 0;
+  }
+
+  button {
+    font-family: var(--font);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  a { color: inherit; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .topbar .admin-area {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .brand-logo {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+  }
+
+  .toggle-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .admin-status {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-right: 8px;
+  }
+
+  .breadcrumb {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 6px;
+    display: inline-block;
+  }
+
+  .breadcrumb:hover { color: var(--text); }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  #open-add {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-weight: 500;
+  }
+
+  #open-add:hover { background: var(--accent-hover); }
+
+  #confirm-banner {
+    display: none;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 16px;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  #confirm-banner.error {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+
+  .empty-state {
+    padding: 48px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .season-card {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #C9A177, #8B6A4F);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  .season-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%);
+  }
+
+  .season-logo-squircle {
+    position: relative;
+    z-index: 2;
+    width: 68px;
+    height: 68px;
+    border-radius: 28%;
+    background: rgba(255,255,255,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .season-logo-squircle img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+  }
+
+  .season-logo-squircle.placeholder {
+    font-family: var(--display-font);
+    font-size: 22px;
+    color: var(--accent);
+  }
+
+  .season-card-name {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    z-index: 2;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .season-card-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    background: rgba(255,255,255,0.9);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0;
+    width: 100%;
+    max-width: 420px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  #add-form {
+    padding: 20px;
+  }
+
+  #add-form h2 {
+    margin: 0 0 16px;
+    font-size: 17px;
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field > label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .field input {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  #login-error {
+    display: none;
+    font-size: 13px;
+    color: var(--danger);
+    margin-bottom: 12px;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  #cancel-btn, #login-cancel-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: var(--text);
+  }
+
+  #submit-btn, #login-submit-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    color: white;
+    font-weight: 500;
+  }
+
+  #submit-btn:disabled, #login-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  @media (max-width: 480px) {
+    .card-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">
+    <img class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
+  </div>
+  <div class="admin-area" id="admin-area"></div>
+</div>
+<main>
+  <a href="campuses.html" class="breadcrumb">&larr; Campuses</a>
+  <div class="page-header">
+    <div class="page-title" id="page-title">Seasons</div>
+    <button id="open-add" style="display:none;">+ New</button>
+  </div>
+
+  <div id="confirm-banner"></div>
+
+  <div id="empty-state" class="empty-state" style="display:none;"></div>
+  <div id="card-grid" class="card-grid"></div>
+
+  <dialog id="login-dialog">
+    <form id="login-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Admin login</h2>
+      <div id="login-error"></div>
+      <div class="field">
+        <label for="l-email">Email</label>
+        <input id="l-email" name="email" type="email" required />
+      </div>
+      <div class="field">
+        <label for="l-password">Password</label>
+        <input id="l-password" name="password" type="password" required />
+      </div>
+      <div class="form-actions">
+        <button type="button" id="login-cancel-btn">Cancel</button>
+        <button type="submit" id="login-submit-btn">Sign in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="add-dialog">
+    <form id="add-form">
+      <h2>New season</h2>
+      <div class="field">
+        <label for="f-name">Season name *</label>
+        <input id="f-name" name="name" type="text" required placeholder="e.g. We Are Here 2026/27" />
+      </div>
+      <div class="field">
+        <label for="f-photo">Background photo</label>
+        <input id="f-photo" name="photo" type="file" accept="image/*" />
+      </div>
+      <div class="field">
+        <label for="f-logo">Logo</label>
+        <input id="f-logo" name="logo" type="file" accept="image/*" />
+      </div>
+      <div class="form-actions">
+        <button type="button" id="cancel-btn">Cancel</button>
+        <button type="submit" id="submit-btn">Create season</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<script>
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const campusId = new URLSearchParams(window.location.search).get("campus");
+
+  const adminArea = document.getElementById("admin-area");
+  const loginDialog = document.getElementById("login-dialog");
+  const loginForm = document.getElementById("login-form");
+  const loginCancelBtn = document.getElementById("login-cancel-btn");
+  const loginSubmitBtn = document.getElementById("login-submit-btn");
+  const loginError = document.getElementById("login-error");
+
+  const openBtn = document.getElementById("open-add");
+  const dialog = document.getElementById("add-dialog");
+  const cancelBtn = document.getElementById("cancel-btn");
+  const form = document.getElementById("add-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const banner = document.getElementById("confirm-banner");
+  const cardGrid = document.getElementById("card-grid");
+  const emptyStateEl = document.getElementById("empty-state");
+  const pageTitleEl = document.getElementById("page-title");
+
+  let isAdmin = false;
+  let seasons = [];
+
+  function showBanner(message, isError) {
+    banner.textContent = message;
+    banner.className = isError ? "error" : "";
+    banner.style.display = "block";
+    clearTimeout(showBanner._timer);
+    showBanner._timer = setTimeout(() => { banner.style.display = "none"; }, 4000);
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  async function loadCampusName() {
+    if (!campusId) return;
+    const { data, error } = await sb.from("campuses").select("name").eq("id", campusId).single();
+    if (!error && data) {
+      pageTitleEl.textContent = `${data.name} — Seasons`;
+    }
+  }
+
+  async function loadSeasons() {
+    if (!campusId) {
+      emptyStateEl.style.display = "block";
+      emptyStateEl.textContent = "No campus selected — go back and pick one from the Campuses page.";
+      return;
+    }
+
+    const { data, error } = await sb
+      .from("seasons")
+      .select("*")
+      .eq("campus_id", campusId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      showBanner(`Couldn't load seasons — ${error.message}`, true);
+      return;
+    }
+    seasons = data;
+    render();
+  }
+
+  function render() {
+    cardGrid.innerHTML = "";
+    if (seasons.length === 0) {
+      emptyStateEl.style.display = "block";
+      emptyStateEl.textContent = isAdmin
+        ? "No seasons yet — click + New to add one."
+        : "No seasons yet.";
+      return;
+    }
+    emptyStateEl.style.display = "none";
+
+    seasons.forEach((s, i) => {
+      const card = document.createElement("a");
+      card.className = "season-card";
+      card.href = `index.html?season=${s.id}`;
+      if (s.photo_url) card.style.backgroundImage = `url("${s.photo_url}")`;
+
+      const logoHtml = s.logo_url
+        ? `<div class="season-logo-squircle"><img src="${s.logo_url}" alt="" /></div>`
+        : `<div class="season-logo-squircle placeholder">${escapeHtml((s.name || "?").charAt(0).toUpperCase())}</div>`;
+
+      card.innerHTML = `
+        <div class="season-card-overlay"></div>
+        ${i === 0 ? '<div class="season-card-badge">Current</div>' : ""}
+        ${logoHtml}
+        <div class="season-card-name">${escapeHtml(s.name)}</div>
+      `;
+      cardGrid.appendChild(card);
+    });
+  }
+
+  async function uploadImage(file, prefix) {
+    if (!file) return null;
+    const ext = file.name.split(".").pop();
+    const path = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await sb.storage.from("branding").upload(path, file);
+    if (error) throw error;
+    const { data } = sb.storage.from("branding").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  openBtn.addEventListener("click", () => {
+    form.reset();
+    dialog.showModal();
+  });
+
+  cancelBtn.addEventListener("click", () => dialog.close());
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = form.name.value.trim();
+    if (!name) { form.name.focus(); return; }
+    if (!campusId) { showBanner("No campus selected.", true); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating...";
+
+    try {
+      const photoFile = form.photo.files[0];
+      const logoFile = form.logo.files[0];
+
+      const [photo_url, logo_url] = await Promise.all([
+        uploadImage(photoFile, "season-photo"),
+        uploadImage(logoFile, "season-logo")
+      ]);
+
+      const { data, error } = await sb.from("seasons")
+        .insert({ name, photo_url, logo_url, campus_id: campusId })
+        .select();
+      if (error) throw error;
+
+      dialog.close();
+      showBanner(`${name} created`, false);
+      seasons.unshift(data[0]);
+      render();
+    } catch (err) {
+      showBanner(`Couldn't create season — ${err.message || "check your connection"}`, true);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Create season";
+    }
+  });
+
+  function updateAdminUI() {
+    openBtn.style.display = isAdmin ? "inline-block" : "none";
+    adminArea.innerHTML = isAdmin
+      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
+  }
+
+  adminArea.addEventListener("click", async (e) => {
+    if (e.target.id === "admin-login-btn") {
+      loginForm.reset();
+      loginError.style.display = "none";
+      loginDialog.showModal();
+    } else if (e.target.id === "signout-btn") {
+      await sb.auth.signOut();
+      showBanner("Signed out", false);
+    }
+  });
+
+  loginCancelBtn.addEventListener("click", () => loginDialog.close());
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = loginForm.email.value.trim();
+    const password = loginForm.password.value;
+
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = "Signing in...";
+    loginError.style.display = "none";
+
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        loginError.textContent = "Incorrect email or password.";
+        loginError.style.display = "block";
+        return;
+      }
+      loginDialog.close();
+      showBanner("Signed in as admin", false);
+    } catch (err) {
+      loginError.textContent = "Couldn't sign in — check your connection and try again.";
+      loginError.style.display = "block";
+    } finally {
+      loginSubmitBtn.disabled = false;
+      loginSubmitBtn.textContent = "Sign in";
+    }
+  });
+
+  sb.auth.onAuthStateChange((event, session) => {
+    isAdmin = !!session;
+    updateAdminUI();
+  });
+
+  async function init() {
+    const { data } = await sb.auth.getSession();
+    isAdmin = !!data.session;
+    updateAdminUI();
+    await loadCampusName();
+    await loadSeasons();
+  }
+
+  init();
+</script>
+</body>
+</html>
