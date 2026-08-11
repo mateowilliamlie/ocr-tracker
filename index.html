@@ -266,8 +266,8 @@
     padding: 9px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: #FFFFFF;
-    color: #1A1D23;
+    background: var(--surface);
+    color: var(--text);
   }
 
   #search-input:focus {
@@ -281,8 +281,8 @@
     padding: 9px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: #FFFFFF;
-    color: #1A1D23;
+    background: var(--surface);
+    color: var(--text);
   }
 
   .board {
@@ -493,6 +493,9 @@
 
     #search-input,
     #sort-select,
+    .field input,
+    .field select,
+    .field textarea,
     .row select.reminder-select,
     .row .reminder-date-input {
       font-size: 16px;
