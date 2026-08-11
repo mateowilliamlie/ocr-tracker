@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — Sign Up</title>
+<script src="theme.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #F9FAFB;
+    --text: #1A1D23;
+    --text-muted: #6B7280;
+    --border: #E2E4E9;
+    --accent: #A8452F;
+    --accent-hover: #8F3B28;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --success: #15803D;
+    --success-bg: #DCFCE7;
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171B; --surface: #1E2126; --surface-2: #262A31;
+    --text: #ECEDEF; --text-muted: #9AA0AC; --border: #33373F;
+    --accent: #C2573D; --accent-hover: #D66748;
+    --danger: #F87171; --danger-bg: #3A1518;
+    --success: #22C55E; --success-bg: #123320;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg) center / cover fixed no-repeat;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    padding: 28px;
+  }
+  .brand-row { display: flex; justify-content: center; margin-bottom: 18px; }
+  .brand-logo { height: 48px; width: auto; object-fit: contain; }
+  h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
+  .subtitle { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+
+  .campus-list { display: flex; flex-direction: column; gap: 10px; }
+  .campus-option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px;
+    background: var(--surface-2); cursor: pointer; font-size: 15px; font-weight: 500;
+    color: var(--text);
+  }
+  .campus-option:hover { border-color: var(--accent); }
+  .campus-option img { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; }
+
+  .field { margin-bottom: 14px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+  .field input, .field textarea {
+    width: 100%; font-family: var(--font); font-size: 14px; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; color: #1A1D23;
+  }
+  .field input:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .interest-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 2px; }
+  .switch-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+  .switch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch-track {
+    position: relative; width: 40px; height: 24px; background: var(--border);
+    border-radius: 999px; flex-shrink: 0; transition: background 0.2s ease;
+  }
+  .switch-thumb {
+    position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+    background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    transition: transform 0.2s ease;
+  }
+  .switch-toggle input:checked + .switch-track { background: var(--success); }
+  .switch-toggle input:checked + .switch-track .switch-thumb { transform: translateX(16px); }
+
+  #submit-btn {
+    width: 100%; background: var(--accent); border: none; border-radius: 14px;
+    padding: 13px; color: white; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 6px;
+  }
+  #submit-btn:hover { background: var(--accent-hover); }
+  #submit-btn:disabled { opacity: 0.6; cursor: default; }
+
+  .back-link { font-size: 13px; color: var(--text-muted); text-decoration: none; display: inline-block; margin-bottom: 14px; cursor: pointer; }
+  .back-link:hover { color: var(--text); }
+
+  #error-msg { display: none; font-size: 13px; color: var(--danger); background: var(--danger-bg); padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+
+  .thankyou { text-align: center; padding: 20px 0; }
+  .thankyou .check {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--success-bg); color: var(--success);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px;
+  }
+  .thankyou h2 { font-size: 19px; margin: 0 0 8px; }
+  .thankyou p { font-size: 14px; color: var(--text-muted); margin: 0; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="brand-row"><img class="brand-logo" id="brand-logo" src="assets/logo-mark.png" alt="OCR" /></div>
+
+    <div id="step-campus">
+      <h1>Let's get connected</h1>
+      <div class="subtitle">Pick your campus to get started</div>
+      <div class="campus-list" id="campus-list"></div>
+    </div>
+
+    <div id="step-form" style="display:none;">
+      <a class="back-link" id="back-to-campus">&larr; Change campus</a>
+      <h1 id="form-heading">Tell us about you</h1>
+      <div class="subtitle">Takes less than a minute</div>
+      <div id="error-msg"></div>
+      <form id="signup-form">
+        <div class="field">
+          <label for="f-name">Name *</label>
+          <input id="f-name" name="name" type="text" required />
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="f-nationality">Nationality</label>
+            <input id="f-nationality" name="nationality" type="text" />
+          </div>
+          <div class="field">
+            <label for="f-course">Course</label>
+            <input id="f-course" name="course" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-phone">Phone number</label>
+          <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" />
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="f-age">Age</label>
+            <input id="f-age" name="age" type="number" min="0" />
+          </div>
+          <div class="field">
+            <label for="f-year">Year</label>
+            <input id="f-year" name="year" type="text" placeholder="e.g. Year 1" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-faith">Faith background</label>
+          <input id="f-faith" name="faith_background" type="text" placeholder="e.g. Christian, exploring, no background" />
+        </div>
+        <div class="field">
+          <label>Interested in</label>
+          <div class="interest-row">
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-event" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>Event</span>
+            </label>
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-lg" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>LG</span>
+            </label>
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-church" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>Church</span>
+            </label>
+          </div>
+        </div>
+        <button type="submit" id="submit-btn">Submit</button>
+      </form>
+    </div>
+
+    <div id="step-thanks" class="thankyou" style="display:none;">
+      <div class="check">✓</div>
+      <h2>Thanks, you're on our radar!</h2>
+      <p>Someone from our team will reach out to you soon.</p>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const stepCampus = document.getElementById("step-campus");
+  const stepForm = document.getElementById("step-form");
+  const stepThanks = document.getElementById("step-thanks");
+  const campusList = document.getElementById("campus-list");
+  const formHeading = document.getElementById("form-heading");
+  const backToCampus = document.getElementById("back-to-campus");
+  const form = document.getElementById("signup-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const errorMsg = document.getElementById("error-msg");
+  const brandLogo = document.getElementById("brand-logo");
+
+  let selectedCampus = null;
+  let resolvedSeasonId = null;
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  async function loadCampuses() {
+    const { data, error } = await sb.from("campuses").select("*").order("created_at", { ascending: false });
+    if (error || !data) {
+      campusList.innerHTML = `<div style="font-size:13px;color:var(--text-muted);">Couldn't load campuses right now — please try again shortly.</div>`;
+      return;
+    }
+    if (data.length === 0) {
+      campusList.innerHTML = `<div style="font-size:13px;color:var(--text-muted);">No campuses set up yet.</div>`;
+      return;
+    }
+    campusList.innerHTML = data.map(c => `
+      <div class="campus-option" data-id="${c.id}">
+        ${c.logo_url ? `<img src="${c.logo_url}" alt="" />` : ""}
+        <span>${escapeHtml(c.name)}</span>
+      </div>
+    `).join("");
+
+    campusList.querySelectorAll(".campus-option").forEach(el => {
+      el.addEventListener("click", () => {
+        const c = data.find(x => x.id === el.dataset.id);
+        selectCampus(c);
+      });
+    });
+
+    // Optional: pre-select via ?campus=<id> for a campus-specific flyer/QR link
+    const params = new URLSearchParams(window.location.search);
+    const preselect = params.get("campus");
+    if (preselect) {
+      const c = data.find(x => x.id === preselect);
+      if (c) selectCampus(c);
+    }
+  }
+
+  async function selectCampus(campus) {
+    selectedCampus = campus;
+    formHeading.textContent = `Tell us about you`;
+
+    if (campus.logo_url) brandLogo.src = campus.logo_url;
+    if (campus.photo_url) document.body.style.backgroundImage = `url("${campus.photo_url}")`;
+
+    const { data: seasons, error } = await sb
+      .from("seasons")
+      .select("*")
+      .eq("campus_id", campus.id)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error || !seasons || seasons.length === 0) {
+      errorMsg.textContent = "This campus isn't accepting sign-ups right now — please check back later.";
+      errorMsg.style.display = "block";
+      return;
+    }
+    resolvedSeasonId = seasons[0].id;
+
+    stepCampus.style.display = "none";
+    stepForm.style.display = "block";
+  }
+
+  backToCampus.addEventListener("click", () => {
+    stepForm.style.display = "none";
+    stepCampus.style.display = "block";
+    errorMsg.style.display = "none";
+    brandLogo.src = "assets/logo-mark.png";
+    document.body.style.backgroundImage = "";
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = form.name.value.trim();
+    if (!name) { form.name.focus(); return; }
+    if (!resolvedSeasonId) { return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
+    errorMsg.style.display = "none";
+
+    const payload = {
+      name,
+      nationality: form.nationality.value.trim() || null,
+      course: form.course.value.trim() || null,
+      phone: form.phone.value.trim() || null,
+      age: form.age.value ? parseInt(form.age.value, 10) : null,
+      year: form.year.value.trim() || null,
+      faith_background: form.faith_background.value.trim() || null,
+      interest_event: document.getElementById("f-interest-event").checked,
+      interest_lg: document.getElementById("f-interest-lg").checked,
+      interest_church: document.getElementById("f-interest-church").checked,
+      season_id: resolvedSeasonId,
+      source: "online"
+    };
+
+    try {
+      const { error } = await sb.from("contacts").insert(payload);
+      if (error) throw error;
+      stepForm.style.display = "none";
+      stepThanks.style.display = "block";
+    } catch (err) {
+      errorMsg.textContent = `Something went wrong — ${err.message || "please try again"}.`;
+      errorMsg.style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit";
+    }
+  });
+
+  loadCampuses();
+</script>
+</body>
+</html>

@@ -286,6 +286,46 @@
     margin-bottom: 16px;
   }
 
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .tab-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .source-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--info-bg);
+    color: var(--info);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
   .flatpickr-calendar {
     font-family: var(--font);
     border-radius: 16px;
@@ -622,6 +662,11 @@
 
   <div id="confirm-banner"></div>
 
+  <div class="tab-row">
+    <button class="tab-btn active" id="tab-all" data-tab="all">All Contacts</button>
+    <button class="tab-btn" id="tab-online" data-tab="online">Online Sign-ups</button>
+  </div>
+
   <div class="toolbar">
     <input id="search-input" type="text" placeholder="Search by name" />
     <select id="sort-select">
@@ -830,6 +875,9 @@
   let contacts = [];
   let openDetailId = null;
   let followupsOnly = false;
+  let activeTab = "all";
+  const tabAll = document.getElementById("tab-all");
+  const tabOnline = document.getElementById("tab-online");
   let isAdmin = false;
   let pendingDeleteId = null;
   let editingId = null;
@@ -919,6 +967,10 @@
     const q = searchInput.value.trim().toLowerCase();
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
 
+    if (activeTab === "online") {
+      list = list.filter(c => c.source === "online");
+    }
+
     if (followupsOnly) {
       list = list.filter(c => !!c.reminder_date);
     }
@@ -945,7 +997,9 @@
     }
     if (list.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = followupsOnly
+      emptyStateEl.textContent = activeTab === "online"
+        ? "No online sign-ups yet."
+        : followupsOnly
         ? "No upcoming follow-ups right now."
         : "No matches for that search.";
       return;
@@ -960,7 +1014,7 @@
 
       wrap.innerHTML = `
         <div class="row">
-          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}</span>
+          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}</span>
           <span class="connector">${escapeHtml(c.connector || "—")}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}">
             ${reminderOptionsHtml(c)}
@@ -1180,6 +1234,15 @@
     followupsToggle.classList.toggle("active", followupsOnly);
     render();
   });
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+    tabAll.classList.toggle("active", tab === "all");
+    tabOnline.classList.toggle("active", tab === "online");
+    render();
+  }
+  tabAll.addEventListener("click", () => setActiveTab("all"));
+  tabOnline.addEventListener("click", () => setActiveTab("online"));
 
   openBtn.addEventListener("click", () => {
     editingId = null;

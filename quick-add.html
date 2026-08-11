@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — Quick Add</title>
+<script src="theme.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7; --surface: #FFFFFF; --surface-2: #F9FAFB;
+    --text: #1A1D23; --text-muted: #6B7280; --border: #E2E4E9;
+    --accent: #A8452F; --accent-hover: #8F3B28;
+    --danger: #B91C1C; --danger-bg: #FEE2E2;
+    --success: #15803D; --success-bg: #DCFCE7;
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171B; --surface: #1E2126; --surface-2: #262A31;
+    --text: #ECEDEF; --text-muted: #9AA0AC; --border: #33373F;
+    --accent: #C2573D; --accent-hover: #D66748;
+    --danger: #F87171; --danger-bg: #3A1518;
+    --success: #22C55E; --success-bg: #123320;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--font); background: var(--bg);
+    color: var(--text); min-height: 100vh; padding: 24px 16px 60px;
+  }
+  .card { width: 100%; max-width: 480px; margin: 0 auto; background: var(--surface); border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 26px; }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+
+  .field { margin-bottom: 13px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; font-family: var(--font); font-size: 14px; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 12px; background: #FFFFFF; color: #1A1D23;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .interest-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 2px; }
+  .switch-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+  .switch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch-track { position: relative; width: 40px; height: 24px; background: var(--border); border-radius: 999px; flex-shrink: 0; transition: background 0.2s ease; }
+  .switch-thumb { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s ease; }
+  .switch-toggle input:checked + .switch-track { background: var(--success); }
+  .switch-toggle input:checked + .switch-track .switch-thumb { transform: translateX(16px); }
+
+  #submit-btn {
+    width: 100%; background: var(--accent); border: none; border-radius: 14px;
+    padding: 13px; color: white; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 4px;
+  }
+  #submit-btn:hover { background: var(--accent-hover); }
+  #submit-btn:disabled { opacity: 0.6; cursor: default; }
+
+  .season-tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
+    background: var(--surface-2); padding: 5px 12px; border-radius: 999px; margin-bottom: 16px;
+  }
+
+  #error-msg { display: none; font-size: 13px; color: var(--danger); background: var(--danger-bg); padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+
+  .success-state { text-align: center; padding: 10px 0; }
+  .success-state .check {
+    width: 52px; height: 52px; border-radius: 50%; background: var(--success-bg); color: var(--success);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 26px;
+  }
+  .success-state h2 { font-size: 17px; margin: 0 0 18px; }
+  .success-state .actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn-secondary {
+    background: var(--accent); border: none; border-radius: 12px; padding: 11px; color: white; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .btn-tertiary {
+    background: none; border: 1px solid var(--border); border-radius: 12px; padding: 11px; color: var(--text); font-size: 13px; cursor: pointer;
+  }
+
+  .picker-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .picker-option {
+    padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2);
+    cursor: pointer; font-size: 14px; font-weight: 500;
+  }
+  .picker-option:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="card" id="card">Loading…</div>
+
+<script>
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const card = document.getElementById("card");
+  const LS_SEASON = "ocr-quickadd-season";
+  const LS_CAMPUS = "ocr-quickadd-campus";
+  const LS_NAME = "ocr-quickadd-membername";
+
+  let seasonId = null;
+  let campusId = null;
+  let seasonInfo = null;
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  async function resolveContext() {
+    const params = new URLSearchParams(window.location.search);
+    seasonId = params.get("season");
+    campusId = params.get("campus");
+
+    if (!seasonId) {
+      seasonId = localStorage.getItem(LS_SEASON);
+      campusId = localStorage.getItem(LS_CAMPUS);
+    }
+
+    if (seasonId) {
+      const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).maybeSingle();
+      if (!error && data) {
+        seasonInfo = data;
+        campusId = data.campus_id;
+        localStorage.setItem(LS_SEASON, seasonId);
+        localStorage.setItem(LS_CAMPUS, campusId);
+        history.replaceState(null, "", `quick-add.html?season=${seasonId}&campus=${campusId}`);
+        renderForm();
+        return;
+      }
+    }
+
+    renderPicker();
+  }
+
+  async function renderPicker() {
+    const { data: campuses, error } = await sb.from("campuses").select("*").order("created_at", { ascending: false });
+    if (error || !campuses || campuses.length === 0) {
+      card.innerHTML = `<p style="font-size:14px;color:var(--text-muted);">No campuses set up yet — visit the Campuses page first.</p>`;
+      return;
+    }
+    card.innerHTML = `
+      <h1>Which campus?</h1>
+      <div class="subtitle">First time here — pick once and it's remembered next time</div>
+      <div class="picker-list" id="picker-list"></div>
+    `;
+    const list = document.getElementById("picker-list");
+    list.innerHTML = campuses.map(c => `<div class="picker-option" data-id="${c.id}">${escapeHtml(c.name)}</div>`).join("");
+    list.querySelectorAll(".picker-option").forEach(el => {
+      el.addEventListener("click", () => pickCampus(el.dataset.id));
+    });
+  }
+
+  async function pickCampus(id) {
+    const { data: seasons, error } = await sb
+      .from("seasons").select("*").eq("campus_id", id)
+      .order("created_at", { ascending: false }).limit(1);
+    if (error || !seasons || seasons.length === 0) {
+      card.innerHTML = `<p style="font-size:14px;color:var(--text-muted);">This campus has no seasons yet — set one up on the Seasons page first.</p>`;
+      return;
+    }
+    seasonInfo = seasons[0];
+    seasonId = seasonInfo.id;
+    campusId = id;
+    localStorage.setItem(LS_SEASON, seasonId);
+    localStorage.setItem(LS_CAMPUS, campusId);
+    history.replaceState(null, "", `quick-add.html?season=${seasonId}&campus=${campusId}`);
+    renderForm();
+  }
+
+  function renderForm() {
+    const savedName = localStorage.getItem(LS_NAME) || "";
+    card.innerHTML = `
+      <div class="season-tag">📍 ${escapeHtml(seasonInfo.name)}</div>
+      <h1>Quick add</h1>
+      <div class="subtitle">Add someone you just met</div>
+      <div id="error-msg"></div>
+      <form id="quick-form">
+        <div class="field">
+          <label for="f-name">Their name *</label>
+          <input id="f-name" type="text" required />
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="f-nationality">Nationality</label>
+            <input id="f-nationality" type="text" />
+          </div>
+          <div class="field">
+            <label for="f-course">Course</label>
+            <input id="f-course" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-phone">Phone number</label>
+          <input id="f-phone" type="tel" placeholder="e.g. 9123 4567" />
+        </div>
+        <div class="field">
+          <label for="f-connector">Your name (point person)</label>
+          <input id="f-connector" type="text" value="${escapeHtml(savedName)}" placeholder="So we know who to follow up with" />
+        </div>
+        <div class="field">
+          <label>Interested in</label>
+          <div class="interest-row">
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-event" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>Event</span>
+            </label>
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-lg" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>LG</span>
+            </label>
+            <label class="switch-toggle">
+              <input type="checkbox" id="f-interest-church" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span>Church</span>
+            </label>
+          </div>
+        </div>
+        <button type="submit" id="submit-btn">Save contact</button>
+      </form>
+    `;
+
+    const form = document.getElementById("quick-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const errorMsg = document.getElementById("error-msg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("f-name").value.trim();
+      if (!name) return;
+
+      const connector = document.getElementById("f-connector").value.trim();
+      if (connector) localStorage.setItem(LS_NAME, connector);
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving...";
+      errorMsg.style.display = "none";
+
+      const payload = {
+        name,
+        nationality: document.getElementById("f-nationality").value.trim() || null,
+        course: document.getElementById("f-course").value.trim() || null,
+        phone: document.getElementById("f-phone").value.trim() || null,
+        connector: connector || null,
+        interest_event: document.getElementById("f-interest-event").checked,
+        interest_lg: document.getElementById("f-interest-lg").checked,
+        interest_church: document.getElementById("f-interest-church").checked,
+        season_id: seasonId,
+        source: "member"
+      };
+
+      try {
+        const { error } = await sb.from("contacts").insert(payload);
+        if (error) throw error;
+        renderSuccess(name);
+      } catch (err) {
+        errorMsg.textContent = `Couldn't save — ${err.message || "check your connection"}.`;
+        errorMsg.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Save contact";
+      }
+    });
+  }
+
+  function renderSuccess(name) {
+    card.innerHTML = `
+      <div class="success-state">
+        <div class="check">✓</div>
+        <h2>${escapeHtml(name)} added</h2>
+        <div class="actions">
+          <button class="btn-secondary" id="add-another-btn">Add another</button>
+          <button class="btn-tertiary" id="view-dashboard-btn">View full dashboard</button>
+          <button class="btn-tertiary" id="change-campus-btn">Change campus</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("add-another-btn").addEventListener("click", renderForm);
+    document.getElementById("view-dashboard-btn").addEventListener("click", () => {
+      window.location.href = `index.html?season=${seasonId}&campus=${campusId}`;
+    });
+    document.getElementById("change-campus-btn").addEventListener("click", () => {
+      localStorage.removeItem(LS_SEASON);
+      localStorage.removeItem(LS_CAMPUS);
+      history.replaceState(null, "", "quick-add.html");
+      renderPicker();
+    });
+  }
+
+  resolveContext();
+</script>
+</body>
+</html>
