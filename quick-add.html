@@ -135,6 +135,18 @@
   let campusId = null;
   let seasonInfo = null;
 
+  // Where to send the user back to — set by whichever page linked here.
+  const entryParams = new URLSearchParams(window.location.search);
+  const returnTo = entryParams.get("return");           // 'campuses' | 'seasons' | null
+  const returnCampusId = entryParams.get("returnCampus");
+
+  function getBackUrl() {
+    if (returnTo === "campuses") return "campuses.html";
+    if (returnTo === "seasons") return `seasons.html?campus=${returnCampusId || campusId || ""}`;
+    if (seasonId) return `index.html?season=${seasonId}&campus=${campusId || ""}`;
+    return "campuses.html";
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -184,7 +196,7 @@
       <div class="picker-list" id="picker-list"></div>
     `;
     document.getElementById("picker-exit-link").addEventListener("click", () => {
-      window.location.href = "campuses.html";
+      window.location.href = getBackUrl();
     });
     const list = document.getElementById("picker-list");
     list.innerHTML = campuses.map(c => `<div class="picker-option" data-id="${c.id}">${escapeHtml(c.name)}</div>`).join("");
@@ -215,8 +227,12 @@
     const { data: campusesData } = await sb.from("campuses").select("*").order("name", { ascending: true });
     const allCampuses = campusesData || [];
 
+    const backLabel = returnTo === "campuses" ? "Back to campuses"
+      : returnTo === "seasons" ? "Back to seasons"
+      : "Back to dashboard";
+
     card.innerHTML = `
-      <a class="exit-link" id="exit-link">&larr; Back to dashboard</a>
+      <a class="exit-link" id="exit-link">&larr; ${backLabel}</a>
       <div class="season-tag">📍 ${escapeHtml(seasonInfo.name)}</div>
       <h1>Quick add</h1>
       <div class="subtitle">Add someone you just met</div>
@@ -289,7 +305,7 @@
     const errorMsg = document.getElementById("error-msg");
 
     document.getElementById("exit-link").addEventListener("click", () => {
-      window.location.href = `index.html?season=${seasonId}&campus=${campusId}`;
+      window.location.href = getBackUrl();
     });
 
     document.getElementById("f-campus").addEventListener("change", (e) => {

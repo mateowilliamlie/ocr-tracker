@@ -95,6 +95,7 @@
     gap: 12px;
   }
   .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .topbar-brand-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; cursor: pointer; }
   .theme-toggle-wrap { grid-column: 1; justify-self: start; }
 
   .theme-switch { display: inline-flex; cursor: pointer; }
@@ -316,11 +317,13 @@
     </label>
   </div>
   <div class="topbar-brand">
-    <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
-    <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
+    <a class="topbar-brand-link" href="campuses.html" aria-label="Back to campuses">
+      <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
+      <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
+    </a>
   </div>
   <div class="topbar-right">
-    <a class="quickadd-btn" href="quick-add.html">+ Quick Add</a>
+    <a class="quickadd-btn" id="quickadd-link" href="quick-add.html?return=seasons">+ Quick Add</a>
     <div class="admin-area" id="admin-area"></div>
   </div>
 </div>
@@ -433,6 +436,11 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const campusId = new URLSearchParams(window.location.search).get("campus");
+
+  const quickAddLink = document.getElementById("quickadd-link");
+  if (quickAddLink && campusId) {
+    quickAddLink.href = `quick-add.html?return=seasons&returnCampus=${campusId}`;
+  }
 
   const adminArea = document.getElementById("admin-area");
   const loginDialog = document.getElementById("login-dialog");
