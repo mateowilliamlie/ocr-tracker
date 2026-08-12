@@ -324,11 +324,11 @@
   #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
   .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-  #cancel-btn, #login-cancel-btn, #bg-cancel-btn {
+  #cancel-btn, #login-cancel-btn, #bg-cancel-btn, #confirm-cancel-btn {
     background: none; border: 1px solid var(--border); border-radius: 12px;
     padding: 10px 18px; color: var(--text);
   }
-  #submit-btn, #login-submit-btn, #bg-submit-btn {
+  #submit-btn, #login-submit-btn, #bg-submit-btn, #confirm-submit-btn {
     background: var(--accent); border: none; border-radius: 12px;
     padding: 10px 18px; color: white; font-weight: 500;
   }
@@ -405,9 +405,32 @@
           <span class="file-name" id="f-logo-name">No file chosen</span>
         </div>
       </div>
+      <div class="form-actions" style="justify-content: space-between;">
+        <button type="button" id="delete-campus-btn" style="display:none; background:none; border:1px solid var(--danger); color:var(--danger); border-radius:12px; padding:10px 16px; font-size:13px;">Delete campus</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="cancel-btn">Cancel</button>
+          <button type="submit" id="submit-btn">Create campus</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog">
+    <form id="confirm-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 8px; font-size: 17px;">Confirm deletion</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 16px;">This is permanent. Re-enter the admin login to confirm.</p>
+      <div id="confirm-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-bottom:12px;"></div>
+      <div class="field">
+        <label for="confirm-email">Admin email</label>
+        <input id="confirm-email" type="email" required />
+      </div>
+      <div class="field">
+        <label for="confirm-password">Admin password</label>
+        <input id="confirm-password" type="password" required />
+      </div>
       <div class="form-actions">
-        <button type="button" id="cancel-btn">Cancel</button>
-        <button type="submit" id="submit-btn">Create campus</button>
+        <button type="button" id="confirm-cancel-btn">Cancel</button>
+        <button type="submit" id="confirm-submit-btn" style="background:var(--danger);">Delete permanently</button>
       </div>
     </form>
   </dialog>
@@ -511,7 +534,7 @@
 
       const logoHtml = c.logo_url
         ? `<img class="banner-logo" src="${c.logo_url}" alt="" />`
-        : `<div class="banner-logo-placeholder">${escapeHtml((c.name || "?").charAt(0).toUpperCase())}</div>`;
+        : `<div class="banner-logo-placeholder ocr-wordmark" style="font-family:'Poppins',var(--font);font-weight:800;">OCR</div>`;
 
       card.innerHTML = `
         <div class="banner-card-overlay"></div>
@@ -544,6 +567,7 @@
     form.reset();
     document.getElementById("f-photo-name").textContent = "No file chosen";
     document.getElementById("f-logo-name").textContent = "No file chosen";
+    document.getElementById("delete-campus-btn").style.display = "none";
     dialog.showModal();
   });
 
@@ -559,6 +583,7 @@
     form.name.value = c.name || "";
     document.getElementById("f-photo-name").textContent = "No file chosen";
     document.getElementById("f-logo-name").textContent = "No file chosen";
+    document.getElementById("delete-campus-btn").style.display = "inline-block";
     dialog.showModal();
   });
 
@@ -704,6 +729,69 @@
     await applyPageBackground();
     await loadCampuses();
   }
+
+  const confirmDialog = document.getElementById("confirm-dialog");
+  const confirmForm = document.getElementById("confirm-form");
+  const confirmCancelBtn = document.getElementById("confirm-cancel-btn");
+  const confirmSubmitBtn = document.getElementById("confirm-submit-btn");
+  const confirmError = document.getElementById("confirm-error");
+  let pendingDeleteCampusId = null;
+
+  document.getElementById("delete-campus-btn").addEventListener("click", async () => {
+    if (!editingId) return;
+    const { count, error } = await sb
+      .from("seasons")
+      .select("id", { count: "exact", head: true })
+      .eq("campus_id", editingId);
+    if (error) {
+      showBanner(`Couldn't check this campus — ${error.message}`, true);
+      return;
+    }
+    if (count > 0) {
+      showBanner(`This campus still has ${count} season(s) — delete those first.`, true);
+      return;
+    }
+    pendingDeleteCampusId = editingId;
+    confirmForm.reset();
+    confirmError.style.display = "none";
+    dialog.close();
+    confirmDialog.showModal();
+  });
+
+  confirmCancelBtn.addEventListener("click", () => confirmDialog.close());
+
+  confirmForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("confirm-email").value.trim();
+    const password = document.getElementById("confirm-password").value;
+
+    confirmSubmitBtn.disabled = true;
+    confirmSubmitBtn.textContent = "Verifying...";
+    confirmError.style.display = "none";
+
+    try {
+      const { error: authError } = await sb.auth.signInWithPassword({ email, password });
+      if (authError) {
+        confirmError.textContent = "Incorrect admin email or password.";
+        confirmError.style.display = "block";
+        return;
+      }
+
+      const { error: delError } = await sb.from("campuses").delete().eq("id", pendingDeleteCampusId);
+      if (delError) throw delError;
+
+      campuses = campuses.filter(c => c.id !== pendingDeleteCampusId);
+      confirmDialog.close();
+      showBanner("Campus deleted", false);
+      render();
+    } catch (err) {
+      confirmError.textContent = `Couldn't delete — ${err.message || "check your connection"}.`;
+      confirmError.style.display = "block";
+    } finally {
+      confirmSubmitBtn.disabled = false;
+      confirmSubmitBtn.textContent = "Delete permanently";
+    }
+  });
 
   init();
 </script>

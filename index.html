@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -649,7 +649,8 @@
     </label>
   </div>
   <div class="topbar-brand">
-    <img id="topbar-logo" class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
+    <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
+    <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
   </div>
   <div class="admin-area" id="admin-area"></div>
 </div>
@@ -1569,7 +1570,11 @@
     if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
 
     if (data.logo_url) {
-      document.getElementById("topbar-logo").src = data.logo_url;
+      const topbarLogo = document.getElementById("topbar-logo");
+      const wordmark = document.getElementById("wordmark-fallback");
+      topbarLogo.onload = () => { topbarLogo.style.display = "block"; wordmark.style.display = "none"; };
+      topbarLogo.onerror = () => { topbarLogo.style.display = "none"; wordmark.style.display = "block"; };
+      topbarLogo.src = data.logo_url;
     }
 
     await loadCampusesForDropdown();

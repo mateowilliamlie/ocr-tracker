@@ -7,7 +7,7 @@
 <script src="theme.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -240,10 +240,10 @@
   #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
   .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-  #cancel-btn, #login-cancel-btn, #bg-cancel-btn {
+  #cancel-btn, #login-cancel-btn, #bg-cancel-btn, #confirm-cancel-btn {
     background: none; border: 1px solid var(--border); border-radius: 12px; padding: 10px 18px; color: var(--text);
   }
-  #submit-btn, #login-submit-btn, #bg-submit-btn {
+  #submit-btn, #login-submit-btn, #bg-submit-btn, #confirm-submit-btn {
     background: var(--accent); border: none; border-radius: 12px; padding: 10px 18px; color: white; font-weight: 500;
   }
   #submit-btn:disabled, #login-submit-btn:disabled, #bg-submit-btn:disabled { opacity: 0.6; cursor: default; }
@@ -262,7 +262,8 @@
     </label>
   </div>
   <div class="topbar-brand">
-    <img id="topbar-logo" class="brand-logo" src="assets/logo-mark.png" alt="OCR logo" />
+    <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
+    <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
   </div>
   <div class="admin-area" id="admin-area"></div>
 </div>
@@ -320,9 +321,32 @@
           <span class="file-name" id="f-logo-name">No file chosen</span>
         </div>
       </div>
+      <div class="form-actions" style="justify-content: space-between;">
+        <button type="button" id="delete-season-btn" style="display:none; background:none; border:1px solid var(--danger); color:var(--danger); border-radius:12px; padding:10px 16px; font-size:13px;">Delete season</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="cancel-btn">Cancel</button>
+          <button type="submit" id="submit-btn">Create season</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog">
+    <form id="confirm-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 8px; font-size: 17px;">Confirm deletion</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 16px;">This is permanent. Re-enter the admin login to confirm.</p>
+      <div id="confirm-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-bottom:12px;"></div>
+      <div class="field">
+        <label for="confirm-email">Admin email</label>
+        <input id="confirm-email" type="email" required />
+      </div>
+      <div class="field">
+        <label for="confirm-password">Admin password</label>
+        <input id="confirm-password" type="password" required />
+      </div>
       <div class="form-actions">
-        <button type="button" id="cancel-btn">Cancel</button>
-        <button type="submit" id="submit-btn">Create season</button>
+        <button type="button" id="confirm-cancel-btn">Cancel</button>
+        <button type="submit" id="confirm-submit-btn" style="background:var(--danger);">Delete permanently</button>
       </div>
     </form>
   </dialog>
@@ -413,7 +437,11 @@
       const bgUrl = data.background_override_url || data.photo_url;
       if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
       if (data.logo_url) {
-        document.getElementById("topbar-logo").src = data.logo_url;
+        const topbarLogo = document.getElementById("topbar-logo");
+        const wordmark = document.getElementById("wordmark-fallback");
+        topbarLogo.onload = () => { topbarLogo.style.display = "block"; wordmark.style.display = "none"; };
+        topbarLogo.onerror = () => { topbarLogo.style.display = "none"; wordmark.style.display = "block"; };
+        topbarLogo.src = data.logo_url;
       }
     }
   }
@@ -452,7 +480,7 @@
 
       const logoHtml = s.logo_url
         ? `<img class="banner-logo" src="${s.logo_url}" alt="" />`
-        : `<div class="banner-logo-placeholder">${escapeHtml((s.name || "?").charAt(0).toUpperCase())}</div>`;
+        : `<div class="banner-logo-placeholder" style="font-family:'Poppins',var(--font);font-weight:800;">OCR</div>`;
 
       card.innerHTML = `
         <div class="banner-card-overlay"></div>
@@ -486,6 +514,7 @@
     form.reset();
     document.getElementById("f-photo-name").textContent = "No file chosen";
     document.getElementById("f-logo-name").textContent = "No file chosen";
+    document.getElementById("delete-season-btn").style.display = "none";
     dialog.showModal();
   });
 
@@ -501,6 +530,7 @@
     form.name.value = s.name || "";
     document.getElementById("f-photo-name").textContent = "No file chosen";
     document.getElementById("f-logo-name").textContent = "No file chosen";
+    document.getElementById("delete-season-btn").style.display = "inline-block";
     dialog.showModal();
   });
 
@@ -643,6 +673,69 @@
     await loadCampusAndBackground();
     await loadSeasons();
   }
+
+  const confirmDialog = document.getElementById("confirm-dialog");
+  const confirmForm = document.getElementById("confirm-form");
+  const confirmCancelBtn = document.getElementById("confirm-cancel-btn");
+  const confirmSubmitBtn = document.getElementById("confirm-submit-btn");
+  const confirmError = document.getElementById("confirm-error");
+  let pendingDeleteSeasonId = null;
+
+  document.getElementById("delete-season-btn").addEventListener("click", async () => {
+    if (!editingId) return;
+    const { count, error } = await sb
+      .from("contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("season_id", editingId);
+    if (error) {
+      showBanner(`Couldn't check this season — ${error.message}`, true);
+      return;
+    }
+    if (count > 0) {
+      showBanner(`This season still has ${count} contact(s) — transfer or delete them first.`, true);
+      return;
+    }
+    pendingDeleteSeasonId = editingId;
+    confirmForm.reset();
+    confirmError.style.display = "none";
+    dialog.close();
+    confirmDialog.showModal();
+  });
+
+  confirmCancelBtn.addEventListener("click", () => confirmDialog.close());
+
+  confirmForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("confirm-email").value.trim();
+    const password = document.getElementById("confirm-password").value;
+
+    confirmSubmitBtn.disabled = true;
+    confirmSubmitBtn.textContent = "Verifying...";
+    confirmError.style.display = "none";
+
+    try {
+      const { error: authError } = await sb.auth.signInWithPassword({ email, password });
+      if (authError) {
+        confirmError.textContent = "Incorrect admin email or password.";
+        confirmError.style.display = "block";
+        return;
+      }
+
+      const { error: delError } = await sb.from("seasons").delete().eq("id", pendingDeleteSeasonId);
+      if (delError) throw delError;
+
+      seasons = seasons.filter(s => s.id !== pendingDeleteSeasonId);
+      confirmDialog.close();
+      showBanner("Season deleted", false);
+      render();
+    } catch (err) {
+      confirmError.textContent = `Couldn't delete — ${err.message || "check your connection"}.`;
+      confirmError.style.display = "block";
+    } finally {
+      confirmSubmitBtn.disabled = false;
+      confirmSubmitBtn.textContent = "Delete permanently";
+    }
+  });
 
   init();
 </script>
