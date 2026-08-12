@@ -131,6 +131,10 @@
       <h1>Let's get connected</h1>
       <div class="subtitle">Pick your campus to get started</div>
       <div class="campus-list" id="campus-list"></div>
+      <div class="field" style="margin-top: 16px;">
+        <label for="f-picker-other-school">Not from one of these schools? Let us know anyway</label>
+        <input id="f-picker-other-school" type="text" placeholder="e.g. Lingnan University" />
+      </div>
     </div>
 
     <div id="step-form" style="display:none;">
@@ -238,6 +242,7 @@
 
   let selectedCampus = null;
   let resolvedSeasonId = null;
+  let otherSchoolNote = null;
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => ({
@@ -265,6 +270,7 @@
     campusList.querySelectorAll(".campus-option").forEach(el => {
       el.addEventListener("click", () => {
         const c = data.find(x => x.id === el.dataset.id);
+        otherSchoolNote = document.getElementById("f-picker-other-school").value.trim() || null;
         selectCampus(c);
       });
     });
@@ -335,6 +341,7 @@
       interest_event: document.getElementById("f-interest-event").checked,
       interest_lg: document.getElementById("f-interest-lg").checked,
       interest_church: document.getElementById("f-interest-church").checked,
+      other_campus_note: otherSchoolNote || null,
       season_id: resolvedSeasonId,
       source: "online"
     };
