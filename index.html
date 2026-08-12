@@ -295,7 +295,7 @@
   .field textarea {
     width: 100%;
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 16px;
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -447,7 +447,7 @@
   #search-input {
     flex: 1;
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 16px;
     padding: 9px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -695,12 +695,9 @@
       max-width: 100%;
     }
 
-    #search-input,
-    #sort-select,
-    .field input,
-    .field select,
-    .field textarea,
-    .row select.reminder-select,
+    /* .row .reminder-date-input is a real text field (flatpickr) inside a
+       dense table row — kept small (12px) on desktop for the compact layout,
+       but must be >=16px here or iOS Safari auto-zooms the whole page on focus. */
     .row .reminder-date-input {
       font-size: 16px;
     }
