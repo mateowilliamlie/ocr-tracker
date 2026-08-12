@@ -1701,8 +1701,7 @@
     authGate.style.display = "none";
     appContent.style.display = "block";
     updateAdminUI();
-    loadSeasonContext();
-    loadContacts();
+    await Promise.all([loadSeasonContext(), loadContacts()]);
   }
 
   gateForm.addEventListener("submit", async (e) => {
@@ -1723,7 +1722,8 @@
       }
       isSignedIn = true;
       isAdmin = getIsAdminFromSession(data.session);
-      unlockDashboard();
+      showPageLoader();
+      await unlockDashboard();
       showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
     } catch (err) {
       gateError.textContent = "Couldn't sign in — check your connection and try again.";
@@ -1731,6 +1731,7 @@
     } finally {
       gateSubmitBtn.disabled = false;
       gateSubmitBtn.textContent = "Sign in";
+      hidePageLoader();
     }
   });
 
@@ -1748,7 +1749,7 @@
       isSignedIn = !!data.session;
       isAdmin = getIsAdminFromSession(data.session);
       if (isSignedIn) {
-        unlockDashboard();
+        await unlockDashboard();
       } else {
         authGate.style.display = "flex";
       }
