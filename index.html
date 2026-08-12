@@ -262,7 +262,7 @@
     padding: 0;
     width: calc(100% - 32px);
     max-width: 420px;
-    max-height: 88vh;
+    max-height: var(--dialog-max-h, 88vh);
     background: var(--surface);
     color: var(--text);
     position: fixed;
@@ -279,12 +279,13 @@
     opacity: 1;
   }
 
-  #add-form, #login-form {
-    padding: 22px;
-    max-height: 88vh;
+  #add-form, #login-form, #transfer-form, #bg-form {
+    max-height: var(--dialog-max-h, 88vh);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  #add-form { padding: 22px; }
+  #login-form { padding: 22px; }
   #add-form h2 { margin: 0 0 18px; font-size: 18px; }
 
   .field { margin-bottom: 14px; }
@@ -980,6 +981,29 @@
 </main>
 
 <script>
+  // On mobile, the on-screen keyboard eats a large chunk of the visible
+  // screen, but `vh` units don't account for it — a dialog sized to 88vh
+  // can end up with its lower fields hidden behind the keyboard with no
+  // way to scroll to them. VisualViewport reports the *actual* visible
+  // height (post-keyboard), so we track it and shrink the dialog's
+  // max-height to match, keeping every field reachable via scroll.
+  // Desktop is untouched — falls back to the plain 88vh in CSS.
+  function updateMobileDialogHeight() {
+    const isMobile = window.innerWidth <= 520;
+    if (!isMobile || !window.visualViewport) {
+      document.documentElement.style.removeProperty("--dialog-max-h");
+      return;
+    }
+    const visibleHeight = window.visualViewport.height;
+    document.documentElement.style.setProperty("--dialog-max-h", (visibleHeight * 0.9) + "px");
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateMobileDialogHeight);
+    window.visualViewport.addEventListener("scroll", updateMobileDialogHeight);
+  }
+  window.addEventListener("resize", updateMobileDialogHeight);
+  updateMobileDialogHeight();
+
   const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
   const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
