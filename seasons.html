@@ -661,14 +661,18 @@
     }
   });
 
+  function getIsAdminFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+  }
+
   sb.auth.onAuthStateChange((event, session) => {
-    isAdmin = !!session;
+    isAdmin = getIsAdminFromSession(session);
     updateAdminUI();
   });
 
   async function init() {
     const { data } = await sb.auth.getSession();
-    isAdmin = !!data.session;
+    isAdmin = getIsAdminFromSession(data.session);
     updateAdminUI();
     await loadCampusAndBackground();
     await loadSeasons();

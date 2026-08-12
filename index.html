@@ -286,6 +286,28 @@
     margin-bottom: 16px;
   }
 
+  #auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: 24px 0;
+  }
+  .auth-gate-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .auth-gate-card h1 { font-size: 19px; margin: 0 0 6px; }
+  .auth-gate-card .subtitle { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  #gate-error {
+    font-size: 13px; color: var(--danger); background: var(--danger-bg);
+    padding: 10px 12px; border-radius: 10px; margin-bottom: 14px;
+  }
+
   .tab-row {
     display: flex;
     gap: 6px;
@@ -656,6 +678,27 @@
 </div>
 <main>
   <div class="modal-backdrop" id="modal-backdrop"></div>
+
+  <div id="auth-gate">
+    <div class="auth-gate-card">
+      <h1>Sign in to continue</h1>
+      <p class="subtitle">Viewing and editing contacts requires a member or admin login.</p>
+      <div id="gate-error" style="display:none;"></div>
+      <form id="gate-form">
+        <div class="field">
+          <label for="gate-email">Email</label>
+          <input id="gate-email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="gate-password">Password</label>
+          <input id="gate-password" type="password" required />
+        </div>
+        <button type="submit" id="gate-submit-btn" class="btn-primary" style="width:100%;">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-content" style="display:none;">
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
   <div class="add-row">
     <button id="open-add" class="btn-primary">+ New</button>
@@ -686,8 +729,20 @@
     <div id="loading-state" class="empty-state">Loading contacts…</div>
     <div id="empty-state" class="empty-state" style="display:none;"></div>
   </div>
+  </div>
 
-  <dialog id="login-dialog">
+  <dialog id="login-dialog" style="display:none;">
+    <!-- retained only so existing JS refs don't error; the real sign-in now happens at the auth gate -->
+    <form id="login-form">
+      <div class="field"><input id="l-email" name="email" type="email" /></div>
+      <div class="field"><input id="l-password" name="password" type="password" /></div>
+      <div id="login-error"></div>
+      <button type="button" id="login-cancel-btn">Cancel</button>
+      <button type="submit" id="login-submit-btn">Sign in</button>
+    </form>
+  </dialog>
+
+  <dialog id="add-dialog">
     <form id="login-form" style="padding: 20px;">
       <h2 style="margin: 0 0 16px; font-size: 17px;">Admin login</h2>
       <div id="login-error"></div>
@@ -1398,18 +1453,22 @@
   });
 
   function updateAdminUI() {
-    adminArea.innerHTML = isAdmin
-      ? `${seasonId ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
-      : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
+    if (!isSignedIn) {
+      adminArea.innerHTML = "";
+      return;
+    }
+    const label = isAdmin ? "Signed in as admin" : "Signed in as member";
+    adminArea.innerHTML = `${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>`;
   }
 
   adminArea.addEventListener("click", async (e) => {
-    if (e.target.id === "admin-login-btn") {
-      loginForm.reset();
-      loginError.style.display = "none";
-      openDialog(loginDialog);
-    } else if (e.target.id === "signout-btn") {
+    if (e.target.id === "signout-btn") {
       await sb.auth.signOut();
+      isSignedIn = false;
+      isAdmin = false;
+      document.getElementById("app-content").style.display = "none";
+      document.getElementById("auth-gate").style.display = "flex";
+      updateAdminUI();
       showBanner("Signed out", false);
     } else if (e.target.id === "edit-bg-btn") {
       bgForm.reset();
@@ -1580,50 +1639,74 @@
     await loadCampusesForDropdown();
   }
 
-  loginCancelBtn.addEventListener("click", () => loginDialog.close());
+  const authGate = document.getElementById("auth-gate");
+  const appContent = document.getElementById("app-content");
+  const gateForm = document.getElementById("gate-form");
+  const gateSubmitBtn = document.getElementById("gate-submit-btn");
+  const gateError = document.getElementById("gate-error");
+  let isSignedIn = false;
 
-  loginForm.addEventListener("submit", async (e) => {
+  function getIsAdminFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+  }
+
+  async function unlockDashboard() {
+    authGate.style.display = "none";
+    appContent.style.display = "block";
+    updateAdminUI();
+    loadSeasonContext();
+    loadContacts();
+  }
+
+  gateForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const email = loginForm.email.value.trim();
-    const password = loginForm.password.value;
+    const email = document.getElementById("gate-email").value.trim();
+    const password = document.getElementById("gate-password").value;
 
-    loginSubmitBtn.disabled = true;
-    loginSubmitBtn.textContent = "Signing in...";
-    loginError.style.display = "none";
+    gateSubmitBtn.disabled = true;
+    gateSubmitBtn.textContent = "Signing in...";
+    gateError.style.display = "none";
 
     try {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) {
-        loginError.textContent = "Incorrect email or password.";
-        loginError.style.display = "block";
+        gateError.textContent = "Incorrect email or password.";
+        gateError.style.display = "block";
         return;
       }
-      closeDialog(loginDialog);
-      showBanner("Signed in as admin", false);
+      isSignedIn = true;
+      isAdmin = getIsAdminFromSession(data.session);
+      unlockDashboard();
+      showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
     } catch (err) {
-      loginError.textContent = "Couldn't sign in — check your connection and try again.";
-      loginError.style.display = "block";
+      gateError.textContent = "Couldn't sign in — check your connection and try again.";
+      gateError.style.display = "block";
     } finally {
-      loginSubmitBtn.disabled = false;
-      loginSubmitBtn.textContent = "Sign in";
+      gateSubmitBtn.disabled = false;
+      gateSubmitBtn.textContent = "Sign in";
     }
   });
 
   sb.auth.onAuthStateChange((event, session) => {
-    isAdmin = !!session;
+    if (event === "SIGNED_OUT") return;
+    isSignedIn = !!session;
+    isAdmin = getIsAdminFromSession(session);
     updateAdminUI();
-    render();
+    if (isSignedIn) render();
   });
 
-  async function initAdminState() {
+  async function initAuthState() {
     const { data } = await sb.auth.getSession();
-    isAdmin = !!data.session;
-    updateAdminUI();
+    isSignedIn = !!data.session;
+    isAdmin = getIsAdminFromSession(data.session);
+    if (isSignedIn) {
+      unlockDashboard();
+    } else {
+      authGate.style.display = "flex";
+    }
   }
 
-  initAdminState();
-  loadSeasonContext();
-  loadContacts();
+  initAuthState();
 </script>
 </body>
 </html>
