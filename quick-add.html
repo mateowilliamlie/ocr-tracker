@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — Quick Add</title>
 <script src="theme.js"></script>
+<script src="loading.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -24,6 +28,30 @@
     --success: #22C55E; --success-bg: #123320;
   }
   * { box-sizing: border-box; }
+
+  #page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  }
+  #page-loader.hide { opacity: 0; pointer-events: none; }
+  .page-loader-mark {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    animation: pulse-swell 1.3s ease-in-out infinite;
+  }
+  @keyframes pulse-swell {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
   body {
     margin: 0; font-family: var(--font); background: var(--bg);
     color: var(--text); min-height: 100vh; padding: 24px 16px 60px;
@@ -86,6 +114,7 @@
 </style>
 </head>
 <body>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
   <div class="card" id="card">Loading…</div>
 
 <script>
@@ -109,29 +138,33 @@
   }
 
   async function resolveContext() {
-    const params = new URLSearchParams(window.location.search);
-    seasonId = params.get("season");
-    campusId = params.get("campus");
+    try {
+      const params = new URLSearchParams(window.location.search);
+      seasonId = params.get("season");
+      campusId = params.get("campus");
 
-    if (!seasonId) {
-      seasonId = localStorage.getItem(LS_SEASON);
-      campusId = localStorage.getItem(LS_CAMPUS);
-    }
-
-    if (seasonId) {
-      const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).maybeSingle();
-      if (!error && data) {
-        seasonInfo = data;
-        campusId = data.campus_id;
-        localStorage.setItem(LS_SEASON, seasonId);
-        localStorage.setItem(LS_CAMPUS, campusId);
-        history.replaceState(null, "", `quick-add.html?season=${seasonId}&campus=${campusId}`);
-        renderForm();
-        return;
+      if (!seasonId) {
+        seasonId = localStorage.getItem(LS_SEASON);
+        campusId = localStorage.getItem(LS_CAMPUS);
       }
-    }
 
-    renderPicker();
+      if (seasonId) {
+        const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).maybeSingle();
+        if (!error && data) {
+          seasonInfo = data;
+          campusId = data.campus_id;
+          localStorage.setItem(LS_SEASON, seasonId);
+          localStorage.setItem(LS_CAMPUS, campusId);
+          history.replaceState(null, "", `quick-add.html?season=${seasonId}&campus=${campusId}`);
+          await renderForm();
+          return;
+        }
+      }
+
+      await renderPicker();
+    } finally {
+      hidePageLoader();
+    }
   }
 
   async function renderPicker() {
@@ -325,6 +358,7 @@
     `;
     document.getElementById("add-another-btn").addEventListener("click", renderForm);
     document.getElementById("view-dashboard-btn").addEventListener("click", () => {
+      showPageLoader();
       window.location.href = `index.html?season=${seasonId}&campus=${campusId}`;
     });
     document.getElementById("change-campus-btn").addEventListener("click", () => {

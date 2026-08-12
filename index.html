@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — We Are Here</title>
 <script src="theme.js"></script>
+<script src="loading.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,6 +55,30 @@
   }
 
   * { box-sizing: border-box; }
+
+  #page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  }
+  #page-loader.hide { opacity: 0; pointer-events: none; }
+  .page-loader-mark {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    animation: pulse-swell 1.3s ease-in-out infinite;
+  }
+  @keyframes pulse-swell {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
 
   body {
     margin: 0;
@@ -659,6 +684,7 @@
 </style>
 </head>
 <body>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
 <div class="topbar">
   <div class="theme-toggle-wrap">
     <label class="theme-switch" aria-label="Toggle dark mode">
@@ -1677,15 +1703,21 @@
   });
 
   async function initAuthState() {
-    const { data } = await sb.auth.getSession();
-    isSignedIn = !!data.session;
-    isAdmin = getIsAdminFromSession(data.session);
-    if (isSignedIn) {
-      unlockDashboard();
-    } else {
-      authGate.style.display = "flex";
+    try {
+      const { data } = await sb.auth.getSession();
+      isSignedIn = !!data.session;
+      isAdmin = getIsAdminFromSession(data.session);
+      if (isSignedIn) {
+        unlockDashboard();
+      } else {
+        authGate.style.display = "flex";
+      }
+    } finally {
+      hidePageLoader();
     }
   }
+
+  backLink.addEventListener("click", () => showPageLoader());
 
   initAuthState();
 </script>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OCR — Seasons</title>
 <script src="theme.js"></script>
+<script src="loading.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
@@ -44,6 +45,30 @@
   }
 
   * { box-sizing: border-box; }
+
+  #page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  }
+  #page-loader.hide { opacity: 0; pointer-events: none; }
+  .page-loader-mark {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    animation: pulse-swell 1.3s ease-in-out infinite;
+  }
+  @keyframes pulse-swell {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
 
   body {
     margin: 0;
@@ -250,6 +275,7 @@
 </style>
 </head>
 <body>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
 <div class="topbar">
   <div class="theme-toggle-wrap">
     <label class="theme-switch" aria-label="Toggle dark mode">
@@ -268,7 +294,7 @@
   <div class="admin-area" id="admin-area"></div>
 </div>
 <main>
-  <a href="campuses.html" class="breadcrumb">&larr; Campuses</a>
+  <a href="campuses.html" class="breadcrumb" id="back-link">&larr; Campuses</a>
   <div class="page-header">
     <div class="page-title" id="page-title">Seasons</div>
     <button id="open-add" style="display:none;">+ New</button>
@@ -491,6 +517,7 @@
       `;
       card.addEventListener("click", (e) => {
         if (e.target.closest("[data-edit]")) return;
+        showPageLoader();
         window.location.href = card.dataset.href;
       });
       cardList.appendChild(card);
@@ -671,12 +698,18 @@
   });
 
   async function init() {
-    const { data } = await sb.auth.getSession();
-    isAdmin = getIsAdminFromSession(data.session);
-    updateAdminUI();
-    await loadCampusAndBackground();
-    await loadSeasons();
+    try {
+      const { data } = await sb.auth.getSession();
+      isAdmin = getIsAdminFromSession(data.session);
+      updateAdminUI();
+      await loadCampusAndBackground();
+      await loadSeasons();
+    } finally {
+      hidePageLoader();
+    }
   }
+
+  document.getElementById("back-link").addEventListener("click", () => showPageLoader());
 
   const confirmDialog = document.getElementById("confirm-dialog");
   const confirmForm = document.getElementById("confirm-form");
