@@ -306,7 +306,7 @@
 
   .date-input-wrap { position: relative; display: block; width: 100%; }
   .date-input-wrap input {
-    padding-right: 34px;
+    padding-right: 38px;
     width: 100% !important;
     box-sizing: border-box !important;
     max-width: 100%;
@@ -315,7 +315,7 @@
   }
   .date-input-icon {
     position: absolute;
-    right: 12px;
+    right: 16px;
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
@@ -1080,6 +1080,7 @@
     altInput: true,
     altFormat: "M j, Y",
     allowInput: true,
+    disableMobile: true,
     parseDate: (datestr) => flexibleParseDate(datestr)
   });
   const fpReminderDate = flatpickr("#f-reminder-date", {
@@ -1087,6 +1088,7 @@
     altInput: true,
     altFormat: "M j, Y",
     allowInput: true,
+    disableMobile: true,
     parseDate: (datestr) => flexibleParseDate(datestr)
   });
 
@@ -1380,6 +1382,7 @@
       altFormat: "M j, Y",
       altInputClass: "reminder-date-input",
       allowInput: true,
+      disableMobile: true,
       parseDate: (datestr) => flexibleParseDate(datestr),
       onChange: async (selectedDates, dateStr) => {
         committed = true;
