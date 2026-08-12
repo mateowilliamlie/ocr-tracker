@@ -104,6 +104,10 @@
   .btn-tertiary {
     background: none; border: 1px solid var(--border); border-radius: 12px; padding: 11px; color: var(--text); font-size: 13px; cursor: pointer;
   }
+  .exit-link {
+    display: inline-block; font-size: 13px; color: var(--text-muted); text-decoration: none; margin-bottom: 12px; cursor: pointer;
+  }
+  .exit-link:hover { color: var(--text); }
 
   .picker-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   .picker-option {
@@ -174,10 +178,14 @@
       return;
     }
     card.innerHTML = `
+      <a class="exit-link" id="picker-exit-link">&larr; Back to campuses</a>
       <h1>Which campus?</h1>
       <div class="subtitle">First time here — pick once and it's remembered next time</div>
       <div class="picker-list" id="picker-list"></div>
     `;
+    document.getElementById("picker-exit-link").addEventListener("click", () => {
+      window.location.href = "campuses.html";
+    });
     const list = document.getElementById("picker-list");
     list.innerHTML = campuses.map(c => `<div class="picker-option" data-id="${c.id}">${escapeHtml(c.name)}</div>`).join("");
     list.querySelectorAll(".picker-option").forEach(el => {
@@ -208,6 +216,7 @@
     const allCampuses = campusesData || [];
 
     card.innerHTML = `
+      <a class="exit-link" id="exit-link">&larr; Back to dashboard</a>
       <div class="season-tag">📍 ${escapeHtml(seasonInfo.name)}</div>
       <h1>Quick add</h1>
       <div class="subtitle">Add someone you just met</div>
@@ -278,6 +287,10 @@
     const form = document.getElementById("quick-form");
     const submitBtn = document.getElementById("submit-btn");
     const errorMsg = document.getElementById("error-msg");
+
+    document.getElementById("exit-link").addEventListener("click", () => {
+      window.location.href = `index.html?season=${seasonId}&campus=${campusId}`;
+    });
 
     document.getElementById("f-campus").addEventListener("change", (e) => {
       document.getElementById("other-campus-field").style.display = e.target.value === "other" ? "block" : "none";
