@@ -188,6 +188,12 @@
           <label for="f-campus">Campus</label>
           <select id="f-campus">
             ${allCampuses.map(c => `<option value="${c.id}" ${c.id === campusId ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+            <option value="other">Other (not listed)</option>
+          </select>
+        </div>
+        <div class="field" id="other-campus-field" style="display:none;">
+          <label for="f-other-campus">Which school (note only)</label>
+          <input id="f-other-campus" type="text" placeholder="e.g. Lingnan University" />
           </select>
         </div>
         <div class="row-2">
@@ -240,6 +246,10 @@
     const submitBtn = document.getElementById("submit-btn");
     const errorMsg = document.getElementById("error-msg");
 
+    document.getElementById("f-campus").addEventListener("change", (e) => {
+      document.getElementById("other-campus-field").style.display = e.target.value === "other" ? "block" : "none";
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = document.getElementById("f-name").value.trim();
@@ -254,8 +264,9 @@
 
       const chosenCampusId = document.getElementById("f-campus").value;
       let targetSeasonId = seasonId;
+      const isRealCampusChange = chosenCampusId !== campusId && chosenCampusId !== "other";
 
-      if (chosenCampusId !== campusId) {
+      if (isRealCampusChange) {
         const { data: targetSeasons, error: seasonErr } = await sb
           .from("seasons").select("*").eq("campus_id", chosenCampusId)
           .order("created_at", { ascending: false }).limit(1);
@@ -276,6 +287,7 @@
         phone: document.getElementById("f-phone").value.trim() || null,
         connector: connector || null,
         progress: document.getElementById("f-note").value.trim() || null,
+        other_campus_note: document.getElementById("f-other-campus").value.trim() || null,
         interest_event: document.getElementById("f-interest-event").checked,
         interest_lg: document.getElementById("f-interest-lg").checked,
         interest_church: document.getElementById("f-interest-church").checked,
@@ -286,7 +298,7 @@
       try {
         const { error } = await sb.from("contacts").insert(payload);
         if (error) throw error;
-        const chosenCampusName = chosenCampusId !== campusId
+        const chosenCampusName = isRealCampusChange
           ? (document.querySelector(`#f-campus option[value="${chosenCampusId}"]`)?.textContent || null)
           : null;
         renderSuccess(name, chosenCampusName);

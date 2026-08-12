@@ -719,6 +719,11 @@
         <select id="f-campus" name="campus"></select>
       </div>
 
+      <div class="field" id="other-campus-field" style="display:none;">
+        <label for="f-other-campus">Which school (note only — doesn't change routing)</label>
+        <input id="f-other-campus" name="other_campus_note" type="text" placeholder="e.g. Lingnan University" />
+      </div>
+
       <div class="row-2">
         <div class="field">
           <label for="f-nationality">Nationality</label>
@@ -812,6 +817,20 @@
       <div class="form-actions">
         <button type="button" id="cancel-btn" class="btn-ghost">Cancel</button>
         <button type="submit" id="submit-btn" class="btn-submit">Save contact</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="transfer-dialog">
+    <form id="transfer-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Transfer contact</h2>
+      <div class="field">
+        <label for="f-transfer-campus">Move to campus</label>
+        <select id="f-transfer-campus"></select>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="transfer-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="transfer-submit-btn" class="btn-submit">Transfer</button>
       </div>
     </form>
   </dialog>
@@ -1076,7 +1095,8 @@
       ["Interested in", interestsSummary(c)],
       ["Suggest to connect with", c.suggested_connection],
       ["Reminder note", c.reminder_note],
-      ["Progress", c.progress]
+      ["Progress", c.progress],
+      ["Other school (note)", c.other_campus_note]
     ];
     const fieldsHtml = fields.map(([label, value]) => `
       <div>
@@ -1089,6 +1109,7 @@
       <div class="detail-actions">
         <button class="edit-btn" data-edit="${c.id}">Edit</button>
         ${isAdmin ? `
+          <button class="edit-btn" data-transfer="${c.id}">Transfer</button>
           <button class="delete-btn" data-delete="${c.id}">
             ${pendingDeleteId === c.id ? "Click again to confirm" : "Delete contact"}
           </button>
@@ -1125,6 +1146,10 @@
 
     form.name.value = c.name || "";
     form.campus.value = currentCampusId;
+    document.getElementById("other-campus-field").style.display = "none";
+    if (c.other_campus_note) {
+      form.other_campus_note.value = c.other_campus_note;
+    }
     form.nationality.value = c.nationality || "";
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
@@ -1151,6 +1176,12 @@
     if (editBtn) {
       const c = contacts.find(x => x.id === editBtn.dataset.edit);
       if (c) openEditDialog(c);
+      return;
+    }
+
+    const transferBtn = e.target.closest("[data-transfer]");
+    if (transferBtn) {
+      openTransferDialog(transferBtn.dataset.transfer);
       return;
     }
 
@@ -1265,6 +1296,7 @@
     submitBtn.textContent = "Save contact";
     form.reset();
     form.campus.value = currentCampusId;
+    document.getElementById("other-campus-field").style.display = "none";
     fpBirthday.clear();
     fpReminderDate.clear();
     openDialog(dialog);
@@ -1300,14 +1332,16 @@
       birthday: form.birthday.value || null,
       progress: form.progress.value.trim() || null,
       reminder_date: form.reminder_date.value || null,
-      reminder_note: form.reminder_note.value.trim() || null
+      reminder_note: form.reminder_note.value.trim() || null,
+      other_campus_note: form.other_campus_note.value.trim() || null
     };
 
     const chosenCampusId = form.campus.value;
     let targetSeasonId = seasonId;
-    const isTransfer = editingId && chosenCampusId !== currentCampusId;
+    const isRealCampusChange = chosenCampusId !== currentCampusId && chosenCampusId !== "other";
+    const isTransfer = editingId && isRealCampusChange;
 
-    if (chosenCampusId !== currentCampusId) {
+    if (isRealCampusChange) {
       const targetSeason = await resolveSeasonForCampus(chosenCampusId);
       if (!targetSeason) {
         showBanner("That campus has no active season to add into.", true);
@@ -1444,8 +1478,13 @@
     if (!sel) return;
     sel.innerHTML = allCampuses.map(c =>
       `<option value="${c.id}">${escapeHtml(c.name)}</option>`
-    ).join("");
+    ).join("") + `<option value="other">Other (not listed)</option>`;
     sel.value = currentCampusId;
+
+    sel.addEventListener("change", () => {
+      const otherField = document.getElementById("other-campus-field");
+      otherField.style.display = sel.value === "other" ? "block" : "none";
+    });
   }
 
   async function resolveSeasonForCampus(campusId) {
@@ -1455,6 +1494,67 @@
     if (error || !data || data.length === 0) return null;
     return data[0];
   }
+
+  const transferDialog = document.getElementById("transfer-dialog");
+  const transferForm = document.getElementById("transfer-form");
+  const transferCancelBtn = document.getElementById("transfer-cancel-btn");
+  const transferSubmitBtn = document.getElementById("transfer-submit-btn");
+  const transferCampusSelect = document.getElementById("f-transfer-campus");
+  let transferContactId = null;
+
+  function openTransferDialog(contactId) {
+    transferContactId = contactId;
+    transferCampusSelect.innerHTML = allCampuses
+      .filter(c => c.id !== currentCampusId)
+      .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
+      .join("");
+    if (transferCampusSelect.options.length === 0) {
+      showBanner("No other campuses set up yet to transfer into.", true);
+      return;
+    }
+    openDialog(transferDialog);
+  }
+
+  transferCancelBtn.addEventListener("click", () => closeDialog(transferDialog));
+
+  transferForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const contact = contacts.find(x => x.id === transferContactId);
+    if (!contact) { closeDialog(transferDialog); return; }
+
+    const targetCampusId = transferCampusSelect.value;
+    const targetCampusName = allCampuses.find(c => c.id === targetCampusId)?.name || "the other campus";
+
+    transferSubmitBtn.disabled = true;
+    transferSubmitBtn.textContent = "Transferring...";
+
+    try {
+      const targetSeason = await resolveSeasonForCampus(targetCampusId);
+      if (!targetSeason) {
+        showBanner("That campus has no active season to transfer into.", true);
+        return;
+      }
+
+      const noteLine = `From ${currentCampusName || "previous campus"}, connected by ${contact.connector || "—"}`;
+      const newProgress = contact.progress ? `${noteLine}\n\n${contact.progress}` : noteLine;
+
+      const { error } = await sb.from("contacts")
+        .update({ season_id: targetSeason.id, progress: newProgress })
+        .eq("id", transferContactId);
+      if (error) throw error;
+
+      const idx = contacts.findIndex(x => x.id === transferContactId);
+      if (idx !== -1) contacts.splice(idx, 1);
+      closeDialog(transferDialog);
+      showBanner(`${contact.name} transferred to ${targetCampusName}`, false);
+      render();
+    } catch (err) {
+      showBanner(`Couldn't transfer — ${err.message || "check your connection"}`, true);
+    } finally {
+      transferSubmitBtn.disabled = false;
+      transferSubmitBtn.textContent = "Transfer";
+    }
+  });
 
   async function loadSeasonContext() {
     if (!seasonId) return;
