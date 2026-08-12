@@ -1536,7 +1536,7 @@
       return;
     }
     const label = isAdmin ? "Signed in as admin" : "Signed in as member";
-    adminArea.innerHTML = `${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>`;
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}`;
   }
 
   adminArea.addEventListener("click", async (e) => {

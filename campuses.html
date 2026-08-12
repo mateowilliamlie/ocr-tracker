@@ -768,7 +768,7 @@
   function updateAdminUI() {
     openBtn.style.display = isAdmin ? "inline-block" : "none";
     adminArea.innerHTML = isAdmin
-      ? `<button id="edit-bg-btn" class="toggle-btn">Edit background</button><span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button>`
+      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button><button id="edit-bg-btn" class="toggle-btn">Edit background</button>`
       : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
     render();
   }
