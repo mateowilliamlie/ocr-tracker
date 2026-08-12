@@ -692,19 +692,31 @@
       grid-template-columns: 1fr;
       row-gap: 8px;
     }
-    .theme-toggle-wrap,
-    .topbar-brand,
-    .topbar-right {
+    .theme-toggle-wrap {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-brand {
       grid-column: 1;
       justify-self: center;
     }
     .topbar-right {
+      grid-column: 1;
+      justify-self: end;
       flex-wrap: wrap;
-      justify-content: center;
+      justify-content: flex-end;
     }
     .admin-area {
       flex-wrap: wrap;
-      justify-content: center;
+      justify-content: flex-end;
+    }
+    .topbar-brand .ocr-wordmark-fallback,
+    #wordmark-fallback {
+      font-size: 30px !important;
+    }
+    .topbar-brand .brand-logo,
+    #topbar-logo {
+      height: 60px;
     }
 
     .toolbar { flex-wrap: wrap; }
