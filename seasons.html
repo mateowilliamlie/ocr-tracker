@@ -301,6 +301,26 @@
     background: var(--accent); border: none; border-radius: 12px; padding: 10px 18px; color: white; font-weight: 500;
   }
   #submit-btn:disabled, #login-submit-btn:disabled, #bg-submit-btn:disabled { opacity: 0.6; cursor: default; }
+  @media (max-width: 520px) {
+    .topbar {
+      grid-template-columns: 1fr;
+      row-gap: 8px;
+    }
+    .theme-toggle-wrap,
+    .topbar-brand,
+    .topbar-right {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-right {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .admin-area {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
 </style>
 </head>
 <body>

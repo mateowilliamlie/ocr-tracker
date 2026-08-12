@@ -303,8 +303,13 @@
     color: #1A1D23;
   }
 
-  .date-input-wrap { position: relative; }
-  .date-input-wrap input { padding-right: 36px; }
+  .date-input-wrap { position: relative; display: block; width: 100%; }
+  .date-input-wrap input {
+    padding-right: 36px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: 100%;
+  }
   .date-input-icon {
     position: absolute;
     right: 12px;
@@ -683,6 +688,25 @@
   }
 
   @media (max-width: 520px) {
+    .topbar {
+      grid-template-columns: 1fr;
+      row-gap: 8px;
+    }
+    .theme-toggle-wrap,
+    .topbar-brand,
+    .topbar-right {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-right {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .admin-area {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
     .toolbar { flex-wrap: wrap; }
     #search-input { flex: 1 1 100%; }
     .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
