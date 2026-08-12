@@ -714,6 +714,11 @@
         <input id="f-name" name="name" type="text" required />
       </div>
 
+      <div class="field">
+        <label for="f-campus">Campus</label>
+        <select id="f-campus" name="campus"></select>
+      </div>
+
       <div class="row-2">
         <div class="field">
           <label for="f-nationality">Nationality</label>
@@ -952,6 +957,7 @@
       const { data, error } = await sb
         .from("contacts")
         .select("*")
+        .eq("season_id", seasonId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -1118,6 +1124,7 @@
     submitBtn.textContent = "Save changes";
 
     form.name.value = c.name || "";
+    form.campus.value = currentCampusId;
     form.nationality.value = c.nationality || "";
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
@@ -1257,6 +1264,7 @@
     addDialogTitle.textContent = "Add a contact";
     submitBtn.textContent = "Save contact";
     form.reset();
+    form.campus.value = currentCampusId;
     fpBirthday.clear();
     fpReminderDate.clear();
     openDialog(dialog);
@@ -1295,22 +1303,55 @@
       reminder_note: form.reminder_note.value.trim() || null
     };
 
+    const chosenCampusId = form.campus.value;
+    let targetSeasonId = seasonId;
+    const isTransfer = editingId && chosenCampusId !== currentCampusId;
+
+    if (chosenCampusId !== currentCampusId) {
+      const targetSeason = await resolveSeasonForCampus(chosenCampusId);
+      if (!targetSeason) {
+        showBanner("That campus has no active season to add into.", true);
+        submitBtn.disabled = false;
+        submitBtn.textContent = editingId ? "Save changes" : "Save contact";
+        return;
+      }
+      targetSeasonId = targetSeason.id;
+
+      if (isTransfer) {
+        const chosenCampusName = allCampuses.find(c => c.id === chosenCampusId)?.name || "another campus";
+        const noteLine = `From ${currentCampusName || "previous campus"}, connected by ${payload.connector || "—"}`;
+        payload.progress = payload.progress ? `${noteLine}\n\n${payload.progress}` : noteLine;
+      }
+    }
+    payload.season_id = targetSeasonId;
+
     try {
       if (editingId) {
         const { data, error } = await sb.from("contacts").update(payload).eq("id", editingId).select();
         if (error) throw error;
         closeDialog(dialog);
-        showBanner(`${name} updated`, false);
         const idx = contacts.findIndex(x => x.id === editingId);
-        if (idx !== -1) contacts[idx] = data[0];
+        if (isTransfer) {
+          if (idx !== -1) contacts.splice(idx, 1);
+          const chosenCampusName = allCampuses.find(c => c.id === chosenCampusId)?.name || "the other campus";
+          showBanner(`${name} moved to ${chosenCampusName}`, false);
+        } else {
+          if (idx !== -1) contacts[idx] = data[0];
+          showBanner(`${name} updated`, false);
+        }
         editingId = null;
         render();
       } else {
         const { data, error } = await sb.from("contacts").insert(payload).select();
         if (error) throw error;
         closeDialog(dialog);
-        showBanner(`${name} added`, false);
-        contacts.unshift(data[0]);
+        if (targetSeasonId !== seasonId) {
+          const chosenCampusName = allCampuses.find(c => c.id === chosenCampusId)?.name || "the other campus";
+          showBanner(`${name} added to ${chosenCampusName}`, false);
+        } else {
+          contacts.unshift(data[0]);
+          showBanner(`${name} added`, false);
+        }
         render();
       }
     } catch (err) {
@@ -1387,6 +1428,34 @@
     }
   });
 
+  let allCampuses = [];
+  let currentCampusName = "";
+
+  async function loadCampusesForDropdown() {
+    const { data, error } = await sb.from("campuses").select("*").order("name", { ascending: true });
+    if (!error && data) allCampuses = data;
+    const mine = allCampuses.find(c => c.id === currentCampusId);
+    if (mine) currentCampusName = mine.name;
+    populateCampusSelect();
+  }
+
+  function populateCampusSelect() {
+    const sel = document.getElementById("f-campus");
+    if (!sel) return;
+    sel.innerHTML = allCampuses.map(c =>
+      `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+    ).join("");
+    sel.value = currentCampusId;
+  }
+
+  async function resolveSeasonForCampus(campusId) {
+    const { data, error } = await sb
+      .from("seasons").select("*").eq("campus_id", campusId)
+      .order("created_at", { ascending: false }).limit(1);
+    if (error || !data || data.length === 0) return null;
+    return data[0];
+  }
+
   async function loadSeasonContext() {
     if (!seasonId) return;
     const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).single();
@@ -1402,6 +1471,8 @@
     if (data.logo_url) {
       document.getElementById("topbar-logo").src = data.logo_url;
     }
+
+    await loadCampusesForDropdown();
   }
 
   loginCancelBtn.addEventListener("click", () => loginDialog.close());

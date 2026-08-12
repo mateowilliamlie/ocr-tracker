@@ -169,8 +169,11 @@
     renderForm();
   }
 
-  function renderForm() {
+  async function renderForm() {
     const savedName = localStorage.getItem(LS_NAME) || "";
+    const { data: campusesData } = await sb.from("campuses").select("*").order("name", { ascending: true });
+    const allCampuses = campusesData || [];
+
     card.innerHTML = `
       <div class="season-tag">📍 ${escapeHtml(seasonInfo.name)}</div>
       <h1>Quick add</h1>
@@ -180,6 +183,12 @@
         <div class="field">
           <label for="f-name">Their name *</label>
           <input id="f-name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="f-campus">Campus</label>
+          <select id="f-campus">
+            ${allCampuses.map(c => `<option value="${c.id}" ${c.id === campusId ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+          </select>
         </div>
         <div class="row-2">
           <div class="field">
@@ -243,6 +252,23 @@
       submitBtn.textContent = "Saving...";
       errorMsg.style.display = "none";
 
+      const chosenCampusId = document.getElementById("f-campus").value;
+      let targetSeasonId = seasonId;
+
+      if (chosenCampusId !== campusId) {
+        const { data: targetSeasons, error: seasonErr } = await sb
+          .from("seasons").select("*").eq("campus_id", chosenCampusId)
+          .order("created_at", { ascending: false }).limit(1);
+        if (seasonErr || !targetSeasons || targetSeasons.length === 0) {
+          errorMsg.textContent = "That campus has no active season to add into.";
+          errorMsg.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Save contact";
+          return;
+        }
+        targetSeasonId = targetSeasons[0].id;
+      }
+
       const payload = {
         name,
         nationality: document.getElementById("f-nationality").value.trim() || null,
@@ -253,14 +279,17 @@
         interest_event: document.getElementById("f-interest-event").checked,
         interest_lg: document.getElementById("f-interest-lg").checked,
         interest_church: document.getElementById("f-interest-church").checked,
-        season_id: seasonId,
+        season_id: targetSeasonId,
         source: "member"
       };
 
       try {
         const { error } = await sb.from("contacts").insert(payload);
         if (error) throw error;
-        renderSuccess(name);
+        const chosenCampusName = chosenCampusId !== campusId
+          ? (document.querySelector(`#f-campus option[value="${chosenCampusId}"]`)?.textContent || null)
+          : null;
+        renderSuccess(name, chosenCampusName);
       } catch (err) {
         errorMsg.textContent = `Couldn't save — ${err.message || "check your connection"}.`;
         errorMsg.style.display = "block";
@@ -270,11 +299,11 @@
     });
   }
 
-  function renderSuccess(name) {
+  function renderSuccess(name, movedToCampusName) {
     card.innerHTML = `
       <div class="success-state">
         <div class="check">✓</div>
-        <h2>${escapeHtml(name)} added</h2>
+        <h2>${escapeHtml(name)} added${movedToCampusName ? ` to ${escapeHtml(movedToCampusName)}` : ""}</h2>
         <div class="actions">
           <button class="btn-secondary" id="add-another-btn">Add another</button>
           <button class="btn-tertiary" id="view-dashboard-btn">View full dashboard</button>
