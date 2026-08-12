@@ -1339,7 +1339,7 @@
     openDialog(dialog);
   });
 
-  cancelBtn.addEventListener("click", () => dialog.close());
+  cancelBtn.addEventListener("click", () => closeDialog(dialog));
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1469,7 +1469,7 @@
     bgFileName.textContent = bgFileInput.files[0] ? bgFileInput.files[0].name : "No file chosen";
   });
 
-  bgCancelBtn.addEventListener("click", () => bgDialog.close());
+  bgCancelBtn.addEventListener("click", () => closeDialog(bgDialog));
 
   bgForm.addEventListener("submit", async (e) => {
     e.preventDefault();
