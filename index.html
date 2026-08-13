@@ -279,7 +279,7 @@
     opacity: 1;
   }
 
-  #add-form, #login-form, #transfer-form, #bg-form {
+  #add-form, #login-form, #transfer-form, #bg-form, #conclude-confirm-form {
     max-height: var(--dialog-max-h, 88vh);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -791,6 +791,7 @@
 
   <div id="app-content" style="display:none;">
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
+  <a href="#" id="attendance-link" class="breadcrumb" style="display:none; margin-left:8px;">Event Attendance &rarr;</a>
   <div class="add-row">
     <button id="open-add" class="btn-primary">+ New</button>
   </div>
@@ -869,8 +870,9 @@
       </div>
 
       <div class="field">
-        <label for="f-phone">Phone number</label>
-        <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" />
+        <label for="f-phone">Phone number *</label>
+        <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" required />
+        <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">WeChat only? Enter any placeholder number and put their WeChat ID under Progress.</span>
       </div>
 
       <div class="field">
@@ -965,7 +967,8 @@
 
   <dialog id="bg-dialog">
     <form id="bg-form" style="padding: 20px;">
-      <h2 style="margin: 0 0 16px; font-size: 17px;">Edit page background</h2>
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Settings</h2>
+
       <div class="field">
         <label>New background image</label>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -974,9 +977,39 @@
           <span id="bg-file-name" style="font-size:13px; color:var(--text-muted);">No file chosen</span>
         </div>
       </div>
+
       <div class="form-actions">
         <button type="button" id="bg-cancel-btn" class="btn-ghost">Cancel</button>
         <button type="submit" id="bg-submit-btn" class="btn-submit">Save background</button>
+      </div>
+
+      <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;" />
+
+      <div>
+        <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">Season status</label>
+        <p id="season-status-text" style="font-size:13px; color:var(--text-muted); margin:0 0 10px;"></p>
+        <button type="button" id="conclude-season-btn" class="btn-ghost" style="display:none;">Conclude season</button>
+        <button type="button" id="reopen-season-btn" class="btn-ghost" style="display:none;">Reopen season</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="conclude-confirm-dialog">
+    <form id="conclude-confirm-form" style="padding: 20px;">
+      <h2 id="conclude-confirm-title" style="margin: 0 0 8px; font-size: 17px;">Confirm</h2>
+      <p id="conclude-confirm-desc" style="font-size: 13px; color: var(--text-muted); margin: 0 0 16px;"></p>
+      <div id="conclude-confirm-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-bottom:12px;"></div>
+      <div class="field">
+        <label for="conclude-confirm-email">Admin email</label>
+        <input id="conclude-confirm-email" type="email" required />
+      </div>
+      <div class="field">
+        <label for="conclude-confirm-password">Admin password</label>
+        <input id="conclude-confirm-password" type="password" required />
+      </div>
+      <div class="form-actions">
+        <button type="button" id="conclude-confirm-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="conclude-confirm-submit-btn" class="btn-submit">Confirm</button>
       </div>
     </form>
   </dialog>
@@ -1065,6 +1098,7 @@
   const tabInPerson = document.getElementById("tab-inperson");
   const tabOnline = document.getElementById("tab-online");
   let isAdmin = false;
+  let seasonConcluded = false;
   let pendingDeleteId = null;
   let editingId = null;
   const addDialogTitle = document.getElementById("add-dialog-title");
@@ -1476,6 +1510,13 @@
       return;
     }
 
+    const phone = form.phone.value.trim();
+    if (!phone) {
+      showBanner("Phone number is required.", true);
+      form.phone.focus();
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = editingId ? "Saving..." : "Saving...";
 
@@ -1484,7 +1525,7 @@
       nationality: form.nationality.value.trim() || null,
       course: form.course.value.trim() || null,
       connector: form.connector.value.trim() || null,
-      phone: form.phone.value.trim() || null,
+      phone: phone,
       faith_background: form.faith_background.value || null,
       suggested_connection: form.suggested_connection.value.trim() || null,
       interest_event: form.interest_event.checked,
@@ -1565,7 +1606,7 @@
       return;
     }
     const label = isAdmin ? "Signed in as admin" : "Signed in as member";
-    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Edit background</button>' : ""}`;
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -1580,9 +1621,27 @@
     } else if (e.target.id === "edit-bg-btn") {
       bgForm.reset();
       bgFileName.textContent = "No file chosen";
+      updateSeasonStatusUI();
       openDialog(bgDialog);
     }
   });
+
+  function updateSeasonStatusUI() {
+    const statusText = document.getElementById("season-status-text");
+    const concludeBtn = document.getElementById("conclude-season-btn");
+    const reopenBtn = document.getElementById("reopen-season-btn");
+    if (!statusText || !concludeBtn || !reopenBtn) return;
+
+    if (seasonConcluded) {
+      statusText.textContent = "This season has concluded. Attendance now shows as a read-only summary.";
+      concludeBtn.style.display = "none";
+      reopenBtn.style.display = "inline-block";
+    } else {
+      statusText.textContent = "Concluding a season locks in attendance as a read-only summary. This can be reversed later if needed.";
+      concludeBtn.style.display = "inline-block";
+      reopenBtn.style.display = "none";
+    }
+  }
 
   const bgDialog = document.getElementById("bg-dialog");
   const bgForm = document.getElementById("bg-form");
@@ -1626,6 +1685,75 @@
     } finally {
       bgSubmitBtn.disabled = false;
       bgSubmitBtn.textContent = "Save background";
+    }
+  });
+
+  const concludeConfirmDialog = document.getElementById("conclude-confirm-dialog");
+  const concludeConfirmForm = document.getElementById("conclude-confirm-form");
+  const concludeConfirmCancelBtn = document.getElementById("conclude-confirm-cancel-btn");
+  const concludeConfirmSubmitBtn = document.getElementById("conclude-confirm-submit-btn");
+  const concludeConfirmError = document.getElementById("conclude-confirm-error");
+  const concludeConfirmTitle = document.getElementById("conclude-confirm-title");
+  const concludeConfirmDesc = document.getElementById("conclude-confirm-desc");
+  let pendingSeasonAction = null;
+
+  document.getElementById("conclude-season-btn").addEventListener("click", () => {
+    pendingSeasonAction = "conclude";
+    concludeConfirmTitle.textContent = "Conclude this season?";
+    concludeConfirmDesc.textContent = "Attendance will switch to a read-only summary. Re-enter the admin login to confirm.";
+    concludeConfirmSubmitBtn.textContent = "Conclude season";
+    concludeConfirmForm.reset();
+    concludeConfirmError.style.display = "none";
+    closeDialog(bgDialog);
+    setTimeout(() => openDialog(concludeConfirmDialog), 170);
+  });
+
+  document.getElementById("reopen-season-btn").addEventListener("click", () => {
+    pendingSeasonAction = "reopen";
+    concludeConfirmTitle.textContent = "Reopen this season?";
+    concludeConfirmDesc.textContent = "Attendance will become editable again. Re-enter the admin login to confirm.";
+    concludeConfirmSubmitBtn.textContent = "Reopen season";
+    concludeConfirmForm.reset();
+    concludeConfirmError.style.display = "none";
+    closeDialog(bgDialog);
+    setTimeout(() => openDialog(concludeConfirmDialog), 170);
+  });
+
+  concludeConfirmCancelBtn.addEventListener("click", () => closeDialog(concludeConfirmDialog));
+
+  concludeConfirmForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("conclude-confirm-email").value.trim();
+    const password = document.getElementById("conclude-confirm-password").value;
+
+    concludeConfirmSubmitBtn.disabled = true;
+    concludeConfirmSubmitBtn.textContent = "Verifying...";
+    concludeConfirmError.style.display = "none";
+
+    try {
+      const { error: authError } = await sb.auth.signInWithPassword({ email, password });
+      if (authError) {
+        concludeConfirmError.textContent = "Incorrect admin email or password.";
+        concludeConfirmError.style.display = "block";
+        return;
+      }
+
+      const willConclude = pendingSeasonAction === "conclude";
+      const { error } = await sb.from("seasons")
+        .update({ concluded: willConclude, concluded_at: willConclude ? new Date().toISOString() : null })
+        .eq("id", seasonId);
+      if (error) throw error;
+
+      seasonConcluded = willConclude;
+      updateSeasonStatusUI();
+      closeDialog(concludeConfirmDialog);
+      showBanner(willConclude ? "Season concluded" : "Season reopened", false);
+    } catch (err) {
+      concludeConfirmError.textContent = `Couldn't update — ${err.message || "check your connection"}.`;
+      concludeConfirmError.style.display = "block";
+    } finally {
+      concludeConfirmSubmitBtn.disabled = false;
+      concludeConfirmSubmitBtn.textContent = pendingSeasonAction === "conclude" ? "Conclude season" : "Reopen season";
     }
   });
 
@@ -1728,11 +1856,19 @@
     const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).single();
     if (error || !data) return;
 
+    seasonConcluded = !!data.concluded;
+    updateSeasonStatusUI();
+
     if (!currentCampusId) currentCampusId = data.campus_id;
     backLink.href = `seasons.html?campus=${currentCampusId}`;
     backLink.style.display = "inline-block";
     const brandLink = document.getElementById("brand-link");
     if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
+    const attendanceLink = document.getElementById("attendance-link");
+    if (attendanceLink) {
+      attendanceLink.href = `attendance.html?season=${seasonId}&campus=${currentCampusId}`;
+      attendanceLink.style.display = "inline-block";
+    }
 
     const bgUrl = data.background_override_url || data.photo_url;
     if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;

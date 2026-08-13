@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — Event Attendance</title>
+<script src="theme.js"></script>
+<script src="loading.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #F9FAFB;
+    --text: #1A1D23;
+    --text-muted: #6B7280;
+    --border: #E2E4E9;
+    --accent: #A8452F;
+    --accent-hover: #8F3B28;
+    --success: #15803D;
+    --success-bg: #DCFCE7;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --warn: #B45309;
+    --warn-bg: #FEF3C7;
+    --info: #1D4ED8;
+    --info-bg: #DBEAFE;
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display-font: "Anton", var(--font);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --surface-2: #262A31;
+    --text: #ECEDEF;
+    --text-muted: #9AA0AC;
+    --border: #33373F;
+    --accent: #C2573D;
+    --accent-hover: #D66748;
+    --success: #22C55E;
+    --success-bg: #123320;
+    --danger: #F87171;
+    --danger-bg: #3A1518;
+    --warn: #FBBF24;
+    --warn-bg: #3A2A0C;
+    --info: #60A5FA;
+    --info-bg: #122A4A;
+  }
+
+  * { box-sizing: border-box; }
+
+  #page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  }
+  #page-loader.hide { opacity: 0; pointer-events: none; }
+  .page-loader-mark {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    color: #FFFFFF;
+    animation: pulse-swell 1.3s ease-in-out infinite;
+  }
+  @keyframes pulse-swell {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg) center / cover fixed no-repeat;
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 64px;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 20px 16px 0;
+  }
+
+  button { font-family: var(--font); font-size: 14px; cursor: pointer; transition: transform 0.08s ease; }
+  button:active { transform: scale(0.95); }
+  a { color: inherit; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .topbar-brand-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; cursor: pointer; }
+  .theme-toggle-wrap { grid-column: 1; justify-self: start; }
+
+  .theme-switch { display: inline-flex; cursor: pointer; }
+
+  #theme-toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .theme-switch-track {
+    position: relative;
+    width: 52px;
+    height: 26px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+
+  .theme-switch-icon {
+    width: 13px;
+    height: 13px;
+    color: var(--text-muted);
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .theme-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+    z-index: 2;
+  }
+
+  #theme-toggle-checkbox:checked + .theme-switch-track .theme-switch-thumb {
+    transform: translateX(26px);
+  }
+  .topbar .topbar-right { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 10px; }
+  .topbar .admin-area { display: flex; align-items: center; gap: 8px; }
+  .quickadd-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+  .quickadd-btn:hover { background: var(--accent-hover); }
+  .brand-logo { height: 40px; width: auto; object-fit: contain; }
+
+  .toggle-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .admin-status { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+
+  .breadcrumb {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 12px;
+    display: inline-block;
+    background: var(--surface);
+    padding: 10px 18px;
+    border-radius: 999px;
+  }
+  .breadcrumb:hover { color: var(--text); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 11px 20px;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: var(--text);
+  }
+
+  .btn-submit {
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: white;
+    font-weight: 500;
+  }
+  .btn-submit:disabled, .btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+  #confirm-banner {
+    display: none;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 16px;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  #confirm-banner.error { background: var(--danger-bg); color: var(--danger); }
+
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 900;
+  }
+  .modal-backdrop.open { display: block; }
+
+  dialog {
+    border: none;
+    border-radius: 22px;
+    padding: 0;
+    width: calc(100% - 32px);
+    max-width: 420px;
+    max-height: var(--dialog-max-h, 88vh);
+    background: var(--surface);
+    color: var(--text);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0;
+    z-index: 901;
+    margin: 0;
+    transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  dialog.pop-in {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  #add-form, #login-form, #transfer-form, #bg-form {
+    max-height: var(--dialog-max-h, 88vh);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #add-form { padding: 22px; }
+  #login-form { padding: 22px; }
+  #add-form h2 { margin: 0 0 18px; font-size: 18px; }
+
+  .field { margin-bottom: 14px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #FFFFFF;
+    color: #1A1D23;
+  }
+
+  .date-input-wrap { position: relative; display: block; width: 100%; }
+  .date-input-wrap input {
+    padding-right: 38px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: 100%;
+    font-size: 16px !important;
+    text-align: left !important;
+  }
+  .date-input-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
+
+  .add-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+  }
+
+  #auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: 24px 0;
+  }
+  .auth-gate-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .auth-gate-card h1 { font-size: 19px; margin: 0 0 6px; }
+  .auth-gate-card .subtitle { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  #gate-error {
+    font-size: 13px; color: var(--danger); background: var(--danger-bg);
+    padding: 10px 12px; border-radius: 10px; margin-bottom: 14px;
+  }
+
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .tab-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .source-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--info-bg);
+    color: var(--info);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .flatpickr-calendar {
+    font-family: var(--font);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+  .flatpickr-day.selected,
+  .flatpickr-day.selected:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .flatpickr-day.today { border-color: var(--accent); }
+  .flatpickr-day:hover { background: var(--surface-2); }
+
+  :root[data-theme="dark"] .flatpickr-calendar {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+  :root[data-theme="dark"] .flatpickr-day { color: var(--text); }
+  :root[data-theme="dark"] .flatpickr-day.flatpickr-disabled,
+  :root[data-theme="dark"] .flatpickr-day.prevMonthDay,
+  :root[data-theme="dark"] .flatpickr-day.nextMonthDay {
+    color: var(--text-muted);
+  }
+  :root[data-theme="dark"] .flatpickr-day:hover { background: var(--surface-2); }
+  :root[data-theme="dark"] .flatpickr-months .flatpickr-month,
+  :root[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+  :root[data-theme="dark"] .flatpickr-weekdays {
+    background: var(--surface);
+    color: var(--text-muted);
+    fill: var(--text-muted);
+  }
+  :root[data-theme="dark"] span.flatpickr-weekday { background: var(--surface); color: var(--text-muted); }
+  :root[data-theme="dark"] .flatpickr-current-month input.cur-year { color: var(--text); background: transparent; }
+  :root[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months:hover { background: var(--surface-2); }
+  :root[data-theme="dark"] .flatpickr-prev-month svg,
+  :root[data-theme="dark"] .flatpickr-next-month svg { fill: var(--text-muted); }
+  :root[data-theme="dark"] .numInputWrapper span.arrowUp:after { border-bottom-color: var(--text-muted); }
+  :root[data-theme="dark"] .numInputWrapper span.arrowDown:after { border-top-color: var(--text-muted); }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  #search-input {
+    flex: 1;
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  #search-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  #sort-select {
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 9px 34px 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B93A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 15px;
+  }
+
+  .board {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .col-headers {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--surface-2);
+  }
+
+  .row-wrap {
+    border-top: 1px solid var(--border);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  .row .name {
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .row .connector {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .row select.reminder-select {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 28px 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--surface-2);
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B93A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 13px;
+  }
+
+  .row select.reminder-select.has-reminder-overdue {
+    background-color: var(--danger-bg);
+    color: var(--danger);
+    border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-soon {
+    background-color: var(--warn-bg);
+    color: var(--warn);
+    border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-future {
+    background-color: var(--info-bg);
+    color: var(--info);
+    border-color: transparent;
+  }
+
+  .row .reminder-date-input {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .chevron {
+    background: none;
+    border: none;
+    font-size: 15px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    padding: 8px;
+    line-height: 1;
+  }
+
+  .chevron.open { transform: rotate(180deg); }
+
+  .detail {
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 20px;
+    padding: 6px 14px 18px;
+    background: var(--surface-2);
+    font-size: 13px;
+  }
+
+  .detail.open { display: grid; }
+
+  .detail .field-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .empty-state {
+    padding: 32px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .interest-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .switch-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .switch-toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .switch-track {
+    position: relative;
+    width: 40px;
+    height: 24px;
+    background: var(--border);
+    border-radius: 999px;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+  }
+
+  .switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease;
+  }
+
+  .switch-toggle input:checked + .switch-track {
+    background: var(--success);
+  }
+
+  .switch-toggle input:checked + .switch-track .switch-thumb {
+    transform: translateX(16px);
+  }
+
+  .switch-toggle input:focus-visible + .switch-track {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .detail-actions {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 7px 16px;
+    font-size: 12px;
+  }
+
+  .delete-btn {
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 10px;
+    padding: 7px 16px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 520px) {
+    .topbar {
+      grid-template-columns: 1fr;
+      row-gap: 8px;
+    }
+    .theme-toggle-wrap {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-brand {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-right {
+      grid-column: 1;
+      justify-self: end;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .admin-area {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .topbar-brand .ocr-wordmark-fallback,
+    #wordmark-fallback {
+      font-size: 30px !important;
+    }
+    .topbar-brand .brand-logo,
+    #topbar-logo {
+      height: 60px;
+    }
+
+    .toolbar { flex-wrap: wrap; }
+    #search-input { flex: 1 1 100%; }
+    .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
+    .detail { grid-template-columns: 1fr 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      max-width: 100%;
+    }
+
+    /* .row .reminder-date-input is a real text field (flatpickr) inside a
+       dense table row — kept small (12px) on desktop for the compact layout,
+       but must be >=16px here or iOS Safari auto-zooms the whole page on focus. */
+    .row .reminder-date-input {
+      font-size: 16px;
+    }
+  }
+  #matrix-scroll {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  #attendance-table { border-collapse: collapse; width: max-content; min-width: 100%; }
+  #attendance-table th, #attendance-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+  #attendance-table thead th {
+    background: var(--surface-2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  #attendance-table th:first-child,
+  #attendance-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--surface);
+    text-align: left;
+    font-weight: 600;
+    min-width: 160px;
+    box-shadow: 1px 0 0 var(--border);
+  }
+  #attendance-table thead th:first-child { z-index: 4; background: var(--surface-2); }
+  .attendance-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+
+  .summary-row {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    background: var(--surface);
+  }
+  .summary-row:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .summary-row:last-child { border-radius: 0 0 var(--radius) var(--radius); border-bottom: none; }
+  .summary-name { font-weight: 700; margin-right: 8px; }
+  .summary-events { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
+<div class="topbar">
+  <div class="theme-toggle-wrap">
+    <label class="theme-switch" aria-label="Toggle dark mode">
+      <input type="checkbox" id="theme-toggle-checkbox" />
+      <span class="theme-switch-track">
+        <svg class="theme-switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <span class="theme-switch-thumb"></span>
+        <svg class="theme-switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      </span>
+    </label>
+  </div>
+  <div class="topbar-brand">
+    <a class="topbar-brand-link" id="brand-link" href="campuses.html" aria-label="Back to seasons">
+      <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
+      <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
+    </a>
+  </div>
+  <div class="topbar-right">
+    <a class="quickadd-btn" id="quickadd-link" href="quick-add.html">+ Quick Add</a>
+    <div class="admin-area" id="admin-area"></div>
+  </div>
+</div>
+<main>
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+
+  <div id="auth-gate">
+    <div class="auth-gate-card">
+      <h1>Sign in to continue</h1>
+      <p class="subtitle">Viewing and editing contacts requires a member or admin login.</p>
+      <div id="gate-error" style="display:none;"></div>
+      <form id="gate-form">
+        <div class="field">
+          <label for="gate-email">Email</label>
+          <input id="gate-email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="gate-password">Password</label>
+          <input id="gate-password" type="password" required />
+        </div>
+        <button type="submit" id="gate-submit-btn" class="btn-primary" style="width:100%;">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-content" style="display:none;">
+  <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
+  <a href="#" id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; background:transparent; border:1px solid var(--border); cursor:default; pointer-events:none;">Event Attendance</a>
+
+  <div class="add-row">
+    <button id="open-add-event" class="btn-primary" style="display:none;">+ Add Event</button>
+  </div>
+
+  <div id="confirm-banner"></div>
+
+  <div id="concluded-banner" style="display:none; background:var(--info-bg); color:var(--info); padding:12px 16px; border-radius:var(--radius); font-size:13px; font-weight:600; margin-bottom:16px;">
+    This season has concluded — attendance is shown as a read-only summary.
+  </div>
+
+  <div id="no-events-state" class="empty-state" style="display:none;">No events yet — add one to start tracking attendance.</div>
+
+  <!-- Editable matrix view, shown while the season is active -->
+  <div id="matrix-view" class="board" style="display:none;">
+    <div id="matrix-scroll" style="overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch;">
+      <table id="attendance-table" style="border-collapse:collapse; width:100%;">
+        <thead>
+          <tr id="attendance-head-row"></tr>
+        </thead>
+        <tbody id="attendance-body"></tbody>
+      </table>
+    </div>
+    <div id="matrix-loading-state" class="empty-state">Loading attendance…</div>
+  </div>
+
+  <!-- Read-only plain-English summary, shown once the season is concluded -->
+  <div id="summary-view" style="display:none;">
+    <div id="summary-list"></div>
+  </div>
+  </div>
+
+  <dialog id="add-event-dialog">
+    <form id="add-event-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 16px; font-size: 17px;">Add event</h2>
+      <div class="field">
+        <label for="f-event-name">Event name</label>
+        <input id="f-event-name" name="event_name" type="text" placeholder="e.g. Welcome BBQ" required />
+      </div>
+      <div class="form-actions">
+        <button type="button" id="add-event-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="add-event-submit-btn" class="btn-submit">Add event</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<script>
+  // On mobile, the on-screen keyboard eats a large chunk of the visible
+  // screen, but `vh` units don't account for it — a dialog sized to 88vh
+  // can end up with its lower fields hidden behind the keyboard with no
+  // way to scroll to them. VisualViewport reports the *actual* visible
+  // height (post-keyboard), so we track it and shrink the dialog's
+  // max-height to match, keeping every field reachable via scroll.
+  // Desktop is untouched — falls back to the plain 88vh in CSS.
+  function updateMobileDialogHeight() {
+    const isMobile = window.innerWidth <= 520;
+    if (!isMobile || !window.visualViewport) {
+      document.documentElement.style.removeProperty("--dialog-max-h");
+      return;
+    }
+    const visibleHeight = window.visualViewport.height;
+    document.documentElement.style.setProperty("--dialog-max-h", (visibleHeight * 0.9) + "px");
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateMobileDialogHeight);
+    window.visualViewport.addEventListener("scroll", updateMobileDialogHeight);
+  }
+  window.addEventListener("resize", updateMobileDialogHeight);
+  updateMobileDialogHeight();
+
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const modalBackdrop = document.getElementById("modal-backdrop");
+  function openDialog(d) {
+    modalBackdrop.classList.add("open");
+    d.show();
+    requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("pop-in")));
+  }
+  function closeDialog(d) {
+    d.classList.remove("pop-in");
+    setTimeout(() => {
+      d.close();
+      modalBackdrop.classList.remove("open");
+    }, 160);
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  const banner = document.getElementById("confirm-banner");
+  function showBanner(message, isError) {
+    banner.textContent = message;
+    banner.className = isError ? "error" : "";
+    banner.style.display = "block";
+    clearTimeout(showBanner._timer);
+    showBanner._timer = setTimeout(() => { banner.style.display = "none"; }, 4000);
+  }
+
+  const adminArea = document.getElementById("admin-area");
+  const backLink = document.getElementById("back-link");
+  const attendanceTitleLink = document.getElementById("attendance-title-link");
+
+  const seasonId = new URLSearchParams(window.location.search).get("season");
+  let currentCampusId = new URLSearchParams(window.location.search).get("campus");
+
+  if (!seasonId) {
+    window.location.href = "campuses.html";
+  }
+
+  const quickAddLink = document.getElementById("quickadd-link");
+  if (quickAddLink && seasonId) {
+    quickAddLink.href = `quick-add.html?season=${seasonId}&return=dashboard`;
+  }
+
+  let isSignedIn = false;
+  let isAdmin = false;
+  let seasonConcluded = false;
+  let events = [];
+  let contacts = [];
+  // key: `${contactId}::${eventId}` -> boolean
+  let attendanceMap = {};
+
+  function getIsAdminFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+  }
+
+  function updateAdminUI() {
+    if (!isSignedIn) {
+      adminArea.innerHTML = "";
+      return;
+    }
+    const label = isAdmin ? "Signed in as admin" : "Signed in as member";
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>`;
+    const addEventBtn = document.getElementById("open-add-event");
+    addEventBtn.style.display = (isAdmin && !seasonConcluded) ? "inline-block" : "none";
+  }
+
+  adminArea.addEventListener("click", async (e) => {
+    if (e.target.id === "signout-btn") {
+      await sb.auth.signOut();
+      isSignedIn = false;
+      isAdmin = false;
+      document.getElementById("app-content").style.display = "none";
+      document.getElementById("auth-gate").style.display = "flex";
+      updateAdminUI();
+      showBanner("Signed out", false);
+    }
+  });
+
+  async function loadSeasonContext() {
+    if (!seasonId) return;
+    const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).single();
+    if (error || !data) return;
+
+    if (!currentCampusId) currentCampusId = data.campus_id;
+    backLink.href = `index.html?season=${seasonId}&campus=${currentCampusId}`;
+    backLink.style.display = "inline-block";
+    attendanceTitleLink.style.display = "inline-block";
+    const brandLink = document.getElementById("brand-link");
+    if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
+
+    seasonConcluded = !!data.concluded;
+
+    const bgUrl = data.background_override_url || data.photo_url;
+    if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
+
+    if (data.logo_url) {
+      const topbarLogo = document.getElementById("topbar-logo");
+      const wordmark = document.getElementById("wordmark-fallback");
+      topbarLogo.onload = () => { topbarLogo.style.display = "block"; wordmark.style.display = "none"; };
+      topbarLogo.onerror = () => { topbarLogo.style.display = "none"; wordmark.style.display = "block"; };
+      topbarLogo.src = data.logo_url;
+    }
+  }
+
+  async function loadEventsAndAttendance() {
+    const matrixLoadingEl = document.getElementById("matrix-loading-state");
+    matrixLoadingEl.style.display = "block";
+    matrixLoadingEl.textContent = "Loading attendance…";
+
+    try {
+      const [eventsRes, contactsRes] = await Promise.all([
+        sb.from("events").select("*").eq("season_id", seasonId).order("sort_order", { ascending: true }),
+        sb.from("contacts").select("*").eq("season_id", seasonId).order("name", { ascending: true })
+      ]);
+      if (eventsRes.error) throw eventsRes.error;
+      if (contactsRes.error) throw contactsRes.error;
+      events = eventsRes.data || [];
+      contacts = contactsRes.data || [];
+
+      attendanceMap = {};
+      if (events.length > 0) {
+        const eventIds = events.map(e => e.id);
+        const { data: attData, error: attError } = await sb
+          .from("event_attendance")
+          .select("contact_id, event_id, attended")
+          .in("event_id", eventIds);
+        if (attError) throw attError;
+        (attData || []).forEach(row => {
+          attendanceMap[`${row.contact_id}::${row.event_id}`] = row.attended;
+        });
+      }
+
+      matrixLoadingEl.style.display = "none";
+      renderAttendance();
+    } catch (err) {
+      matrixLoadingEl.textContent = `Couldn't load attendance — ${err.message || "check your connection"}.`;
+    }
+  }
+
+  function attendedEventNames(contactId) {
+    return events
+      .filter(ev => attendanceMap[`${contactId}::${ev.id}`])
+      .map(ev => ev.name);
+  }
+
+  function renderAttendance() {
+    const noEventsEl = document.getElementById("no-events-state");
+    const matrixView = document.getElementById("matrix-view");
+    const summaryView = document.getElementById("summary-view");
+    const concludedBanner = document.getElementById("concluded-banner");
+
+    concludedBanner.style.display = seasonConcluded ? "block" : "none";
+
+    if (events.length === 0) {
+      noEventsEl.style.display = "block";
+      matrixView.style.display = "none";
+      summaryView.style.display = "none";
+      return;
+    }
+    noEventsEl.style.display = "none";
+
+    if (seasonConcluded) {
+      matrixView.style.display = "none";
+      summaryView.style.display = "block";
+      renderSummary();
+    } else {
+      summaryView.style.display = "none";
+      matrixView.style.display = "block";
+      renderMatrix();
+    }
+  }
+
+  function renderSummary() {
+    const summaryList = document.getElementById("summary-list");
+    if (contacts.length === 0) {
+      summaryList.innerHTML = `<div class="summary-row">No contacts in this season.</div>`;
+      return;
+    }
+    summaryList.innerHTML = contacts.map(c => {
+      const names = attendedEventNames(c.id);
+      const eventsText = names.length > 0 ? names.map(escapeHtml).join(", ") : "No events attended";
+      return `<div class="summary-row"><span class="summary-name">${escapeHtml(c.name)}</span><span class="summary-events">${eventsText}</span></div>`;
+    }).join("");
+  }
+
+  function renderMatrix() {
+    const headRow = document.getElementById("attendance-head-row");
+    const body = document.getElementById("attendance-body");
+
+    headRow.innerHTML = `<th>Name</th>` + events.map(ev => `<th>${escapeHtml(ev.name)}</th>`).join("");
+
+    if (contacts.length === 0) {
+      body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts in this season.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = contacts.map(c => {
+      const cells = events.map(ev => {
+        const checked = !!attendanceMap[`${c.id}::${ev.id}`];
+        return `<td><input type="checkbox" class="attendance-checkbox" data-contact-id="${c.id}" data-event-id="${ev.id}" ${checked ? "checked" : ""} /></td>`;
+      }).join("");
+      return `<tr><td>${escapeHtml(c.name)}</td>${cells}</tr>`;
+    }).join("");
+  }
+
+  document.getElementById("attendance-body").addEventListener("change", async (e) => {
+    if (!e.target.classList.contains("attendance-checkbox")) return;
+    const contactId = e.target.dataset.contactId;
+    const eventId = e.target.dataset.eventId;
+    const attended = e.target.checked;
+    e.target.disabled = true;
+    try {
+      const { error } = await sb.from("event_attendance").upsert(
+        { contact_id: contactId, event_id: eventId, attended, updated_at: new Date().toISOString() },
+        { onConflict: "contact_id,event_id" }
+      );
+      if (error) throw error;
+      attendanceMap[`${contactId}::${eventId}`] = attended;
+    } catch (err) {
+      e.target.checked = !attended;
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
+  const addEventDialog = document.getElementById("add-event-dialog");
+  const addEventForm = document.getElementById("add-event-form");
+  const addEventCancelBtn = document.getElementById("add-event-cancel-btn");
+  const addEventSubmitBtn = document.getElementById("add-event-submit-btn");
+
+  document.getElementById("open-add-event").addEventListener("click", () => {
+    addEventForm.reset();
+    openDialog(addEventDialog);
+  });
+  addEventCancelBtn.addEventListener("click", () => closeDialog(addEventDialog));
+
+  addEventForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("f-event-name").value.trim();
+    if (!name) return;
+
+    addEventSubmitBtn.disabled = true;
+    addEventSubmitBtn.textContent = "Adding...";
+    try {
+      const nextSortOrder = events.length > 0 ? Math.max(...events.map(e => e.sort_order || 0)) + 1 : 0;
+      const { error } = await sb.from("events").insert({
+        season_id: seasonId,
+        name,
+        sort_order: nextSortOrder
+      });
+      if (error) throw error;
+      closeDialog(addEventDialog);
+      showBanner("Event added", false);
+      await loadEventsAndAttendance();
+    } catch (err) {
+      showBanner(`Couldn't add event — ${err.message || "check your connection"}`, true);
+    } finally {
+      addEventSubmitBtn.disabled = false;
+      addEventSubmitBtn.textContent = "Add event";
+    }
+  });
+
+  const authGate = document.getElementById("auth-gate");
+  const appContent = document.getElementById("app-content");
+  const gateForm = document.getElementById("gate-form");
+  const gateSubmitBtn = document.getElementById("gate-submit-btn");
+  const gateError = document.getElementById("gate-error");
+
+  async function unlockDashboard() {
+    authGate.style.display = "none";
+    appContent.style.display = "block";
+    await loadSeasonContext();
+    updateAdminUI();
+    await loadEventsAndAttendance();
+  }
+
+  gateForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("gate-email").value.trim();
+    const password = document.getElementById("gate-password").value;
+
+    gateSubmitBtn.disabled = true;
+    gateSubmitBtn.textContent = "Signing in...";
+    gateError.style.display = "none";
+
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        gateError.textContent = "Incorrect email or password.";
+        gateError.style.display = "block";
+        return;
+      }
+      isSignedIn = true;
+      isAdmin = getIsAdminFromSession(data.session);
+      showPageLoader();
+      await unlockDashboard();
+      showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
+    } catch (err) {
+      gateError.textContent = "Couldn't sign in — check your connection and try again.";
+      gateError.style.display = "block";
+    } finally {
+      gateSubmitBtn.disabled = false;
+      gateSubmitBtn.textContent = "Sign in";
+      hidePageLoader();
+    }
+  });
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") return;
+    isSignedIn = !!session;
+    isAdmin = getIsAdminFromSession(session);
+    updateAdminUI();
+  });
+
+  async function initAuthState() {
+    try {
+      const { data } = await sb.auth.getSession();
+      isSignedIn = !!data.session;
+      isAdmin = getIsAdminFromSession(data.session);
+      if (isSignedIn) {
+        await unlockDashboard();
+      } else {
+        authGate.style.display = "flex";
+      }
+    } finally {
+      hidePageLoader();
+    }
+  }
+
+  backLink.addEventListener("click", () => showPageLoader());
+
+  initAuthState();
+</script>
+</body>
+</html>

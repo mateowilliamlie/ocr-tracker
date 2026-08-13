@@ -184,8 +184,9 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-phone">Phone number</label>
-          <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" />
+          <label for="f-phone">Phone number *</label>
+          <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" required />
+          <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">No phone? Enter your WeChat ID instead.</span>
         </div>
         <div class="row-2">
           <div class="field">
@@ -352,6 +353,14 @@
     if (!name) { form.name.focus(); return; }
     if (!resolvedSeasonId) { return; }
 
+    const phone = form.phone.value.trim();
+    if (!phone) {
+      errorMsg.textContent = "Phone number is required.";
+      errorMsg.style.display = "block";
+      form.phone.focus();
+      return;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = "Submitting...";
     errorMsg.style.display = "none";
@@ -360,7 +369,7 @@
       name,
       nationality: form.nationality.value.trim() || null,
       course: form.course.value.trim() || null,
-      phone: form.phone.value.trim() || null,
+      phone: phone,
       age: form.age.value ? parseInt(form.age.value, 10) : null,
       year: form.year.value.trim() || null,
       faith_background: form.faith_background.value.trim() || null,

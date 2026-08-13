@@ -265,8 +265,9 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-phone">Phone number</label>
-          <input id="f-phone" type="tel" placeholder="e.g. 9123 4567" />
+          <label for="f-phone">Phone number *</label>
+          <input id="f-phone" type="tel" placeholder="e.g. 9123 4567" required />
+          <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">WeChat only? Enter any placeholder number and put their WeChat ID in the note.</span>
         </div>
         <div class="field">
           <label for="f-connector">Your name (point person)</label>
@@ -317,6 +318,14 @@
       const name = document.getElementById("f-name").value.trim();
       if (!name) return;
 
+      const phone = document.getElementById("f-phone").value.trim();
+      if (!phone) {
+        errorMsg.textContent = "Phone number is required.";
+        errorMsg.style.display = "block";
+        document.getElementById("f-phone").focus();
+        return;
+      }
+
       const connector = document.getElementById("f-connector").value.trim();
       if (connector) localStorage.setItem(LS_NAME, connector);
 
@@ -346,7 +355,7 @@
         name,
         nationality: document.getElementById("f-nationality").value.trim() || null,
         course: document.getElementById("f-course").value.trim() || null,
-        phone: document.getElementById("f-phone").value.trim() || null,
+        phone: phone,
         connector: connector || null,
         progress: document.getElementById("f-note").value.trim() || null,
         other_campus_note: document.getElementById("f-other-campus").value.trim() || null,
