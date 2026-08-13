@@ -991,6 +991,17 @@
         <button type="button" id="conclude-season-btn" class="btn-ghost" style="display:none;">Conclude season</button>
         <button type="button" id="reopen-season-btn" class="btn-ghost" style="display:none;">Reopen season</button>
       </div>
+
+      <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;" />
+
+      <div>
+        <label style="display:block; font-size:12px; color:var(--danger); margin-bottom:6px;">Danger zone</label>
+        <p style="font-size:13px; color:var(--text-muted); margin:0 0 10px;">These permanently delete data for this season and cannot be undone.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" id="delete-all-contacts-btn" class="btn-ghost" style="color:var(--danger); border-color:var(--danger);">Delete all contacts</button>
+          <button type="button" id="delete-all-events-btn" class="btn-ghost" style="color:var(--danger); border-color:var(--danger);">Delete all events</button>
+        </div>
+      </div>
     </form>
   </dialog>
 
@@ -1702,6 +1713,7 @@
     concludeConfirmTitle.textContent = "Conclude this season?";
     concludeConfirmDesc.textContent = "Attendance will switch to a read-only summary. Re-enter the admin login to confirm.";
     concludeConfirmSubmitBtn.textContent = "Conclude season";
+    concludeConfirmSubmitBtn.style.background = "";
     concludeConfirmForm.reset();
     concludeConfirmError.style.display = "none";
     closeDialog(bgDialog);
@@ -1713,11 +1725,43 @@
     concludeConfirmTitle.textContent = "Reopen this season?";
     concludeConfirmDesc.textContent = "Attendance will become editable again. Re-enter the admin login to confirm.";
     concludeConfirmSubmitBtn.textContent = "Reopen season";
+    concludeConfirmSubmitBtn.style.background = "";
     concludeConfirmForm.reset();
     concludeConfirmError.style.display = "none";
     closeDialog(bgDialog);
     setTimeout(() => openDialog(concludeConfirmDialog), 170);
   });
+
+  document.getElementById("delete-all-contacts-btn").addEventListener("click", () => {
+    pendingSeasonAction = "delete-contacts";
+    concludeConfirmTitle.textContent = "Delete all contacts?";
+    concludeConfirmDesc.textContent = "This permanently deletes every contact in this season. This cannot be undone. Re-enter the admin login to confirm.";
+    concludeConfirmSubmitBtn.textContent = "Delete all contacts";
+    concludeConfirmSubmitBtn.style.background = "var(--danger)";
+    concludeConfirmForm.reset();
+    concludeConfirmError.style.display = "none";
+    closeDialog(bgDialog);
+    setTimeout(() => openDialog(concludeConfirmDialog), 170);
+  });
+
+  document.getElementById("delete-all-events-btn").addEventListener("click", () => {
+    pendingSeasonAction = "delete-events";
+    concludeConfirmTitle.textContent = "Delete all events?";
+    concludeConfirmDesc.textContent = "This permanently deletes every event and all recorded attendance in this season. This cannot be undone. Re-enter the admin login to confirm.";
+    concludeConfirmSubmitBtn.textContent = "Delete all events";
+    concludeConfirmSubmitBtn.style.background = "var(--danger)";
+    concludeConfirmForm.reset();
+    concludeConfirmError.style.display = "none";
+    closeDialog(bgDialog);
+    setTimeout(() => openDialog(concludeConfirmDialog), 170);
+  });
+
+  const seasonActionLabels = {
+    conclude: "Conclude season",
+    reopen: "Reopen season",
+    "delete-contacts": "Delete all contacts",
+    "delete-events": "Delete all events"
+  };
 
   concludeConfirmCancelBtn.addEventListener("click", () => closeDialog(concludeConfirmDialog));
 
@@ -1738,22 +1782,34 @@
         return;
       }
 
-      const willConclude = pendingSeasonAction === "conclude";
-      const { error } = await sb.from("seasons")
-        .update({ concluded: willConclude, concluded_at: willConclude ? new Date().toISOString() : null })
-        .eq("id", seasonId);
-      if (error) throw error;
+      if (pendingSeasonAction === "conclude" || pendingSeasonAction === "reopen") {
+        const willConclude = pendingSeasonAction === "conclude";
+        const { error } = await sb.from("seasons")
+          .update({ concluded: willConclude, concluded_at: willConclude ? new Date().toISOString() : null })
+          .eq("id", seasonId);
+        if (error) throw error;
 
-      seasonConcluded = willConclude;
-      updateSeasonStatusUI();
+        seasonConcluded = willConclude;
+        updateSeasonStatusUI();
+        showBanner(willConclude ? "Season concluded" : "Season reopened", false);
+      } else if (pendingSeasonAction === "delete-contacts") {
+        const { error } = await sb.from("contacts").delete().eq("season_id", seasonId);
+        if (error) throw error;
+        showBanner("All contacts deleted", false);
+        await loadContacts();
+      } else if (pendingSeasonAction === "delete-events") {
+        const { error } = await sb.from("events").delete().eq("season_id", seasonId);
+        if (error) throw error;
+        showBanner("All events deleted", false);
+      }
+
       closeDialog(concludeConfirmDialog);
-      showBanner(willConclude ? "Season concluded" : "Season reopened", false);
     } catch (err) {
-      concludeConfirmError.textContent = `Couldn't update — ${err.message || "check your connection"}.`;
+      concludeConfirmError.textContent = `Couldn't complete this — ${err.message || "check your connection"}.`;
       concludeConfirmError.style.display = "block";
     } finally {
       concludeConfirmSubmitBtn.disabled = false;
-      concludeConfirmSubmitBtn.textContent = pendingSeasonAction === "conclude" ? "Conclude season" : "Reopen season";
+      concludeConfirmSubmitBtn.textContent = seasonActionLabels[pendingSeasonAction] || "Confirm";
     }
   });
 
