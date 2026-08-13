@@ -337,10 +337,11 @@
 
   .add-row {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 10px;
     margin-bottom: 16px;
   }
+  #open-add-event { margin-left: auto; }
 
   #auth-gate {
     display: flex;
@@ -868,8 +869,8 @@
   <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Event Attendance</span>
 
   <div class="add-row">
-    <button id="open-add-event" class="btn-primary" style="display:none;">+ Add Event</button>
     <button id="filter-toggle-btn" class="toggle-btn" style="display:none;">Filter</button>
+    <button id="open-add-event" class="btn-primary" style="display:none;">+ Add Event</button>
   </div>
 
   <div id="confirm-banner"></div>
