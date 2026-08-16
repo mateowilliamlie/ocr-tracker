@@ -760,6 +760,19 @@
 </main>
 
 <script>
+  window.addEventListener("error", (e) => {
+    hidePageLoader();
+    const loader = document.getElementById("page-loader");
+    if (loader) {
+      loader.innerHTML = `<div style="max-width:320px; text-align:center; padding:20px; font-size:14px; color:#333;">
+        Something went wrong loading this page:<br><br>
+        <code style="font-size:12px;">${(e.message || "unknown error").replace(/</g, "&lt;")}</code>
+      </div>`;
+      loader.classList.remove("hide");
+      loader.style.background = "#fff";
+    }
+  });
+
   const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
   const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1046,6 +1059,17 @@
   backLink.addEventListener("click", () => showPageLoader());
 
   initAuthState();
+
+  setTimeout(() => {
+    const loader = document.getElementById("page-loader");
+    if (loader && !loader.classList.contains("hide")) {
+      loader.innerHTML = `<div style="max-width:320px; text-align:center; padding:20px; font-size:14px; color:#333;">
+        This is taking longer than expected.<br><br>
+        <button onclick="window.location.reload()" style="padding:10px 20px; border-radius:10px; border:none; background:#A8452F; color:white; font-weight:600;">Reload</button>
+      </div>`;
+      loader.style.background = "#fff";
+    }
+  }, 8000);
 </script>
 </body>
 </html>
