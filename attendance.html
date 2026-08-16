@@ -876,6 +876,10 @@
   <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
   <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Event Attendance</span>
 
+  <div class="toolbar" id="attendance-search-toolbar" style="display:none;">
+    <input id="search-input" type="text" placeholder="Search by name" />
+  </div>
+
   <div class="add-row">
     <button id="filter-toggle-btn" class="toggle-btn" style="display:none;">Filter</button>
     <button id="open-add-event" class="btn-primary" style="display:none;">+ Add Event</button>
@@ -1155,7 +1159,9 @@
   }
 
   function getFilteredSortedContacts() {
+    const q = (document.getElementById("search-input")?.value || "").trim().toLowerCase();
     let result = contacts.filter(c => {
+      if (q && !c.name.toLowerCase().includes(q)) return false;
       const count = countAttended(c.id);
       if (count < minEventsFilter) return false;
       if (selectedEventFilterIds.size > 0) {
@@ -1188,6 +1194,7 @@
       summaryView.style.display = "none";
       filterToggleBtn.style.display = "none";
       document.getElementById("filter-panel").style.display = "none";
+      document.getElementById("attendance-search-toolbar").style.display = "none";
       return;
     }
     noEventsEl.style.display = "none";
@@ -1197,11 +1204,13 @@
       summaryView.style.display = "block";
       filterToggleBtn.style.display = "none";
       document.getElementById("filter-panel").style.display = "none";
+      document.getElementById("attendance-search-toolbar").style.display = "none";
       renderSummary();
     } else {
       summaryView.style.display = "none";
       matrixView.style.display = "block";
       filterToggleBtn.style.display = "inline-block";
+      document.getElementById("attendance-search-toolbar").style.display = "flex";
       rebuildFilterControls();
       renderMatrix();
     }
@@ -1268,6 +1277,8 @@
       e.target.disabled = false;
     }
   });
+
+  document.getElementById("search-input").addEventListener("input", renderMatrix);
 
   document.getElementById("filter-toggle-btn").addEventListener("click", () => {
     const panel = document.getElementById("filter-panel");

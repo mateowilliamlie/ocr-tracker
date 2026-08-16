@@ -2287,9 +2287,28 @@
         updateSeasonStatusUI();
         showBanner(willConclude ? "Season concluded" : "Season reopened", false);
       } else if (pendingSeasonAction === "delete-contacts") {
+        if (contacts.length > 0) {
+          try {
+            const rows = contactRowsToSheet(contacts);
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Contacts");
+            const wbArray = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+            const wbBlob = new Blob([wbArray], { type: "application/octet-stream" });
+            const campusSlug = (currentCampusName || "campus").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            const seasonSlug = (currentSeasonName || "season").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            const path = `${campusSlug}-${seasonSlug}-${Date.now()}.xlsx`;
+            const { error: backupError } = await sb.storage.from("backups").upload(path, wbBlob);
+            if (backupError) throw backupError;
+          } catch (backupErr) {
+            concludeConfirmError.textContent = `Couldn't create a safety backup, so nothing was deleted — ${backupErr.message || "check your connection and try again"}.`;
+            concludeConfirmError.style.display = "block";
+            return;
+          }
+        }
         const { error } = await sb.from("contacts").delete().eq("season_id", seasonId);
         if (error) throw error;
-        showBanner("All contacts deleted", false);
+        showBanner("All contacts deleted (a backup was saved first)", false);
         await loadContacts();
       } else if (pendingSeasonAction === "delete-events") {
         const { error } = await sb.from("events").delete().eq("season_id", seasonId);
