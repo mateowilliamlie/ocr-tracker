@@ -343,7 +343,7 @@
     margin-bottom: 16px;
   }
 
-  #auth-gate {
+  #auth-gate, #access-denied {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -789,6 +789,14 @@
     </div>
   </div>
 
+  <div id="access-denied" style="display:none;">
+    <div class="auth-gate-card">
+      <h1>Access denied</h1>
+      <p class="subtitle">You don't have access to this campus — contact Mateo for access.</p>
+      <a href="campuses.html" class="btn-primary" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;">Back to campuses</a>
+    </div>
+  </div>
+
   <div id="app-content" style="display:none;">
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
   <a href="#" id="attendance-link" class="breadcrumb" style="display:none; margin-left:8px;">Event Attendance &rarr;</a>
@@ -1123,6 +1131,8 @@
   const tabInPerson = document.getElementById("tab-inperson");
   const tabOnline = document.getElementById("tab-online");
   let isAdmin = false;
+  let isDev = false;
+  let userCampusId = null;
   let seasonConcluded = false;
   let pendingDeleteId = null;
   let editingId = null;
@@ -1979,6 +1989,7 @@
   }
 
   const authGate = document.getElementById("auth-gate");
+  const accessDenied = document.getElementById("access-denied");
   const appContent = document.getElementById("app-content");
   const gateForm = document.getElementById("gate-form");
   const gateSubmitBtn = document.getElementById("gate-submit-btn");
@@ -1990,11 +2001,30 @@
     return role === "dev" || role === "campus_admin";
   }
 
+  function getIsDevFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "dev");
+  }
+
+  function getUserCampusId(session) {
+    return (session && session.user && session.user.app_metadata && session.user.app_metadata.campus_id) || null;
+  }
+
   async function unlockDashboard() {
+    await loadSeasonContext();
+    if (!isDev && seasonId && currentCampusId && userCampusId !== currentCampusId) {
+      showAccessDenied();
+      return;
+    }
     authGate.style.display = "none";
     appContent.style.display = "block";
     updateAdminUI();
-    await Promise.all([loadSeasonContext(), loadContacts()]);
+    await loadContacts();
+  }
+
+  function showAccessDenied() {
+    authGate.style.display = "none";
+    appContent.style.display = "none";
+    accessDenied.style.display = "flex";
   }
 
   gateForm.addEventListener("submit", async (e) => {
@@ -2015,6 +2045,8 @@
       }
       isSignedIn = true;
       isAdmin = getIsAdminFromSession(data.session);
+      isDev = getIsDevFromSession(data.session);
+      userCampusId = getUserCampusId(data.session);
       showPageLoader();
       await unlockDashboard();
       showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
@@ -2032,6 +2064,8 @@
     if (event === "SIGNED_OUT") return;
     isSignedIn = !!session;
     isAdmin = getIsAdminFromSession(session);
+    isDev = getIsDevFromSession(session);
+    userCampusId = getUserCampusId(session);
     updateAdminUI();
     if (isSignedIn) render();
   });
@@ -2041,6 +2075,8 @@
       const { data } = await sb.auth.getSession();
       isSignedIn = !!data.session;
       isAdmin = getIsAdminFromSession(data.session);
+      isDev = getIsDevFromSession(data.session);
+      userCampusId = getUserCampusId(data.session);
       if (isSignedIn) {
         await unlockDashboard();
       } else {
