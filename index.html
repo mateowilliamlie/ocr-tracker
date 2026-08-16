@@ -1018,6 +1018,16 @@
       <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;" />
 
       <div>
+        <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">Data</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" id="bg-export-btn" class="btn-ghost">Export contacts</button>
+          <button type="button" id="bg-import-btn" class="btn-ghost">Import contacts</button>
+        </div>
+      </div>
+
+      <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;" />
+
+      <div>
         <label style="display:block; font-size:12px; color:var(--danger); margin-bottom:6px;">Danger zone</label>
         <p style="font-size:13px; color:var(--text-muted); margin:0 0 10px;">These permanently delete data for this season and cannot be undone.</p>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -1692,7 +1702,7 @@
       return;
     }
     const label = isAdmin ? "Signed in as admin" : "Signed in as member";
-    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="export-btn" class="toggle-btn">Export</button><button id="import-btn" class="toggle-btn">Import</button><button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -1709,10 +1719,6 @@
       bgFileName.textContent = "No file chosen";
       updateSeasonStatusUI();
       openDialog(bgDialog);
-    } else if (e.target.id === "export-btn") {
-      openDialog(exportDialog);
-    } else if (e.target.id === "import-btn") {
-      openImportDialog();
     }
   });
 
@@ -1753,6 +1759,16 @@
   });
 
   bgCancelBtn.addEventListener("click", () => closeDialog(bgDialog));
+
+  document.getElementById("bg-export-btn").addEventListener("click", () => {
+    closeDialog(bgDialog);
+    setTimeout(() => openDialog(exportDialog), 170);
+  });
+
+  document.getElementById("bg-import-btn").addEventListener("click", () => {
+    closeDialog(bgDialog);
+    setTimeout(() => openImportDialog(), 170);
+  });
 
   bgForm.addEventListener("submit", async (e) => {
     e.preventDefault();
