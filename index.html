@@ -1278,7 +1278,7 @@
         <div class="row">
           <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}</span>
           <span class="connector">${escapeHtml(c.connector || "—")}</span>
-          <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}">
+          <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
@@ -1345,7 +1345,7 @@
 
     const actionsHtml = `
       <div class="detail-actions">
-        <button class="edit-btn" data-edit="${c.id}">Edit</button>
+        ${(isAdmin || !seasonConcluded) ? `<button class="edit-btn" data-edit="${c.id}">Edit</button>` : ""}
         ${isAdmin ? `
           <button class="edit-btn" data-transfer="${c.id}">Transfer</button>
           <button class="delete-btn" data-delete="${c.id}">
@@ -1495,6 +1495,12 @@
       return;
     }
 
+    if (!isAdmin && seasonConcluded) {
+      showBanner("This season has concluded — reminders are locked for members.", true);
+      await loadContacts();
+      return;
+    }
+
     let reminder_date;
     if (value === "current") return;
     if (value === "none") reminder_date = null;
@@ -1508,7 +1514,10 @@
       showBanner("Reminder updated", false);
       await loadContacts();
     } catch (err) {
-      showBanner(`Couldn't update reminder — ${err.message || "check your connection"}`, true);
+      const friendly = /row-level security/i.test(err.message || "")
+        ? "This season has concluded — only dev/campus admin can make changes."
+        : (err.message || "check your connection");
+      showBanner(`Couldn't update reminder — ${friendly}`, true);
     }
   });
 
@@ -1641,7 +1650,10 @@
         render();
       }
     } catch (err) {
-      showBanner(`Couldn't save — ${err.message || "check your connection and try again"}`, true);
+      const friendly = /row-level security/i.test(err.message || "")
+        ? "This season has concluded — only dev/campus admin can make changes."
+        : (err.message || "check your connection and try again");
+      showBanner(`Couldn't save — ${friendly}`, true);
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = editingId ? "Save changes" : "Save contact";
@@ -1681,14 +1693,16 @@
     if (!statusText || !concludeBtn || !reopenBtn) return;
 
     if (seasonConcluded) {
-      statusText.textContent = "This season has concluded. Attendance now shows as a read-only summary.";
+      statusText.textContent = "This season has concluded. Contacts are locked and attendance shows as a read-only summary. Dev/campus admin can still make changes.";
       concludeBtn.style.display = "none";
       reopenBtn.style.display = "inline-block";
     } else {
-      statusText.textContent = "Concluding a season locks in attendance as a read-only summary. This can be reversed later if needed.";
+      statusText.textContent = "Concluding a season locks contacts and attendance as read-only for members (dev/campus admin can still edit). This can be reversed later if needed.";
       concludeBtn.style.display = "inline-block";
       reopenBtn.style.display = "none";
     }
+    openBtn.style.display = (isAdmin || !seasonConcluded) ? "inline-block" : "none";
+    render();
   }
 
   const bgDialog = document.getElementById("bg-dialog");
