@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OCR — Event Attendance</title>
+<script src="theme.js"></script>
+<script src="loading.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-2: #F9FAFB;
+    --text: #1A1D23;
+    --text-muted: #6B7280;
+    --border: #E2E4E9;
+    --accent: #A8452F;
+    --accent-hover: #8F3B28;
+    --success: #15803D;
+    --success-bg: #DCFCE7;
+    --danger: #B91C1C;
+    --danger-bg: #FEE2E2;
+    --warn: #B45309;
+    --warn-bg: #FEF3C7;
+    --info: #1D4ED8;
+    --info-bg: #DBEAFE;
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display-font: "Anton", var(--font);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --surface-2: #262A31;
+    --text: #ECEDEF;
+    --text-muted: #9AA0AC;
+    --border: #33373F;
+    --accent: #C2573D;
+    --accent-hover: #D66748;
+    --success: #22C55E;
+    --success-bg: #123320;
+    --danger: #F87171;
+    --danger-bg: #3A1518;
+    --warn: #FBBF24;
+    --warn-bg: #3A2A0C;
+    --info: #60A5FA;
+    --info-bg: #122A4A;
+  }
+
+  * { box-sizing: border-box; }
+
+  #page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  }
+  #page-loader.hide { opacity: 0; pointer-events: none; }
+  .page-loader-mark {
+    font-family: "Poppins", var(--font);
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    color: #FFFFFF;
+    animation: pulse-swell 1.3s ease-in-out infinite;
+  }
+  @keyframes pulse-swell {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 1; }
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg) center / cover fixed no-repeat;
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 64px;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 20px 16px 0;
+  }
+
+  button { font-family: var(--font); font-size: 14px; cursor: pointer; transition: transform 0.08s ease; }
+  button:active { transform: scale(0.95); }
+  a { color: inherit; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-brand { display: flex; align-items: center; grid-column: 2; justify-self: center; }
+  .topbar-brand-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; cursor: pointer; }
+  .theme-toggle-wrap { grid-column: 1; justify-self: start; }
+
+  .theme-switch { display: inline-flex; cursor: pointer; }
+
+  #theme-toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .theme-switch-track {
+    position: relative;
+    width: 52px;
+    height: 26px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+
+  .theme-switch-icon {
+    width: 13px;
+    height: 13px;
+    color: var(--text-muted);
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .theme-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+    z-index: 2;
+  }
+
+  #theme-toggle-checkbox:checked + .theme-switch-track .theme-switch-thumb {
+    transform: translateX(26px);
+  }
+  .topbar .topbar-right { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 10px; }
+  .topbar .admin-area { display: flex; align-items: center; gap: 8px; }
+  .quickadd-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+  .quickadd-btn:hover { background: var(--accent-hover); }
+  .brand-logo { height: 40px; width: auto; object-fit: contain; }
+
+  .toggle-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .admin-status { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+
+  .breadcrumb {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 12px;
+    display: inline-block;
+    background: var(--surface);
+    padding: 10px 18px;
+    border-radius: 999px;
+  }
+  .breadcrumb:hover { color: var(--text); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 11px 20px;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: var(--text);
+  }
+
+  .btn-submit {
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: white;
+    font-weight: 500;
+  }
+  .btn-submit:disabled, .btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+  #confirm-banner {
+    display: none;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 16px;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  #confirm-banner.error { background: var(--danger-bg); color: var(--danger); }
+
+  .field { margin-bottom: 14px; }
+  .field > label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #FFFFFF;
+    color: #1A1D23;
+  }
+
+  .date-input-wrap { position: relative; display: block; width: 100%; }
+  .date-input-wrap input {
+    padding-right: 38px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: 100%;
+    font-size: 16px !important;
+    text-align: left !important;
+  }
+  .date-input-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
+
+  #auth-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: 24px 0;
+  }
+  .auth-gate-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .auth-gate-card h1 { font-size: 19px; margin: 0 0 6px; }
+  .auth-gate-card .subtitle { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  #gate-error {
+    font-size: 13px; color: var(--danger); background: var(--danger-bg);
+    padding: 10px 12px; border-radius: 10px; margin-bottom: 14px;
+  }
+
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .tab-btn {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .source-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--info-bg);
+    color: var(--info);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  #search-input {
+    flex: 1;
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  #search-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  #sort-select {
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 9px 34px 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B93A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 15px;
+  }
+
+  .board {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .col-headers {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--surface-2);
+  }
+
+  .row-wrap {
+    border-top: 1px solid var(--border);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  .row .name {
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .row .connector {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .row select.reminder-select {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 28px 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--surface-2);
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B93A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 13px;
+  }
+
+  .row select.reminder-select.has-reminder-overdue {
+    background-color: var(--danger-bg);
+    color: var(--danger);
+    border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-soon {
+    background-color: var(--warn-bg);
+    color: var(--warn);
+    border-color: transparent;
+  }
+
+  .row select.reminder-select.has-reminder-future {
+    background-color: var(--info-bg);
+    color: var(--info);
+    border-color: transparent;
+  }
+
+  .row .reminder-date-input {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .chevron {
+    background: none;
+    border: none;
+    font-size: 15px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    padding: 8px;
+    line-height: 1;
+  }
+
+  .chevron.open { transform: rotate(180deg); }
+
+  .detail {
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 20px;
+    padding: 6px 14px 18px;
+    background: var(--surface-2);
+    font-size: 13px;
+  }
+
+  .detail.open { display: grid; }
+
+  .detail .field-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .empty-state {
+    padding: 32px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .interest-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .switch-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .switch-toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .switch-track {
+    position: relative;
+    width: 40px;
+    height: 24px;
+    background: var(--border);
+    border-radius: 999px;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+  }
+
+  .switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease;
+  }
+
+  .switch-toggle input:checked + .switch-track {
+    background: var(--success);
+  }
+
+  .switch-toggle input:checked + .switch-track .switch-thumb {
+    transform: translateX(16px);
+  }
+
+  .switch-toggle input:focus-visible + .switch-track {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .detail-actions {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 7px 16px;
+    font-size: 12px;
+  }
+
+  .delete-btn {
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 10px;
+    padding: 7px 16px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 520px) {
+    .topbar {
+      grid-template-columns: 1fr;
+      row-gap: 8px;
+    }
+    .theme-toggle-wrap {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-brand {
+      grid-column: 1;
+      justify-self: center;
+    }
+    .topbar-right {
+      grid-column: 1;
+      justify-self: end;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .admin-area {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .topbar-brand .ocr-wordmark-fallback,
+    #wordmark-fallback {
+      font-size: 30px !important;
+    }
+    .topbar-brand .brand-logo,
+    #topbar-logo {
+      height: 60px;
+    }
+
+    .toolbar { flex-wrap: wrap; }
+    #search-input { flex: 1 1 100%; }
+    .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
+    .detail { grid-template-columns: 1fr 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      max-width: 100%;
+    }
+  }
+  .agenda-group { margin-bottom: 20px; }
+  .agenda-date-header {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .agenda-date-header.status-overdue { color: var(--danger); }
+  .agenda-date-header.status-soon { color: var(--warn); }
+  .agenda-date-header.status-future { color: var(--info); }
+  .agenda-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .agenda-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .agenda-row:last-child { border-bottom: none; }
+  .agenda-row-name { font-weight: 600; font-size: 15px; }
+  .agenda-row-note { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .agenda-row-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .agenda-row-badge.status-overdue { background: var(--danger-bg); color: var(--danger); }
+  .agenda-row-badge.status-soon { background: var(--warn-bg); color: var(--warn); }
+  .agenda-row-badge.status-future { background: var(--info-bg); color: var(--info); }
+  .toggle-btn.active-filter {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
+<div id="page-loader"><div class="page-loader-mark">OCR</div></div>
+<div class="topbar">
+  <div class="theme-toggle-wrap">
+    <label class="theme-switch" aria-label="Toggle dark mode">
+      <input type="checkbox" id="theme-toggle-checkbox" />
+      <span class="theme-switch-track">
+        <svg class="theme-switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <span class="theme-switch-thumb"></span>
+        <svg class="theme-switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      </span>
+    </label>
+  </div>
+  <div class="topbar-brand">
+    <a class="topbar-brand-link" id="brand-link" href="campuses.html" aria-label="Back to seasons">
+      <span class="ocr-wordmark-fallback" id="wordmark-fallback" style="font-family:'Poppins',var(--font);font-weight:800;font-size:20px;letter-spacing:0.02em;">OCR</span>
+      <img id="topbar-logo" class="brand-logo" alt="OCR logo" style="display:none;" />
+    </a>
+  </div>
+  <div class="topbar-right">
+    <a class="quickadd-btn" id="quickadd-link" href="quick-add.html">+ Quick Add</a>
+    <div class="admin-area" id="admin-area"></div>
+  </div>
+</div>
+<main>
+
+  <div id="auth-gate">
+    <div class="auth-gate-card">
+      <h1>Sign in to continue</h1>
+      <p class="subtitle">Viewing and editing contacts requires a member or admin login.</p>
+      <div id="gate-error" style="display:none;"></div>
+      <form id="gate-form">
+        <div class="field">
+          <label for="gate-email">Email</label>
+          <input id="gate-email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="gate-password">Password</label>
+          <input id="gate-password" type="password" required />
+        </div>
+        <button type="submit" id="gate-submit-btn" class="btn-primary" style="width:100%;">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-content" style="display:none;">
+  <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
+  <span id="calendar-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Calendar</span>
+
+  <div id="confirm-banner"></div>
+
+  <div class="toolbar" style="margin-bottom:16px;">
+    <button id="filter-overdue-btn" class="toggle-btn">Overdue</button>
+    <button id="filter-soon-btn" class="toggle-btn">Due soon</button>
+    <button id="filter-upcoming-btn" class="toggle-btn">Upcoming</button>
+    <button id="filter-clear-btn" class="toggle-btn" style="display:none;">Clear</button>
+  </div>
+
+  <div id="calendar-loading-state" class="empty-state" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">Loading reminders…</div>
+  <div id="calendar-empty-state" class="empty-state" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">No follow-up reminders set for this season yet.</div>
+  <div id="calendar-agenda"></div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7Gl5gI5XAsMWxNLreYoMvA__2y-gpCC";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  const banner = document.getElementById("confirm-banner");
+  function showBanner(message, isError) {
+    banner.textContent = message;
+    banner.className = isError ? "error" : "";
+    banner.style.display = "block";
+    clearTimeout(showBanner._timer);
+    showBanner._timer = setTimeout(() => { banner.style.display = "none"; }, 4000);
+  }
+
+  const adminArea = document.getElementById("admin-area");
+  const backLink = document.getElementById("back-link");
+  const calendarTitleLink = document.getElementById("calendar-title-link");
+
+  const seasonId = new URLSearchParams(window.location.search).get("season");
+  let currentCampusId = new URLSearchParams(window.location.search).get("campus");
+
+  if (!seasonId) {
+    window.location.href = "campuses.html";
+  }
+
+  const quickAddLink = document.getElementById("quickadd-link");
+  if (quickAddLink && seasonId) {
+    quickAddLink.href = `quick-add.html?season=${seasonId}&return=dashboard`;
+  }
+
+  let isSignedIn = false;
+  let isAdmin = false;
+  let contacts = [];
+  let activeStatusFilter = null; // null | 'overdue' | 'soon' | 'future'
+
+  function getIsAdminFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+  }
+
+  function updateAdminUI() {
+    if (!isSignedIn) {
+      adminArea.innerHTML = "";
+      return;
+    }
+    const label = isAdmin ? "Signed in as admin" : "Signed in as member";
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>`;
+  }
+
+  adminArea.addEventListener("click", async (e) => {
+    if (e.target.id === "signout-btn") {
+      await sb.auth.signOut();
+      isSignedIn = false;
+      isAdmin = false;
+      document.getElementById("app-content").style.display = "none";
+      document.getElementById("auth-gate").style.display = "flex";
+      updateAdminUI();
+      showBanner("Signed out", false);
+    }
+  });
+
+  async function loadSeasonContext() {
+    if (!seasonId) return;
+    const { data, error } = await sb.from("seasons").select("*").eq("id", seasonId).single();
+    if (error || !data) return;
+
+    if (!currentCampusId) currentCampusId = data.campus_id;
+    backLink.href = `index.html?season=${seasonId}&campus=${currentCampusId}`;
+    backLink.style.display = "inline-block";
+    calendarTitleLink.style.display = "inline-block";
+    const brandLink = document.getElementById("brand-link");
+    if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
+
+    const bgUrl = data.background_override_url || data.photo_url;
+    if (bgUrl) document.body.style.backgroundImage = `url("${bgUrl}")`;
+
+    if (data.logo_url) {
+      const topbarLogo = document.getElementById("topbar-logo");
+      const wordmark = document.getElementById("wordmark-fallback");
+      topbarLogo.onload = () => { topbarLogo.style.display = "block"; wordmark.style.display = "none"; };
+      topbarLogo.onerror = () => { topbarLogo.style.display = "none"; wordmark.style.display = "block"; };
+      topbarLogo.src = data.logo_url;
+    }
+  }
+
+  function reminderStatus(dateStr) {
+    if (!dateStr) return "none";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(dateStr + "T00:00:00");
+    const diffDays = Math.round((d - today) / 86400000);
+    if (diffDays < 0) return "overdue";
+    if (diffDays <= 3) return "soon";
+    return "future";
+  }
+
+  function statusLabel(status) {
+    if (status === "overdue") return "Overdue";
+    if (status === "soon") return "Due soon";
+    return "Upcoming";
+  }
+
+  function formatDateHeader(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  }
+
+  async function loadReminders() {
+    const loadingEl = document.getElementById("calendar-loading-state");
+    const emptyEl = document.getElementById("calendar-empty-state");
+    const agendaEl = document.getElementById("calendar-agenda");
+    loadingEl.style.display = "block";
+    emptyEl.style.display = "none";
+    agendaEl.innerHTML = "";
+
+    try {
+      const { data, error } = await sb
+        .from("contacts")
+        .select("*")
+        .eq("season_id", seasonId)
+        .not("reminder_date", "is", null)
+        .order("reminder_date", { ascending: true });
+      if (error) throw error;
+      contacts = data || [];
+      loadingEl.style.display = "none";
+      renderAgenda();
+    } catch (err) {
+      loadingEl.textContent = `Couldn't load reminders — ${err.message || "check your connection"}.`;
+    }
+  }
+
+  function renderAgenda() {
+    const emptyEl = document.getElementById("calendar-empty-state");
+    const agendaEl = document.getElementById("calendar-agenda");
+
+    if (contacts.length === 0) {
+      emptyEl.style.display = "block";
+      agendaEl.innerHTML = "";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    const visible = activeStatusFilter
+      ? contacts.filter(c => reminderStatus(c.reminder_date) === activeStatusFilter)
+      : contacts;
+
+    if (visible.length === 0) {
+      agendaEl.innerHTML = `<div class="empty-state" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">No reminders match this filter.</div>`;
+      return;
+    }
+
+    // Group by date, preserving date order (already sorted ascending from the query)
+    const groups = [];
+    let currentGroup = null;
+    visible.forEach(c => {
+      if (!currentGroup || currentGroup.date !== c.reminder_date) {
+        currentGroup = { date: c.reminder_date, contacts: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.contacts.push(c);
+    });
+
+    agendaEl.innerHTML = groups.map(group => {
+      const status = reminderStatus(group.date);
+      const rows = group.contacts.map(c => {
+        const rowStatus = reminderStatus(c.reminder_date);
+        const note = c.reminder_note ? `<div class="agenda-row-note">${escapeHtml(c.reminder_note)}</div>` : "";
+        return `
+          <a class="agenda-row" href="index.html?season=${seasonId}&campus=${currentCampusId}">
+            <div>
+              <div class="agenda-row-name">${escapeHtml(c.name)}</div>
+              ${note}
+            </div>
+            <span class="agenda-row-badge status-${rowStatus}">${statusLabel(rowStatus)}</span>
+          </a>
+        `;
+      }).join("");
+      return `
+        <div class="agenda-group">
+          <div class="agenda-date-header status-${status}">${formatDateHeader(group.date)}</div>
+          <div class="agenda-card">${rows}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function setStatusFilter(status) {
+    activeStatusFilter = status;
+    document.querySelectorAll("#filter-overdue-btn, #filter-soon-btn, #filter-upcoming-btn").forEach(btn => {
+      btn.classList.remove("active-filter");
+    });
+    const clearBtn = document.getElementById("filter-clear-btn");
+    if (status) {
+      clearBtn.style.display = "inline-block";
+      const map = { overdue: "filter-overdue-btn", soon: "filter-soon-btn", future: "filter-upcoming-btn" };
+      document.getElementById(map[status]).classList.add("active-filter");
+    } else {
+      clearBtn.style.display = "none";
+    }
+    renderAgenda();
+  }
+
+  document.getElementById("filter-overdue-btn").addEventListener("click", () => {
+    setStatusFilter(activeStatusFilter === "overdue" ? null : "overdue");
+  });
+  document.getElementById("filter-soon-btn").addEventListener("click", () => {
+    setStatusFilter(activeStatusFilter === "soon" ? null : "soon");
+  });
+  document.getElementById("filter-upcoming-btn").addEventListener("click", () => {
+    setStatusFilter(activeStatusFilter === "future" ? null : "future");
+  });
+  document.getElementById("filter-clear-btn").addEventListener("click", () => setStatusFilter(null));
+
+  const authGate = document.getElementById("auth-gate");
+  const appContent = document.getElementById("app-content");
+  const gateForm = document.getElementById("gate-form");
+  const gateSubmitBtn = document.getElementById("gate-submit-btn");
+  const gateError = document.getElementById("gate-error");
+
+  async function unlockDashboard() {
+    authGate.style.display = "none";
+    appContent.style.display = "block";
+    await loadSeasonContext();
+    updateAdminUI();
+    await loadReminders();
+  }
+
+  gateForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("gate-email").value.trim();
+    const password = document.getElementById("gate-password").value;
+
+    gateSubmitBtn.disabled = true;
+    gateSubmitBtn.textContent = "Signing in...";
+    gateError.style.display = "none";
+
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        gateError.textContent = "Incorrect email or password.";
+        gateError.style.display = "block";
+        return;
+      }
+      isSignedIn = true;
+      isAdmin = getIsAdminFromSession(data.session);
+      showPageLoader();
+      await unlockDashboard();
+      showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
+    } catch (err) {
+      gateError.textContent = "Couldn't sign in — check your connection and try again.";
+      gateError.style.display = "block";
+    } finally {
+      gateSubmitBtn.disabled = false;
+      gateSubmitBtn.textContent = "Sign in";
+      hidePageLoader();
+    }
+  });
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") return;
+    isSignedIn = !!session;
+    isAdmin = getIsAdminFromSession(session);
+    updateAdminUI();
+  });
+
+  async function initAuthState() {
+    try {
+      const { data } = await sb.auth.getSession();
+      isSignedIn = !!data.session;
+      isAdmin = getIsAdminFromSession(data.session);
+      if (isSignedIn) {
+        await unlockDashboard();
+      } else {
+        authGate.style.display = "flex";
+      }
+    } finally {
+      hidePageLoader();
+    }
+  }
+
+  backLink.addEventListener("click", () => showPageLoader());
+
+  initAuthState();
+</script>
+</body>
+</html>

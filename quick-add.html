@@ -265,9 +265,8 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-phone">Phone number *</label>
-          <input id="f-phone" type="tel" placeholder="e.g. 9123 4567" required />
-          <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">WeChat only? Enter any placeholder number and put their WeChat ID in the note.</span>
+          <label for="f-phone">Phone / WeChat ID *</label>
+          <input id="f-phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
         </div>
         <div class="field">
           <label for="f-connector">Your name (point person)</label>
@@ -320,7 +319,7 @@
 
       const phone = document.getElementById("f-phone").value.trim();
       if (!phone) {
-        errorMsg.textContent = "Phone number is required.";
+        errorMsg.textContent = "Phone / WeChat ID is required.";
         errorMsg.style.display = "block";
         document.getElementById("f-phone").focus();
         return;

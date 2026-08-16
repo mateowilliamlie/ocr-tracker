@@ -792,6 +792,7 @@
   <div id="app-content" style="display:none;">
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
   <a href="#" id="attendance-link" class="breadcrumb" style="display:none; margin-left:8px;">Event Attendance &rarr;</a>
+  <a href="#" id="calendar-link" class="breadcrumb" style="display:none; margin-left:8px;">Calendar &rarr;</a>
   <div class="add-row">
     <button id="open-add" class="btn-primary">+ New</button>
   </div>
@@ -870,9 +871,8 @@
       </div>
 
       <div class="field">
-        <label for="f-phone">Phone number *</label>
-        <input id="f-phone" name="phone" type="tel" placeholder="e.g. 9123 4567" required />
-        <span style="display:block; font-size:11px; color:var(--text-muted); margin-top:4px;">WeChat only? Enter any placeholder number and put their WeChat ID under Progress.</span>
+        <label for="f-phone">Phone / WeChat ID *</label>
+        <input id="f-phone" name="phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
       </div>
 
       <div class="field">
@@ -883,6 +883,20 @@
       <div class="field">
         <label for="f-suggested">Suggest to connect with</label>
         <input id="f-suggested" name="suggested_connection" type="text" placeholder="A member, group, or event" />
+      </div>
+
+      <div class="field">
+        <label for="f-followup-owner">Who's following up?</label>
+        <select id="f-followup-owner" name="followup_owner_type">
+          <option value="connector">Current point person</option>
+          <option value="suggested">Suggested point person</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field" id="followup-other-field" style="display:none;">
+        <label for="f-followup-other">Who?</label>
+        <input id="f-followup-other" name="followup_owner_other" type="text" placeholder="Name of who's following up" />
       </div>
 
       <div class="field">
@@ -1290,6 +1304,12 @@
     return list.length ? list.join(", ") : "—";
   }
 
+  function followupOwnerDisplay(c) {
+    if (c.followup_owner_type === "suggested") return c.suggested_connection || "Suggested point person (not set)";
+    if (c.followup_owner_type === "other") return c.followup_owner_other || "";
+    return c.connector || "Current point person (not set)";
+  }
+
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
@@ -1301,6 +1321,7 @@
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
       ["Suggest to connect with", c.suggested_connection],
+      ["Following up", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
       ["Progress", c.progress],
       ["Other school (note)", c.other_campus_note]
@@ -1363,6 +1384,9 @@
     form.phone.value = c.phone || "";
     form.faith_background.value = c.faith_background || "";
     form.suggested_connection.value = c.suggested_connection || "";
+    form.followup_owner_type.value = c.followup_owner_type || "connector";
+    document.getElementById("followup-other-field").style.display = form.followup_owner_type.value === "other" ? "block" : "none";
+    form.followup_owner_other.value = c.followup_owner_other || "";
     form.interest_event.checked = !!c.interest_event;
     form.interest_lg.checked = !!c.interest_lg;
     form.interest_church.checked = !!c.interest_church;
@@ -1505,6 +1529,7 @@
     form.reset();
     form.campus.value = currentCampusId;
     document.getElementById("other-campus-field").style.display = "none";
+    document.getElementById("followup-other-field").style.display = "none";
     fpBirthday.clear();
     fpReminderDate.clear();
     openDialog(dialog);
@@ -1523,7 +1548,7 @@
 
     const phone = form.phone.value.trim();
     if (!phone) {
-      showBanner("Phone number is required.", true);
+      showBanner("Phone / WeChat ID is required.", true);
       form.phone.focus();
       return;
     }
@@ -1539,6 +1564,8 @@
       phone: phone,
       faith_background: form.faith_background.value || null,
       suggested_connection: form.suggested_connection.value.trim() || null,
+      followup_owner_type: form.followup_owner_type.value,
+      followup_owner_other: form.followup_owner_type.value === "other" ? (form.followup_owner_other.value.trim() || null) : null,
       interest_event: form.interest_event.checked,
       interest_lg: form.interest_lg.checked,
       interest_church: form.interest_church.checked,
@@ -1838,6 +1865,12 @@
     });
   }
 
+  const followupOwnerSelect = document.getElementById("f-followup-owner");
+  followupOwnerSelect.addEventListener("change", () => {
+    document.getElementById("followup-other-field").style.display =
+      followupOwnerSelect.value === "other" ? "block" : "none";
+  });
+
   async function resolveSeasonForCampus(campusId) {
     const { data, error } = await sb
       .from("seasons").select("*").eq("campus_id", campusId)
@@ -1924,6 +1957,11 @@
     if (attendanceLink) {
       attendanceLink.href = `attendance.html?season=${seasonId}&campus=${currentCampusId}`;
       attendanceLink.style.display = "inline-block";
+    }
+    const calendarLink = document.getElementById("calendar-link");
+    if (calendarLink) {
+      calendarLink.href = `calendar.html?season=${seasonId}&campus=${currentCampusId}`;
+      calendarLink.style.display = "inline-block";
     }
 
     const bgUrl = data.background_override_url || data.photo_url;
