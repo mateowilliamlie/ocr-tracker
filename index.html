@@ -1956,22 +1956,22 @@
     { key: "name", label: "Name", match: ["name"] },
     { key: "nationality", label: "Nationality", match: ["nationality"] },
     { key: "course", label: "Course", match: ["course"] },
-    { key: "connector", label: "Point person", match: ["point person"] },
+    { key: "connector", label: "Point person", match: ["point person", "connector"] },
     { key: "age", label: "Age", match: ["age"] },
     { key: "year", label: "Year", match: ["year"] },
     { key: "birthday", label: "Birthday", match: ["birthday"] },
     { key: "phone", label: "Phone / WeChat", match: ["phone / wechat", "phone", "wechat"] },
     { key: "faith_background", label: "Faith background", match: ["faith background"] },
     { key: "suggested_connection", label: "Suggested connection", match: ["suggested connection"] },
-    { key: "interest_event", label: "Interested — Event (Yes/No)", match: ["interested — event", "interested - event"] },
-    { key: "interest_lg", label: "Interested — LG (Yes/No)", match: ["interested — lg", "interested - lg"] },
-    { key: "interest_church", label: "Interested — Church (Yes/No)", match: ["interested — church", "interested - church"] },
+    { key: "interest_event", label: "Interested — Event (Yes/No)", match: ["interested — event", "interested - event", "interest event"] },
+    { key: "interest_lg", label: "Interested — LG (Yes/No)", match: ["interested — lg", "interested - lg", "interest lg"] },
+    { key: "interest_church", label: "Interested — Church (Yes/No)", match: ["interested — church", "interested - church", "interest church"] },
     { key: "progress", label: "Progress", match: ["progress"] },
     { key: "reminder_date", label: "Reminder date", match: ["reminder date"] },
     { key: "reminder_note", label: "Reminder note", match: ["reminder note"] },
     { key: "source", label: "Source", match: ["source"] },
-    { key: "other_campus_note", label: "Other school note", match: ["other school note"] },
-    { key: "created_at", label: "Added (original date)", match: ["added"] }
+    { key: "other_campus_note", label: "Other school note", match: ["other school note", "other campus note"] },
+    { key: "created_at", label: "Added (original date)", match: ["added", "created at"] }
   ];
 
   let importSeasons = [];
@@ -2046,9 +2046,13 @@
     });
   }
 
+  function normalizeHeader(s) {
+    return s.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
   function guessMapping(header) {
-    const h = header.trim().toLowerCase();
-    const found = IMPORT_FIELDS.find(f => f.match && f.match.includes(h));
+    const h = normalizeHeader(header);
+    const found = IMPORT_FIELDS.find(f => f.match && f.match.some(m => normalizeHeader(m) === h));
     return found ? found.key : "";
   }
 
