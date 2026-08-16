@@ -160,6 +160,17 @@
       campusId = params.get("campus");
 
       if (!seasonId) {
+        // If already signed in as a member/campus_admin (session persists across
+        // tabs via localStorage once logged into index.html), use their own
+        // campus instead of whatever this device last used for Quick Add.
+        // Dev accounts aren't tied to one campus, so they keep the old fallback.
+        const { data: { session } } = await sb.auth.getSession();
+        const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
+        const sessionCampusId = session && session.user && session.user.app_metadata && session.user.app_metadata.campus_id;
+        if (sessionCampusId && role !== "dev") {
+          await pickCampus(sessionCampusId);
+          return;
+        }
         seasonId = localStorage.getItem(LS_SEASON);
         campusId = localStorage.getItem(LS_CAMPUS);
       }
