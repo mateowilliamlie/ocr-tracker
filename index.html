@@ -1958,7 +1958,7 @@
     seasonConcluded = !!data.concluded;
     updateSeasonStatusUI();
 
-    if (!currentCampusId) currentCampusId = data.campus_id;
+    currentCampusId = data.campus_id;
     backLink.href = `seasons.html?campus=${currentCampusId}`;
     backLink.style.display = "inline-block";
     const brandLink = document.getElementById("brand-link");
