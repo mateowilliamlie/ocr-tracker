@@ -343,7 +343,7 @@
   }
   #open-add-event { margin-left: auto; }
 
-  #auth-gate {
+  #auth-gate, #access-denied {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -864,6 +864,14 @@
     </div>
   </div>
 
+  <div id="access-denied" style="display:none;">
+    <div class="auth-gate-card">
+      <h1>You don't have access to this campus</h1>
+      <p class="subtitle">Your login is scoped to a different campus. If you think this is a mistake, contact Mateo for access.</p>
+      <a href="campuses.html" class="btn-primary" style="display:block; text-align:center; text-decoration:none; width:100%; box-sizing:border-box;">Back to campuses</a>
+    </div>
+  </div>
+
   <div id="app-content" style="display:none;">
   <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
   <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Event Attendance</span>
@@ -1010,6 +1018,8 @@
 
   let isSignedIn = false;
   let isAdmin = false;
+  let isDev = false;
+  let userCampusId = null;
   let seasonConcluded = false;
   let events = [];
   let contacts = [];
@@ -1017,7 +1027,16 @@
   let attendanceMap = {};
 
   function getIsAdminFromSession(session) {
-    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+    const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
+    return role === "dev" || role === "campus_admin";
+  }
+
+  function getIsDevFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "dev");
+  }
+
+  function getUserCampusId(session) {
+    return (session && session.user && session.user.app_metadata && session.user.app_metadata.campus_id) || null;
   }
 
   function updateAdminUI() {
@@ -1332,8 +1351,16 @@
 
   async function unlockDashboard() {
     authGate.style.display = "none";
-    appContent.style.display = "block";
+    document.getElementById("access-denied").style.display = "none";
     await loadSeasonContext();
+
+    if (!isDev && userCampusId && currentCampusId && userCampusId !== currentCampusId) {
+      appContent.style.display = "none";
+      document.getElementById("access-denied").style.display = "flex";
+      return;
+    }
+
+    appContent.style.display = "block";
     updateAdminUI();
     await loadEventsAndAttendance();
   }
@@ -1356,6 +1383,8 @@
       }
       isSignedIn = true;
       isAdmin = getIsAdminFromSession(data.session);
+      isDev = getIsDevFromSession(data.session);
+      userCampusId = getUserCampusId(data.session);
       showPageLoader();
       await unlockDashboard();
       showBanner(isAdmin ? "Signed in as admin" : "Signed in as member", false);
@@ -1373,6 +1402,8 @@
     if (event === "SIGNED_OUT") return;
     isSignedIn = !!session;
     isAdmin = getIsAdminFromSession(session);
+    isDev = getIsDevFromSession(session);
+    userCampusId = getUserCampusId(session);
     updateAdminUI();
   });
 
@@ -1381,6 +1412,8 @@
       const { data } = await sb.auth.getSession();
       isSignedIn = !!data.session;
       isAdmin = getIsAdminFromSession(data.session);
+      isDev = getIsDevFromSession(data.session);
+      userCampusId = getUserCampusId(data.session);
       if (isSignedIn) {
         await unlockDashboard();
       } else {

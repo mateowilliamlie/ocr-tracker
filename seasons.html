@@ -772,7 +772,16 @@
   });
 
   function getIsAdminFromSession(session) {
-    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+    const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
+    return role === "dev" || role === "campus_admin";
+  }
+
+  function getIsDevFromSession(session) {
+    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "dev");
+  }
+
+  function getUserCampusId(session) {
+    return (session && session.user && session.user.app_metadata && session.user.app_metadata.campus_id) || null;
   }
 
   sb.auth.onAuthStateChange((event, session) => {
