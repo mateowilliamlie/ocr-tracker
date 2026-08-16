@@ -13,9 +13,11 @@ Built incrementally by a non-professional developer with AI assistance, optimize
 ```
 Campuses (campuses.html) — public, browsable without login
   └─ Seasons (seasons.html) — per campus, newest = "Current", public
-       └─ Tracker (index.html) — per season, gated behind login
-            ├─ Quick Add (quick-add.html) — fast-path add tool for members
-            └─ Guest Sign-up (signup.html) — public, no login, insert-only
+       └─ Tracker (index.html) — per season, gated behind login, campus-scoped
+            ├─ Quick Add (quick-add.html) — fast-path add tool, login-optional
+            ├─ Guest Sign-up (signup.html) — public, no login, insert-only
+            ├─ Attendance (attendance.html) — per-event matrix + read-only summary once concluded
+            └─ Calendar (calendar.html) — reminder agenda + month grid
 ```
 
 A **campus** (e.g. "PolyU HK") is a top-level org unit. Each campus has any number of **seasons** (e.g. "We Are Here 2026/27") — one season is always treated as "current," determined automatically by whichever was created most recently. Every **contact** belongs to exactly one season via `contacts.season_id`; a contact's campus is derived from that relationship, not stored redundantly (see `contacts_with_campus` below).
@@ -31,9 +33,10 @@ Considered (a `campus_id` column directly on `contacts`) and rejected in favor o
 ## Tech Stack
 
 - **Frontend:** Plain HTML/CSS/JS. No React, no bundler, no npm install step.
-- **Backend:** [Supabase](https://supabase.com) — Postgres database with Row Level Security, Auth (email/password, with a custom `app_metadata` role flag for admin distinction), and Storage (file uploads).
+- **Backend:** [Supabase](https://supabase.com) — Postgres database with Row Level Security, Auth (email/password, with a custom `app_metadata` role/campus_id combination distinguishing `dev` / `campus_admin` / plain member), and Storage (file uploads, plus private automatic backups).
 - **Hosting:** [Vercel](https://vercel.com), free tier, auto-deploys on push to the connected GitHub repo.
 - **Calendar UI:** [flatpickr](https://flatpickr.js.org) (CDN, no install) — replaced native `<input type="date">` due to iOS rendering bugs, lack of typed input, and a real conflict with native `<dialog>` modal rendering (see Known Limitations).
+- **Spreadsheet export/import:** [SheetJS](https://sheetjs.com) (`xlsx`, CDN, no install) — generates `.xlsx` client-side for Export and pre-delete backups, and parses uploaded `.xlsx`/`.csv` for Import. No backend involvement in either direction.
 - **Fonts:** Google Fonts (Anton, Poppins) via CDN `<link>`.
 
 ## File Structure
@@ -45,6 +48,8 @@ Considered (a `campus_id` column directly on `contacts`) and rejected in favor o
 ├── seasons.html          Per-campus season history (public)
 ├── signup.html            Public guest sign-up form (no login, insert-only)
 ├── quick-add.html          Fast-path add tool for members
+├── attendance.html          Per-season event attendance matrix + summary view
+├── calendar.html             Per-season reminder calendar (agenda + month grid)
 ├── theme.js                 Shared dark/light mode logic, loaded by every page
 ├── loading.js                Shared page-loader animation logic, loaded by every page
 └── assets/
@@ -52,17 +57,31 @@ Considered (a `campus_id` column directly on `contacts`) and rejected in favor o
                                   text-wordmark fallback pattern now used across pages
 ```
 
-Each `.html` file is fully self-contained (styles + script inline) except for the two shared JS files. There is deliberately no shared component library or templating — updating something that appears on multiple pages currently means editing each file individually. This tradeoff for staying build-step-free has a real, demonstrated cost: it directly caused a bug where duplicate/leftover markup from an earlier edit collided with newer markup by sharing an ID, and separately caused a full CSS variable block to be accidentally deleted during a large rewrite. **After any significant edit touching shared patterns, check for duplicate IDs** (`grep -oE 'id="[a-zA-Z0-9_-]+"' file.html | sort | uniq -c | sort -rn`) before shipping — this is now standard practice, not optional. A team picking this up long-term may want to introduce a lightweight build process to de-duplicate the repeated CSS/JS blocks across pages.
+Each `.html` file is fully self-contained (styles + script inline) except for the two shared JS files. There is deliberately no shared component library or templating — updating something that appears on multiple pages currently means editing each file individually. This tradeoff for staying build-step-free has a real, demonstrated cost:
+
+- It directly caused a bug where duplicate/leftover markup from an earlier edit collided with newer markup by sharing an ID, and separately caused a full CSS variable block to be accidentally deleted during a large rewrite. **After any significant edit touching shared patterns, check for duplicate IDs** (`grep -oE 'id="[a-zA-Z0-9_-]+"' file.html | sort | uniq -c | sort -rn`) before shipping — this is now standard practice, not optional.
+- Separately, a variable (`concludeConfirmDialog`) was referenced in six places but its declaration line had gone missing — the file still loaded and parsed with zero errors, since JS doesn't fail until the code that references a missing variable actually *runs*. It silently broke Conclude/Reopen/Delete-all-contacts/Delete-all-events for an unknown period until someone happened to click one. **A syntax check (`node --check`) or a duplicate-ID grep is not enough on its own** — after any edit that touches button wiring or dialog handoffs, actually click the affected buttons (or load the page in a headless DOM and simulate the click) before considering the change safe to ship.
+
+A team picking this up long-term may want to introduce a lightweight build process to de-duplicate the repeated CSS/JS blocks across pages.
 
 ## Access Model
 
-Three tiers, enforced at the database level via RLS — not just hidden UI:
+Four tiers, enforced at the database level via RLS — not just hidden UI. This replaced an earlier single shared-admin-account model; see Roadmap v2 in ROADMAP.md for how that migration happened.
 
-- **Public** — no login. Can only *insert* new contacts (via the guest sign-up form). Can view campus/season names and branding (needed for the public sign-up flow to work at all).
-- **Member** — logged in with the shared member credential. Can view and edit contacts. The tracker (`index.html`) is fully gated behind a real login screen at this tier — not reachable without signing in.
-- **Admin** — logged in with an account carrying `app_metadata.role = "admin"`. Everything a member can do, plus: delete contacts, create/edit/delete campuses and seasons, override page backgrounds, and use the dedicated cross-campus Transfer function.
+- **Public** — no login. Can only *insert* new contacts (via the guest sign-up form). Can view campus/season names and branding (needed for the public sign-up flow to work at all, and deliberately left public even post-login-gating — see note below).
+- **Member** — logged in with a campus-specific shared credential (e.g. `polyu-member@...`, `cityu-member@...`). Can view and edit contacts, but only within their own campus — enforced by matching `app_metadata.campus_id` against the season's campus in RLS, not just hidden in the UI. The tracker (`index.html`) is fully gated behind login; landing on a *different* campus's season (e.g. via a stale link) shows a clear Access Denied screen rather than a misleadingly empty dashboard.
+- **Campus admin** — logged in with `app_metadata.role = "campus_admin"` and a `campus_id`. Everything a member can do within their own campus, plus: delete contacts, create/edit/delete seasons, override page backgrounds, conclude/reopen seasons, Transfer a contact to another campus, and export/import that campus's data.
+- **Dev** — logged in with `app_metadata.role = "dev"`, no `campus_id` (not scoped to one campus). Everything a campus admin can do, across every campus, plus: create/delete campuses, edit the site-wide background, and issue new campus-level credentials.
 
-Both the member and admin accounts are **shared credentials, admin-created**, not self-service sign-up — a deliberate choice. Open self-registration would let a stranger register their own account in seconds with the same access as a real member, defeating the purpose of gating the tracker at all.
+Each campus's member and campus_admin accounts are **shared credentials, admin-created**, not self-service sign-up — a deliberate choice. Open self-registration would let a stranger register their own account in seconds with the same access as a real member, defeating the purpose of gating the tracker at all.
+
+### Why campus/season names stay publicly viewable even after this change
+
+`campuses.html`/`seasons.html` intentionally stayed public-read (no login required) even after campus-scoping was added, because `signup.html` (guest sign-up, zero internal links) needs to read that data to work at all. Restricting *viewing* to logged-in same-campus users only would be trivially bypassed by logging out or opening an incognito tab — real security value comes from restricting *writes*, which is where the RLS scoping actually lives.
+
+### Concluding a season
+
+Concluding a season (Settings → Season status) does more than switch attendance to a read-only summary — it also locks `contacts` (no add/edit/delete, including the inline reminder-date dropdown) for everyone except `dev`/`campus_admin`, across all three entry points: the tracker, Quick Add, and guest sign-up. This is enforced by a `season_concluded()` SQL function baked into the `contacts` INSERT/UPDATE policies, not just hidden buttons. Reopening a season reverses it completely — no data is lost either way.
 
 ## Database Schema
 
@@ -177,33 +196,154 @@ create policy "Only admins can insert site settings" on site_settings for insert
 create policy "Only admins can update site settings" on site_settings for update using (is_admin());
 ```
 
+### Campus-scoped access additions (Roadmap v2)
+
+The schema above reflects the original single-shared-admin build. Layered on top of it, without changing the original tables:
+
+```sql
+-- Reads campus_id straight off the JWT — same tamper-proof mechanism as is_admin()
+create or replace function get_user_campus_id()
+returns uuid
+language sql
+stable
+as $$
+  select (auth.jwt() -> 'app_metadata' ->> 'campus_id')::uuid;
+$$;
+
+create or replace function is_dev()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'dev', false);
+$$;
+
+create or replace function is_campus_admin()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'campus_admin', false);
+$$;
+
+-- is_admin() now means "dev or campus_admin" — redefined, not a new function
+create or replace function is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') in ('dev', 'campus_admin'), false);
+$$;
+
+-- A season's campus, looked up by id — used to scope contacts by campus
+-- without a denormalized column (same reasoning as contacts_with_campus above)
+create or replace function season_campus_id(p_season_id uuid)
+returns uuid
+language sql
+stable
+as $$
+  select campus_id from seasons where id = p_season_id;
+$$;
+
+-- Whether a season has been concluded — used to lock contacts on old seasons
+create or replace function season_concluded(p_season_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((select concluded from seasons where id = p_season_id), false);
+$$;
+
+-- campuses/seasons: insert/delete stay dev-only; update opens to a campus_admin
+-- editing their own campus/season (still blocked from touching others')
+alter policy "Dev or own campus admin can update campuses" on campuses
+using (is_dev() or (is_campus_admin() and id = get_user_campus_id()));
+
+-- contacts: select/update scoped to same-campus authenticated users (or dev);
+-- delete stays dev/campus_admin-only, also same-campus scoped
+create policy "Same-campus users can view contacts" on contacts for select
+using (is_dev() or (auth.role() = 'authenticated' and season_campus_id(season_id) = get_user_campus_id()));
+
+create policy "Dev or own campus admin can delete contacts" on contacts for delete
+using (is_dev() or (is_campus_admin() and season_campus_id(season_id) = get_user_campus_id()));
+
+-- contacts insert/update: dev and campus_admin can write into ANY campus's
+-- season (needed for Transfer) and bypass the concluded-season lock; a plain
+-- member stays restricted to their own campus and can't write into a
+-- concluded season at all
+alter policy "Anyone can add contacts" on contacts
+with check (is_dev() or is_campus_admin() or not season_concluded(season_id));
+
+alter policy "Same-campus users can update contacts" on contacts
+with check (
+  is_dev()
+  or is_campus_admin()
+  or (
+    auth.role() = 'authenticated'
+    and season_campus_id(season_id) = get_user_campus_id()
+    and not season_concluded(season_id)
+  )
+);
+```
+
+Every campus's `member`/`campus_admin` account gets tagged via the same `raw_app_meta_data` merge pattern used for the original admin account (see Credentials below), just with `campus_id` added:
+
+```sql
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role": "campus_admin", "campus_id": "<campus uuid>"}'::jsonb
+where email = '<campus>-admin@ocr-tracker.app';
+```
+
+A member account gets `campus_id` only, no `role` key at all (absence of `role` is what makes an account a plain member).
+
 ### Storage
 
-One bucket, `branding`, public read, admin-only write:
+Two buckets:
+
+- **`branding`** — public read, admin-only write. Campus/season logos and background photos.
+- **`backups`** — private, `dev`/`campus_admin`-only read *and* write. Holds automatic `.xlsx` snapshots taken right before "Delete all contacts" runs (see Known Limitations).
 
 ```sql
 create policy "Public can view branding images" on storage.objects for select using (bucket_id = 'branding');
 create policy "Only admins can upload branding images" on storage.objects for insert with check (bucket_id = 'branding' and is_admin());
 create policy "Only admins can replace branding images" on storage.objects for update using (bucket_id = 'branding' and is_admin());
+
+create policy "Admins can upload backups" on storage.objects for insert with check (bucket_id = 'backups' and (is_dev() or is_campus_admin()));
+create policy "Admins can view backups" on storage.objects for select using (bucket_id = 'backups' and (is_dev() or is_campus_admin()));
 ```
 
-Create the bucket itself via the Supabase dashboard (Storage → New bucket → name `branding` → toggle Public on) before running the above.
+Create both buckets via the Supabase dashboard (Storage → New bucket) before running the above — `branding` with Public toggled **on**, `backups` with it **off**.
 
 ## Credentials
 
 The Supabase **Project URL** and **publishable (anon) key** are hardcoded directly into every `.html` file's `<script>` block. This is intentional — the publishable key is explicitly designed by Supabase to be public-facing; it carries no elevated privileges, and all real access control is enforced server-side by the RLS policies above. Never put the Supabase **secret key** anywhere in this codebase.
 
-Two shared accounts exist, both created manually via Supabase Auth → Users, not through any public sign-up flow:
+Accounts are created manually via Supabase Auth → Users → Add user (sets the password there), then tagged via a `raw_app_meta_data` SQL merge (don't overwrite the field directly — it already holds provider info Supabase needs). One `member` + one `campus_admin` account per campus, plus a single campus-independent `dev` account:
 
-- **Admin** (`admin@ocr-tracker.app`) — flagged via `raw_app_meta_data`. To set this flag on an account, merge it in via SQL (don't overwrite the field directly — it already holds provider info Supabase needs):
-  ```sql
-  update auth.users
-  set raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
-  where email = 'admin@ocr-tracker.app';
-  ```
-- **Member** (`member@ocr-tracker.app`) — no special flag; default tier is member.
+```sql
+-- Dev — no campus_id, works across every campus
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role": "dev"}'::jsonb
+where email = 'dev@ocr-tracker.app';
 
-To rotate a password or add a genuinely separate identity, do so directly in the Supabase dashboard.
+-- Campus admin — role + that campus's real UUID (from the campuses table)
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role": "campus_admin", "campus_id": "<campus uuid>"}'::jsonb
+where email = 'polyu-admin@ocr-tracker.app';
+
+-- Member — campus_id only, no role key at all
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"campus_id": "<campus uuid>"}'::jsonb
+where email = 'polyu-member@ocr-tracker.app';
+```
+
+**A mistake worth calling out because it happened more than once while setting these up:** if you copy a SQL snippet with a placeholder like `<campus uuid>` or `PASTE-CAMPUS-UUID` and run it without swapping in the real value, the `update` still succeeds — it just writes the literal placeholder text into `campus_id`. There's no error, so it silently produces an account that looks tagged but isn't. Always re-run `select email, raw_app_meta_data from auth.users;` after tagging to visually confirm the value is a real UUID, not placeholder text.
+
+The original single shared `admin@`/`member@` pair from the pre-campus-scoping build can be repurposed (e.g. as the `dev` account) or left alone — untagged/mismatched accounts just fail RLS checks like any other account, they don't get special treatment.
+
+Anyone logged in needs to **log out and back in** after their `app_metadata` is changed — the JWT is issued at login and doesn't pick up metadata changes until a fresh session is created. This is the single most common "why isn't my role change taking effect" cause.
+
+To rotate a password, or if you're not sure of a password, use Supabase Dashboard → Authentication → Users → the account's **⋮** menu → password reset/change (exact option depends on your dashboard version). For a mistyped or throwaway account with no real data attached, it's often simpler to just delete it and re-create it correctly.
 
 ## Local Development
 
@@ -215,10 +355,11 @@ Push to the connected GitHub repository's main branch; Vercel auto-deploys. No C
 
 ## Known Limitations & Things to Know
 
-- **Per-page code duplication is real, demonstrated technical debt.** Shared logic is copy-pasted across five HTML files rather than centralized. This has directly caused bugs: a duplicate-ID collision from leftover markup in one edit caused a button to silently do nothing (its click handler bound to a hidden duplicate element, not the visible one), and a separate edit accidentally deleted an entire foundational CSS block. **Always grep for duplicate IDs after significant edits** before considering a change safe to ship.
-- **`<dialog>` modals are manually managed** in `index.html` (a plain backdrop `<div>` plus `dialog.show()`), not using the browser's native `showModal()`/top-layer behavior. This was a deliberate fix for a genuine conflict: flatpickr's calendar popup was rendering *invisibly* behind native modal dialogs, because native modals use a special browser rendering layer that a library appending to `document.body` isn't part of. If touching dialog code, be aware this isn't standard `<dialog>` usage and don't "simplify" it back to `showModal()` without understanding why.
+- **Per-page code duplication is real, demonstrated technical debt.** Shared logic is copy-pasted across seven HTML files rather than centralized. This has directly caused bugs: a duplicate-ID collision from leftover markup in one edit caused a button to silently do nothing (its click handler bound to a hidden duplicate element, not the visible one); a separate edit accidentally deleted an entire foundational CSS block; and a missing variable declaration (not a duplicate, an *absent* one) broke four Danger Zone / season-status buttons with zero errors until someone actually clicked them. **After significant edits: grep for duplicate IDs, run a syntax check, and actually click the affected buttons** — the first two catch different failure classes than the third, and none of them substitute for the others.
+- **`<dialog>` modals are manually managed** in `index.html` (a plain backdrop `<div>` plus `dialog.show()`), not using the browser's native `showModal()`/top-layer behavior. This was a deliberate fix for a genuine conflict: flatpickr's calendar popup was rendering *invisibly* behind native modal dialogs, because native modals use a special browser rendering layer that a library appending to `document.body` isn't part of. If touching dialog code, be aware this isn't standard `<dialog>` usage and don't "simplify" it back to `showModal()` without understanding why. Also worth knowing: the `<dialog>` CSS sets a `max-height` but relies on `overflow-y: auto` to handle content taller than that — without it, overflow content renders *outside* the visible card with no scrollbar, which looks exactly like a "this button doesn't exist" bug rather than a rendering one. Keep that rule in place as more sections get added to any dialog.
 - **Views bypass Postgres RLS by default.** Any new view created on this database needs `security_invoker = true` explicitly set, or it will silently expose data regardless of the underlying tables' policies. Supabase's dashboard flags this with an "Unrestricted" badge — take it seriously.
-- **No automated tests.** Everything has been manually verified through the browser as it was built. A full deliberate pass across all four access tiers (guest / member / admin / signed-out) is recommended after any auth-related change, not just a quick glance.
-- **No CSV export, no aggregate reporting** — noted as a future item, not built.
+- **RLS blocking a query returns an empty result, not an error.** The app can't distinguish "no rows exist" from "you're not allowed to see any" purely from a query result — this is why the Access Denied page exists on `index.html` (an explicit campus-mismatch check run before the query, not inferred from an empty result afterward). If contacts ever appear mysteriously empty for a real user, check `raw_app_meta_data` and RLS policies before assuming it's a data problem, and remember a stale JWT (user hasn't logged out/in since a role/campus change) produces the exact same symptom.
+- **No automated tests.** Everything has been manually verified through the browser as it was built. A full deliberate regression pass across all four access tiers (guest / member / campus_admin / dev) is recommended after any auth-related change, not just a quick glance — see the Outstanding section of ROADMAP.md, this hasn't been done yet for the campus-scoping changes.
+- **Import's automatic column matching is exact-normalized, not fuzzy.** It handles underscore/hyphen variations and a fixed list of known aliases (so re-importing the app's own Export, or a raw database-column-named CSV, both auto-map correctly), but a genuinely differently-worded header (e.g. "WeChat handle" instead of "Phone / WeChat") won't guess correctly and needs manual mapping — which the UI supports, it just won't be pre-filled.
 - **Reminders are single-date-per-contact.** A multi-reminder system (separate `reminders` table, one-to-many) was scoped and explicitly deferred.
 - **iOS-specific fixes worth not accidentally reverting:** the mobile font-size-16px rule preventing Safari's zoom-on-focus, and the move away from native date inputs entirely (they overflow their container unpredictably on iOS and can't be restyled).

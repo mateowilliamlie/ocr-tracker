@@ -91,11 +91,51 @@ Everything built so far, checked off, organized by phase. Unchecked items are ge
 - [x] Dialog pop-in/pop-out entrance and exit animation
 - [x] Timing fix for the delete flow's two-dialog handoff
 
+## Roadmap v2 — campus-scoped access, export/import (in progress)
+
+Everything above was the original single-tier build. This section tracks the
+follow-on work: real per-campus accounts, data export/import, and the small
+features that came up along the way. Organized by the same phases from the
+Roadmap v2 planning doc.
+
+### Phase 0 — Quick wins
+- [x] Follow-up ownership field (current / suggested / other point person)
+- [x] Phone / WeChat field revamp (`type="text"`, relabeled)
+- [x] In-app calendar view (agenda + month grid, reminder-date based)
+
+### Phase 1 — Campus-scoped access control
+- [x] Three real tiers: `dev` / `campus_admin` / `member`, tagged via `app_metadata.role` + `app_metadata.campus_id`
+- [x] `is_dev()`, `is_campus_admin()`, `get_user_campus_id()`, `season_campus_id()` helper functions
+- [x] RLS rewritten on `contacts`/`campuses`/`seasons` to scope by campus, not just role
+- [x] PolyU and CityU each have their own member + campus_admin accounts; dev account separate from both
+- [x] `index.html` admin check fixed (was still checking the old shared `role === "admin"`, silently excluding `dev`/`campus_admin`)
+- [x] `campuses.html`/`seasons.html` button gating tightened — `campus_admin` sees only their own campus's edit/create controls, not every campus's
+- [x] **Access Denied page** — a member/campus_admin who lands on a season belonging to a different campus (e.g. via a stale or hand-edited URL) sees a clear "you don't have access" screen instead of a misleadingly empty dashboard. Fixed a follow-up bug where the check trusted the URL's `?campus=` param over the season's real campus, causing false positives on legitimate same-campus links.
+- [x] **Transfer**, extended to `campus_admin` — RLS `WITH CHECK` loosened so a campus_admin can move a contact into another campus's season (the `USING` clause still restricts them to only touching contacts that currently belong to their own campus)
+- [x] Quick Add now defaults to the logged-in member's own campus (reads the existing Supabase session) instead of only trusting URL params / this device's `localStorage`, while leaving Quick Add itself login-optional
+- [x] **Conclude season now actually locks data**, not just attendance display: `season_concluded()` RLS function; `contacts` INSERT/UPDATE blocked on a concluded season for everyone except `dev`/`campus_admin`. Applies across all three entry points — `index.html` (+New, Edit, the inline reminder dropdown all hide/disable for non-admins), `quick-add.html` (checks session role), and `signup.html` (guests always blocked, no override)
+- [x] Reopen season confirmed working — flips a season back to editable, no data loss
+- [x] Fixed a real regression: `concludeConfirmDialog` was referenced six times but never declared, silently breaking Conclude/Reopen/Delete-all-contacts/Delete-all-events. Only surfaced once someone actually clicked one, since the script otherwise loaded and parsed fine.
+- [x] Fixed dialog CSS: `overflow-y: auto` added, since a tall Settings dialog (once Data/Danger Zone sections were added) could overflow past the visible card with no scrollbar, hiding buttons in a way that looked like a "does nothing" bug rather than a rendering issue
+
+### Phase 2 — Export & import
+- [x] `.xlsx` export via SheetJS, generated client-side — "this season only" or "all seasons at this campus," `dev`/`campus_admin` only
+- [x] `.xlsx`/`.csv` import with a manual column-mapping step (auto-guesses matches against the app's own export headers), dedupes against the target season by name+phone, chunked insert with per-row fallback so one bad row doesn't block the rest
+- [x] Import mapping made robust against DB-style headers too (normalizes underscores/hyphens, adds raw-column-name aliases) after a real incident where a raw-header test CSV silently dropped several fields on import
+- [x] Export/Import moved into Settings under a new "Data" section, restyled (scope picker as clickable cards, mapping table cleaned up)
+- [x] 2,000-row synthetic test dataset generated and loaded into a dedicated `testload` season for capacity/UX testing
+
+### Small features added along the way (not originally scoped, came up naturally)
+- [x] **Pre-delete snapshot** — "Delete all contacts" now backs up the season's contacts to a private `backups` Storage bucket (`.xlsx`, admin-only read/write) *before* deleting, and aborts the delete entirely if the backup upload fails. Deliberately scoped to contacts only, not "Delete all events."
+- [x] Search bar on the attendance matrix (`attendance.html`) — filters by name, on top of the existing min-events/by-event filters. Matters a lot more now that a single season can hold thousands of contacts.
+
 ## Outstanding — not yet done
-- [ ] A full deliberate regression pass across all four access tiers (guest / member / admin / signed-out)
+- [ ] A full deliberate regression pass across all four access tiers (guest / member / campus_admin / dev), specifically re-verifying after this round of RLS and auth changes
+- [ ] `events` table's own RLS was never explicitly re-audited this round — "Delete all events" reuses the same confirm flow as contacts, but its underlying delete policy hasn't been checked against the current campus-scoped model the way `contacts`/`campuses`/`seasons` were
 - [ ] Automated tests (none exist)
 - [ ] Refactor to reduce per-page code duplication (candidate: introduce a lightweight build step)
-- [ ] CSV export / aggregate stats
+- [ ] Aggregate stats / reporting dashboard
 - [ ] Multi-date reminders (scoped in detail, explicitly declined for now)
 - [ ] Email confirmation on guest sign-up (explicitly declined — WhatsApp preferred; would need a real backend)
-- [ ] Revisit member onboarding if OCR's membership grows much larger than one shared credential can reasonably serve
+- [ ] Revisit member onboarding if OCR's membership grows much larger than one campus's shared credentials can reasonably serve
+- [ ] Google Sheets auto-sync and email-based reminders — parked pending real backend infrastructure (Supabase Edge Functions), by design (see Roadmap v2 Phase 3)
