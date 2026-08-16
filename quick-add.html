@@ -234,6 +234,22 @@
   }
 
   async function renderForm() {
+    if (seasonInfo && seasonInfo.concluded) {
+      const { data: { session } } = await sb.auth.getSession();
+      const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
+      if (role !== "dev" && role !== "campus_admin") {
+        card.innerHTML = `
+          <a class="exit-link" id="concluded-exit-link">&larr; Back</a>
+          <h1>Season concluded</h1>
+          <p class="subtitle">This season has wrapped up and isn't accepting new entries. Check with your campus admin if you think this is a mistake.</p>
+        `;
+        document.getElementById("concluded-exit-link").addEventListener("click", () => {
+          window.location.href = getBackUrl();
+        });
+        return;
+      }
+    }
+
     const savedName = localStorage.getItem(LS_NAME) || "";
     const { data: campusesData } = await sb.from("campuses").select("*").order("name", { ascending: true });
     const allCampuses = campusesData || [];
@@ -384,7 +400,10 @@
           : null;
         renderSuccess(name, chosenCampusName);
       } catch (err) {
-        errorMsg.textContent = `Couldn't save — ${err.message || "check your connection"}.`;
+        const friendly = /row-level security/i.test(err.message || "")
+          ? "this season has concluded and isn't accepting new entries."
+          : (err.message || "check your connection");
+        errorMsg.textContent = `Couldn't save — ${friendly}`;
         errorMsg.style.display = "block";
         submitBtn.disabled = false;
         submitBtn.textContent = "Save contact";

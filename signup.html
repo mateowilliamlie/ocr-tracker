@@ -322,7 +322,7 @@
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (error || !seasons || seasons.length === 0) {
+    if (error || !seasons || seasons.length === 0 || seasons[0].concluded) {
       errorMsg.textContent = "This campus isn't accepting sign-ups right now — please check back later.";
       errorMsg.style.display = "block";
       return;
@@ -387,7 +387,10 @@
       stepForm.style.display = "none";
       stepThanks.style.display = "block";
     } catch (err) {
-      errorMsg.textContent = `Something went wrong — ${err.message || "please try again"}.`;
+      const friendly = /row-level security/i.test(err.message || "")
+        ? "this season has concluded and isn't accepting sign-ups anymore."
+        : (err.message || "please try again");
+      errorMsg.textContent = `Something went wrong — ${friendly}`;
       errorMsg.style.display = "block";
     } finally {
       submitBtn.disabled = false;
