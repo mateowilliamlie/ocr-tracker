@@ -773,7 +773,9 @@
 
   function getIsAdminFromSession(session) {
     const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
-    return role === "dev" || role === "campus_admin";
+    if (role === "dev") return true;
+    if (role === "campus_admin") return getUserCampusId(session) === campusId;
+    return false;
   }
 
   function getIsDevFromSession(session) {

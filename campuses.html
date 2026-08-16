@@ -569,6 +569,8 @@
   const bgSubmitBtn = document.getElementById("bg-submit-btn");
 
   let isAdmin = false;
+  let isDev = false;
+  let userCampusId = null;
   let campuses = [];
   let editingId = null;
 
@@ -617,7 +619,7 @@
     cardList.innerHTML = "";
     if (campuses.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = isAdmin ? "No campuses yet — click + New to add one." : "No campuses yet.";
+      emptyStateEl.textContent = isDev ? "No campuses yet — click + New to add one." : "No campuses yet.";
       return;
     }
     emptyStateEl.style.display = "none";
@@ -634,7 +636,7 @@
 
       card.innerHTML = `
         <div class="banner-card-overlay"></div>
-        ${isAdmin ? `<button class="edit-icon-btn" data-edit="${c.id}" aria-label="Edit ${escapeHtml(c.name)}">&#9998;</button>` : ""}
+        ${(isDev || (isAdmin && c.id === userCampusId)) ? `<button class="edit-icon-btn" data-edit="${c.id}" aria-label="Edit ${escapeHtml(c.name)}">&#9998;</button>` : ""}
         ${logoHtml}
         <div class="banner-card-name">${escapeHtml(c.name)}</div>
       `;
@@ -766,9 +768,9 @@
   });
 
   function updateAdminUI() {
-    openBtn.style.display = isAdmin ? "inline-block" : "none";
+    openBtn.style.display = isDev ? "inline-block" : "none";
     adminArea.innerHTML = isAdmin
-      ? `<span class="admin-status">Signed in as admin</span><button id="signout-btn" class="toggle-btn">Sign out</button><button id="edit-bg-btn" class="toggle-btn">Edit background</button>`
+      ? `<span class="admin-status">Signed in as ${isDev ? "dev" : "campus admin"}</span><button id="signout-btn" class="toggle-btn">Sign out</button><button id="edit-bg-btn" class="toggle-btn">Edit background</button>`
       : `<button id="admin-login-btn" class="toggle-btn">Admin login</button>`;
     render();
   }
@@ -832,13 +834,18 @@
 
   sb.auth.onAuthStateChange((event, session) => {
     isAdmin = getIsAdminFromSession(session);
+    isDev = getIsDevFromSession(session);
+    userCampusId = getUserCampusId(session);
     updateAdminUI();
+    render();
   });
 
   async function init() {
     try {
       const { data } = await sb.auth.getSession();
       isAdmin = getIsAdminFromSession(data.session);
+      isDev = getIsDevFromSession(data.session);
+      userCampusId = getUserCampusId(data.session);
       updateAdminUI();
       await applyPageBackground();
       await loadCampuses();

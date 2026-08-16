@@ -1986,7 +1986,8 @@
   let isSignedIn = false;
 
   function getIsAdminFromSession(session) {
-    return !!(session && session.user && session.user.app_metadata && session.user.app_metadata.role === "admin");
+    const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
+    return role === "dev" || role === "campus_admin";
   }
 
   async function unlockDashboard() {
