@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>OCR — Event Attendance</title>
+<title>OCR — Calendar</title>
 <script src="theme.js"></script>
 <script src="loading.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -883,11 +883,11 @@
       const { data, error } = await sb
         .from("contacts")
         .select("*")
-        .eq("season_id", seasonId)
-        .not("reminder_date", "is", null)
-        .order("reminder_date", { ascending: true });
+        .eq("season_id", seasonId);
       if (error) throw error;
-      contacts = data || [];
+      contacts = (data || [])
+        .filter(c => !!c.reminder_date)
+        .sort((a, b) => a.reminder_date.localeCompare(b.reminder_date));
       loadingEl.style.display = "none";
       renderAgenda();
     } catch (err) {
@@ -986,9 +986,8 @@
   async function unlockDashboard() {
     authGate.style.display = "none";
     appContent.style.display = "block";
-    await loadSeasonContext();
     updateAdminUI();
-    await loadReminders();
+    await Promise.all([loadSeasonContext(), loadReminders()]);
   }
 
   gateForm.addEventListener("submit", async (e) => {
