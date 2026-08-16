@@ -1048,6 +1048,10 @@
     </form>
   </dialog>
 
+  <dialog id="import-dialog" style="max-width: 640px;">
+    <div id="import-body" style="padding: 20px;"></div>
+  </dialog>
+
   <dialog id="conclude-confirm-dialog">
     <form id="conclude-confirm-form" style="padding: 20px;">
       <h2 id="conclude-confirm-title" style="margin: 0 0 8px; font-size: 17px;">Confirm</h2>
@@ -1688,7 +1692,7 @@
       return;
     }
     const label = isAdmin ? "Signed in as admin" : "Signed in as member";
-    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="export-btn" class="toggle-btn">Export</button><button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="export-btn" class="toggle-btn">Export</button><button id="import-btn" class="toggle-btn">Import</button><button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -1707,6 +1711,8 @@
       openDialog(bgDialog);
     } else if (e.target.id === "export-btn") {
       openDialog(exportDialog);
+    } else if (e.target.id === "import-btn") {
+      openImportDialog();
     }
   });
 
@@ -1853,6 +1859,243 @@
       exportSubmitBtn.textContent = "Download";
     }
   });
+
+  const importDialog = document.getElementById("import-dialog");
+  const importBody = document.getElementById("import-body");
+
+  const IMPORT_FIELDS = [
+    { key: "", label: "Skip this column" },
+    { key: "name", label: "Name", match: ["name"] },
+    { key: "nationality", label: "Nationality", match: ["nationality"] },
+    { key: "course", label: "Course", match: ["course"] },
+    { key: "connector", label: "Point person", match: ["point person"] },
+    { key: "age", label: "Age", match: ["age"] },
+    { key: "year", label: "Year", match: ["year"] },
+    { key: "birthday", label: "Birthday", match: ["birthday"] },
+    { key: "phone", label: "Phone / WeChat", match: ["phone / wechat", "phone", "wechat"] },
+    { key: "faith_background", label: "Faith background", match: ["faith background"] },
+    { key: "suggested_connection", label: "Suggested connection", match: ["suggested connection"] },
+    { key: "interest_event", label: "Interested — Event (Yes/No)", match: ["interested — event", "interested - event"] },
+    { key: "interest_lg", label: "Interested — LG (Yes/No)", match: ["interested — lg", "interested - lg"] },
+    { key: "interest_church", label: "Interested — Church (Yes/No)", match: ["interested — church", "interested - church"] },
+    { key: "progress", label: "Progress", match: ["progress"] },
+    { key: "reminder_date", label: "Reminder date", match: ["reminder date"] },
+    { key: "reminder_note", label: "Reminder note", match: ["reminder note"] },
+    { key: "source", label: "Source", match: ["source"] },
+    { key: "other_campus_note", label: "Other school note", match: ["other school note"] },
+    { key: "created_at", label: "Added (original date)", match: ["added"] }
+  ];
+
+  let importSeasons = [];
+  let importRows = [];
+  let importHeaders = [];
+  let importMapping = {};
+
+  async function openImportDialog() {
+    importBody.innerHTML = `<p style="font-size:13px; color:var(--text-muted);">Loading seasons…</p>`;
+    openDialog(importDialog);
+
+    const { data, error } = await sb.from("seasons").select("*").eq("campus_id", currentCampusId).order("created_at", { ascending: false });
+    importSeasons = (!error && data) ? data : [];
+    renderImportPhase1();
+  }
+
+  function renderImportPhase1() {
+    importBody.innerHTML = `
+      <h2 style="margin:0 0 8px; font-size:17px;">Import contacts</h2>
+      <p style="font-size:13px; color:var(--text-muted); margin:0 0 16px;">Restores contacts from a spreadsheet. All rows go into the season you pick below, regardless of any Season column in the file.</p>
+      <div class="field">
+        <label for="import-season-select">Target season</label>
+        <select id="import-season-select">
+          ${importSeasons.map(s => `<option value="${s.id}" ${s.id === seasonId ? "selected" : ""}>${escapeHtml(s.name)}${s.concluded ? " (concluded)" : ""}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label for="import-file-input">Spreadsheet (.xlsx or .csv)</label>
+        <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" />
+      </div>
+      <div id="import-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-top:8px;"></div>
+      <div class="form-actions">
+        <button type="button" id="import-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="button" id="import-next-btn" class="btn-submit" disabled>Next: map columns</button>
+      </div>
+    `;
+    document.getElementById("import-cancel-btn").addEventListener("click", () => closeDialog(importDialog));
+
+    const fileInput = document.getElementById("import-file-input");
+    const nextBtn = document.getElementById("import-next-btn");
+    const errEl = document.getElementById("import-error");
+
+    fileInput.addEventListener("change", async () => {
+      errEl.style.display = "none";
+      const file = fileInput.files[0];
+      if (!file) { nextBtn.disabled = true; return; }
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array", cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        if (rows.length === 0) throw new Error("That file has no data rows.");
+        importRows = rows;
+        importHeaders = Object.keys(rows[0]);
+        nextBtn.disabled = false;
+      } catch (err) {
+        errEl.textContent = `Couldn't read that file — ${err.message || "make sure it's a valid spreadsheet"}.`;
+        errEl.style.display = "block";
+        nextBtn.disabled = true;
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      const seasonSelect = document.getElementById("import-season-select");
+      if (!seasonSelect.value) return;
+      renderImportPhase2(seasonSelect.value);
+    });
+  }
+
+  function guessMapping(header) {
+    const h = header.trim().toLowerCase();
+    const found = IMPORT_FIELDS.find(f => f.match && f.match.includes(h));
+    return found ? found.key : "";
+  }
+
+  function renderImportPhase2(targetSeasonId) {
+    importMapping = {};
+    importHeaders.forEach(h => { importMapping[h] = guessMapping(h); });
+
+    const fieldOptions = (selected) => IMPORT_FIELDS.map(f =>
+      `<option value="${f.key}" ${f.key === selected ? "selected" : ""}>${f.label}</option>`
+    ).join("");
+
+    importBody.innerHTML = `
+      <h2 style="margin:0 0 8px; font-size:17px;">Map columns</h2>
+      <p style="font-size:13px; color:var(--text-muted); margin:0 0 16px;">${importRows.length} row${importRows.length === 1 ? "" : "s"} found. Match each column to a field, or skip it.</p>
+      <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; padding:10px;">
+        ${importHeaders.map(h => `
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="flex:1; font-size:13px; color:var(--text);">${escapeHtml(h)}</span>
+            <select data-header="${escapeHtml(h)}" class="import-field-select" style="flex:1;">
+              ${fieldOptions(importMapping[h])}
+            </select>
+          </div>
+        `).join("")}
+      </div>
+      <div id="import-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-top:12px;"></div>
+      <div class="form-actions">
+        <button type="button" id="import-back-btn" class="btn-ghost">Back</button>
+        <button type="button" id="import-confirm-btn" class="btn-submit">Import ${importRows.length} row${importRows.length === 1 ? "" : "s"}</button>
+      </div>
+    `;
+
+    importBody.querySelectorAll(".import-field-select").forEach(sel => {
+      sel.addEventListener("change", () => { importMapping[sel.dataset.header] = sel.value; });
+    });
+
+    document.getElementById("import-back-btn").addEventListener("click", renderImportPhase1);
+    document.getElementById("import-confirm-btn").addEventListener("click", () => runImport(targetSeasonId));
+  }
+
+  function coerceImportValue(key, raw) {
+    if (raw === "" || raw === null || raw === undefined) return null;
+    if (key === "age") {
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? null : n;
+    }
+    if (key === "interest_event" || key === "interest_lg" || key === "interest_church") {
+      const s = String(raw).trim().toLowerCase();
+      return s === "yes" || s === "true" || s === "1";
+    }
+    if (key === "birthday" || key === "reminder_date") {
+      const d = raw instanceof Date ? raw : new Date(raw);
+      return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+    if (key === "created_at") {
+      const d = raw instanceof Date ? raw : new Date(raw);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    }
+    return String(raw).trim();
+  }
+
+  async function runImport(targetSeasonId) {
+    const errEl = document.getElementById("import-error");
+    const confirmBtn = document.getElementById("import-confirm-btn");
+    errEl.style.display = "none";
+
+    const nameHeader = Object.keys(importMapping).find(h => importMapping[h] === "name");
+    if (!nameHeader) {
+      errEl.textContent = "You need to map a column to \"Name\" before importing.";
+      errEl.style.display = "block";
+      return;
+    }
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Importing...";
+
+    try {
+      const { data: existing, error: existingErr } = await sb
+        .from("contacts")
+        .select("name, phone")
+        .eq("season_id", targetSeasonId);
+      if (existingErr) throw existingErr;
+      const existingKeys = new Set(
+        (existing || []).map(c => `${(c.name || "").trim().toLowerCase()}|${(c.phone || "").trim().toLowerCase()}`)
+      );
+
+      const toInsert = [];
+      let skippedDup = 0;
+      let skippedNoName = 0;
+
+      for (const row of importRows) {
+        const built = { season_id: targetSeasonId };
+        for (const [header, key] of Object.entries(importMapping)) {
+          if (!key) continue;
+          built[key] = coerceImportValue(key, row[header]);
+        }
+        if (!built.name) { skippedNoName++; continue; }
+        if (!built.source) built.source = "member";
+        const dedupKey = `${(built.name || "").trim().toLowerCase()}|${(built.phone || "").trim().toLowerCase()}`;
+        if (existingKeys.has(dedupKey)) { skippedDup++; continue; }
+        existingKeys.add(dedupKey);
+        toInsert.push(built);
+      }
+
+      let inserted = 0;
+      let failed = 0;
+      const chunkSize = 100;
+      for (let i = 0; i < toInsert.length; i += chunkSize) {
+        const chunk = toInsert.slice(i, i + chunkSize);
+        const { error: insertErr } = await sb.from("contacts").insert(chunk);
+        if (!insertErr) {
+          inserted += chunk.length;
+        } else {
+          for (const row of chunk) {
+            const { error: rowErr } = await sb.from("contacts").insert(row);
+            if (rowErr) failed++; else inserted++;
+          }
+        }
+      }
+
+      importBody.innerHTML = `
+        <h2 style="margin:0 0 8px; font-size:17px;">Import complete</h2>
+        <p style="font-size:14px; margin:0 0 6px;">${inserted} contact${inserted === 1 ? "" : "s"} imported.</p>
+        <p style="font-size:13px; color:var(--text-muted); margin:0 0 4px;">${skippedDup} skipped as duplicates (matched by name + phone).</p>
+        ${skippedNoName ? `<p style="font-size:13px; color:var(--text-muted); margin:0 0 4px;">${skippedNoName} skipped — missing a name.</p>` : ""}
+        ${failed ? `<p style="font-size:13px; color:var(--danger); margin:0 0 4px;">${failed} failed to import — check they belong to a season you have access to.</p>` : ""}
+        <div class="form-actions">
+          <button type="button" id="import-done-btn" class="btn-submit">Done</button>
+        </div>
+      `;
+      document.getElementById("import-done-btn").addEventListener("click", async () => {
+        closeDialog(importDialog);
+        if (targetSeasonId === seasonId) await loadContacts();
+      });
+    } catch (err) {
+      errEl.textContent = `Couldn't import — ${err.message || "check your connection and try again"}`;
+      errEl.style.display = "block";
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `Import ${importRows.length} row${importRows.length === 1 ? "" : "s"}`;
+    }
+  }
   const concludeConfirmForm = document.getElementById("conclude-confirm-form");
   const concludeConfirmCancelBtn = document.getElementById("conclude-confirm-cancel-btn");
   const concludeConfirmSubmitBtn = document.getElementById("conclude-confirm-submit-btn");
