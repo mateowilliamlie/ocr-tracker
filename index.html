@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #F4F5F7;
@@ -1027,6 +1028,26 @@
     </form>
   </dialog>
 
+  <dialog id="export-dialog">
+    <form id="export-form" style="padding: 20px;">
+      <h2 style="margin: 0 0 8px; font-size: 17px;">Export contacts</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 16px;">Downloads an .xlsx spreadsheet.</p>
+      <div class="field">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin-bottom:8px; cursor:pointer;">
+          <input type="radio" name="export-scope" value="season" checked /> This season only
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal; cursor:pointer;">
+          <input type="radio" name="export-scope" value="campus" /> All seasons at this campus
+        </label>
+      </div>
+      <div id="export-error" style="display:none; font-size:13px; color:var(--danger); background:var(--danger-bg); padding:10px 12px; border-radius:10px; margin-top:12px;"></div>
+      <div class="form-actions">
+        <button type="button" id="export-cancel-btn" class="btn-ghost">Cancel</button>
+        <button type="submit" id="export-submit-btn" class="btn-submit">Download</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="conclude-confirm-dialog">
     <form id="conclude-confirm-form" style="padding: 20px;">
       <h2 id="conclude-confirm-title" style="margin: 0 0 8px; font-size: 17px;">Confirm</h2>
@@ -1133,6 +1154,7 @@
   let isAdmin = false;
   let isDev = false;
   let userCampusId = null;
+  let currentSeasonName = "";
   let seasonConcluded = false;
   let pendingDeleteId = null;
   let editingId = null;
@@ -1666,7 +1688,7 @@
       return;
     }
     const label = isAdmin ? "Signed in as admin" : "Signed in as member";
-    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
+    adminArea.innerHTML = `<span class="admin-status">${label}</span><button id="signout-btn" class="toggle-btn">Sign out</button>${(isAdmin && seasonId) ? '<button id="export-btn" class="toggle-btn">Export</button><button id="edit-bg-btn" class="toggle-btn">Settings</button>' : ""}`;
   }
 
   adminArea.addEventListener("click", async (e) => {
@@ -1683,6 +1705,8 @@
       bgFileName.textContent = "No file chosen";
       updateSeasonStatusUI();
       openDialog(bgDialog);
+    } else if (e.target.id === "export-btn") {
+      openDialog(exportDialog);
     }
   });
 
@@ -1711,6 +1735,12 @@
   const bgSubmitBtn = document.getElementById("bg-submit-btn");
   const bgFileInput = document.getElementById("bg-file");
   const bgFileName = document.getElementById("bg-file-name");
+
+  const exportDialog = document.getElementById("export-dialog");
+  const exportForm = document.getElementById("export-form");
+  const exportCancelBtn = document.getElementById("export-cancel-btn");
+  const exportSubmitBtn = document.getElementById("export-submit-btn");
+  const exportError = document.getElementById("export-error");
 
   bgFileInput.addEventListener("change", () => {
     bgFileName.textContent = bgFileInput.files[0] ? bgFileInput.files[0].name : "No file chosen";
@@ -1750,7 +1780,79 @@
     }
   });
 
-  const concludeConfirmDialog = document.getElementById("conclude-confirm-dialog");
+  exportCancelBtn.addEventListener("click", () => closeDialog(exportDialog));
+
+  function contactRowsToSheet(list) {
+    return list.map(c => ({
+      "Name": c.name || "",
+      "Season": c.season_name || currentSeasonName || "",
+      "Nationality": c.nationality || "",
+      "Course": c.course || "",
+      "Point person": c.connector || "",
+      "Age": c.age ?? "",
+      "Year": c.year || "",
+      "Birthday": c.birthday || "",
+      "Phone / WeChat": c.phone || "",
+      "Faith background": c.faith_background || "",
+      "Suggested connection": c.suggested_connection || "",
+      "Interested — Event": c.interest_event ? "Yes" : "No",
+      "Interested — LG": c.interest_lg ? "Yes" : "No",
+      "Interested — Church": c.interest_church ? "Yes" : "No",
+      "Progress": c.progress || "",
+      "Reminder date": c.reminder_date || "",
+      "Reminder note": c.reminder_note || "",
+      "Source": c.source || "",
+      "Other school note": c.other_campus_note || "",
+      "Added": c.created_at ? new Date(c.created_at).toLocaleDateString() : ""
+    }));
+  }
+
+  exportForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const scope = exportForm.querySelector('input[name="export-scope"]:checked').value;
+    exportError.style.display = "none";
+    exportSubmitBtn.disabled = true;
+    exportSubmitBtn.textContent = "Preparing...";
+
+    try {
+      let rows, filenamePart;
+      if (scope === "season") {
+        rows = contactRowsToSheet(contacts);
+        filenamePart = (currentSeasonName || "season").replace(/[^a-z0-9]+/gi, "-");
+      } else {
+        const { data, error } = await sb
+          .from("contacts_with_campus")
+          .select("*")
+          .eq("campus_id", currentCampusId)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        rows = contactRowsToSheet(data || []);
+        const campusName = allCampuses.find(c => c.id === currentCampusId)?.name || "campus";
+        filenamePart = `${campusName}-all-seasons`.replace(/[^a-z0-9]+/gi, "-");
+      }
+
+      if (rows.length === 0) {
+        exportError.textContent = "No contacts to export for this scope.";
+        exportError.style.display = "block";
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Contacts");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `ocr-contacts-${filenamePart}-${dateStr}.xlsx`);
+
+      closeDialog(exportDialog);
+      showBanner(`Exported ${rows.length} contact${rows.length === 1 ? "" : "s"}`, false);
+    } catch (err) {
+      exportError.textContent = `Couldn't export — ${err.message || "check your connection"}`;
+      exportError.style.display = "block";
+    } finally {
+      exportSubmitBtn.disabled = false;
+      exportSubmitBtn.textContent = "Download";
+    }
+  });
   const concludeConfirmForm = document.getElementById("conclude-confirm-form");
   const concludeConfirmCancelBtn = document.getElementById("conclude-confirm-cancel-btn");
   const concludeConfirmSubmitBtn = document.getElementById("conclude-confirm-submit-btn");
@@ -1970,6 +2072,7 @@
     if (error || !data) return;
 
     seasonConcluded = !!data.concluded;
+    currentSeasonName = data.name;
     updateSeasonStatusUI();
 
     currentCampusId = data.campus_id;
