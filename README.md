@@ -343,7 +343,19 @@ The original single shared `admin@`/`member@` pair from the pre-campus-scoping b
 
 Anyone logged in needs to **log out and back in** after their `app_metadata` is changed — the JWT is issued at login and doesn't pick up metadata changes until a fresh session is created. This is the single most common "why isn't my role change taking effect" cause.
 
-To rotate a password, or if you're not sure of a password, use Supabase Dashboard → Authentication → Users → the account's **⋮** menu → password reset/change (exact option depends on your dashboard version). For a mistyped or throwaway account with no real data attached, it's often simpler to just delete it and re-create it correctly.
+To change a password (lost, mistyped, or just rotating it), use SQL directly rather than Supabase's built-in password-recovery/magic-link buttons in the dashboard — those actually send a real email, and fail outright against these synthetic `@ocr-tracker.app` addresses since nothing real receives mail there:
+
+```sql
+create extension if not exists pgcrypto;
+
+update auth.users
+set encrypted_password = crypt('the-new-password', gen_salt('bf'))
+where email = 'polyu-member@ocr-tracker.app';
+```
+
+This writes a real bcrypt hash directly (the same format Supabase's own signup flow produces), so the new password works on the very next login attempt — no confirmation step, no pending state, and `raw_app_meta_data` (role/campus_id tags) is untouched. Only `dev` should be doing this, using SQL Editor access.
+
+For a mistyped or throwaway account with no real data attached, deleting and re-creating it correctly is sometimes simpler than fixing it in place — just remember deleting wipes `raw_app_meta_data` too, so re-run the tagging SQL afterward.
 
 ## Local Development
 
