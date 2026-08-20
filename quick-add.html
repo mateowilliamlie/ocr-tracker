@@ -134,6 +134,7 @@
   let seasonId = null;
   let campusId = null;
   let seasonInfo = null;
+  let seasonEvents = [];
 
   // Where to send the user back to — set by whichever page linked here.
   const entryParams = new URLSearchParams(window.location.search);
@@ -254,6 +255,9 @@
     const { data: campusesData } = await sb.from("campuses").select("*").order("name", { ascending: true });
     const allCampuses = campusesData || [];
 
+    const { data: eventsData } = await sb.from("events").select("*").eq("season_id", seasonId).order("sort_order", { ascending: true });
+    seasonEvents = eventsData || [];
+
     const backLabel = returnTo === "campuses" ? "Back to campuses"
       : returnTo === "seasons" ? "Back to seasons"
       : "Back to dashboard";
@@ -303,20 +307,17 @@
           <label>Interested in</label>
           <div class="interest-row">
             <label class="switch-toggle">
-              <input type="checkbox" id="f-interest-event" />
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-              <span>Event</span>
-            </label>
-            <label class="switch-toggle">
               <input type="checkbox" id="f-interest-lg" />
               <span class="switch-track"><span class="switch-thumb"></span></span>
               <span>LG</span>
             </label>
-            <label class="switch-toggle">
-              <input type="checkbox" id="f-interest-church" />
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-              <span>Church</span>
-            </label>
+            ${seasonEvents.map(ev => `
+              <label class="switch-toggle">
+                <input type="checkbox" class="f-interest-event-dynamic" data-event-id="${ev.id}" />
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span>${escapeHtml(ev.name)}</span>
+              </label>
+            `).join("")}
           </div>
         </div>
         <div class="field">
@@ -385,16 +386,20 @@
         connector: connector || null,
         progress: document.getElementById("f-note").value.trim() || null,
         other_campus_note: document.getElementById("f-other-campus").value.trim() || null,
-        interest_event: document.getElementById("f-interest-event").checked,
         interest_lg: document.getElementById("f-interest-lg").checked,
-        interest_church: document.getElementById("f-interest-church").checked,
         season_id: targetSeasonId,
         source: "member"
       };
 
       try {
-        const { error } = await sb.from("contacts").insert(payload);
+        const { data, error } = await sb.from("contacts").insert(payload).select();
         if (error) throw error;
+        if (!isRealCampusChange) {
+          const checkedEventIds = Array.from(document.querySelectorAll(".f-interest-event-dynamic:checked")).map(el => el.dataset.eventId);
+          if (checkedEventIds.length > 0) {
+            await sb.from("event_interest").insert(checkedEventIds.map(eventId => ({ contact_id: data[0].id, event_id: eventId })));
+          }
+        }
         const chosenCampusName = isRealCampusChange
           ? (document.querySelector(`#f-campus option[value="${chosenCampusId}"]`)?.textContent || null)
           : null;

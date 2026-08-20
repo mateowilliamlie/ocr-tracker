@@ -206,19 +206,9 @@
           <label>Interested in</label>
           <div class="interest-row">
             <label class="switch-toggle">
-              <input type="checkbox" id="f-interest-event" />
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-              <span>Event</span>
-            </label>
-            <label class="switch-toggle">
               <input type="checkbox" id="f-interest-lg" />
               <span class="switch-track"><span class="switch-thumb"></span></span>
               <span>LG</span>
-            </label>
-            <label class="switch-toggle">
-              <input type="checkbox" id="f-interest-church" />
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-              <span>Church</span>
             </label>
           </div>
         </div>
@@ -373,9 +363,7 @@
       age: form.age.value ? parseInt(form.age.value, 10) : null,
       year: form.year.value.trim() || null,
       faith_background: form.faith_background.value.trim() || null,
-      interest_event: document.getElementById("f-interest-event").checked,
       interest_lg: document.getElementById("f-interest-lg").checked,
-      interest_church: document.getElementById("f-interest-church").checked,
       other_campus_note: otherSchoolNote || null,
       season_id: resolvedSeasonId,
       source: "online"

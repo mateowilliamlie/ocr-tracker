@@ -974,21 +974,11 @@
 
       <div class="field">
         <label>Interested in</label>
-        <div class="interest-row">
-          <label class="switch-toggle">
-            <input type="checkbox" id="f-interest-event" name="interest_event" />
-            <span class="switch-track"><span class="switch-thumb"></span></span>
-            <span>Event</span>
-          </label>
+        <div class="interest-row" id="interest-row">
           <label class="switch-toggle">
             <input type="checkbox" id="f-interest-lg" name="interest_lg" />
             <span class="switch-track"><span class="switch-thumb"></span></span>
             <span>LG</span>
-          </label>
-          <label class="switch-toggle">
-            <input type="checkbox" id="f-interest-church" name="interest_church" />
-            <span class="switch-track"><span class="switch-thumb"></span></span>
-            <span>Church</span>
           </label>
         </div>
       </div>
@@ -1231,6 +1221,8 @@
   }
 
   let contacts = [];
+  let seasonEvents = [];
+  let eventInterestMap = {};
   let openDetailId = null;
   let followupsOnly = false;
   let activeTab = "all";
@@ -1306,17 +1298,39 @@
     return d.toISOString().slice(0, 10);
   }
 
+  async function loadSeasonEvents() {
+    const { data: eventsData, error: eventsErr } = await sb
+      .from("events")
+      .select("*")
+      .eq("season_id", seasonId)
+      .order("sort_order", { ascending: true });
+    seasonEvents = (!eventsErr && eventsData) ? eventsData : [];
+
+    eventInterestMap = {};
+    if (seasonEvents.length > 0) {
+      const eventIds = seasonEvents.map(e => e.id);
+      const { data: interestData, error: interestErr } = await sb
+        .from("event_interest")
+        .select("contact_id, event_id")
+        .in("event_id", eventIds);
+      if (!interestErr && interestData) {
+        interestData.forEach(row => {
+          eventInterestMap[`${row.contact_id}::${row.event_id}`] = true;
+        });
+      }
+    }
+  }
+
   async function loadContacts() {
     loadingStateEl.style.display = "block";
     loadingStateEl.textContent = "Loading contacts…";
     emptyStateEl.style.display = "none";
 
     try {
-      const { data, error } = await sb
-        .from("contacts")
-        .select("*")
-        .eq("season_id", seasonId)
-        .order("created_at", { ascending: false });
+      const [{ data, error }] = await Promise.all([
+        sb.from("contacts").select("*").eq("season_id", seasonId).order("created_at", { ascending: false }),
+        loadSeasonEvents()
+      ]);
 
       if (error) throw error;
 
@@ -1416,9 +1430,10 @@
 
   function interestsSummary(c) {
     const list = [];
-    if (c.interest_event) list.push("Event");
+    seasonEvents.forEach(ev => {
+      if (eventInterestMap[`${c.id}::${ev.id}`]) list.push(ev.name);
+    });
     if (c.interest_lg) list.push("LG");
-    if (c.interest_church) list.push("Church");
     return list.length ? list.join(", ") : "—";
   }
 
@@ -1472,6 +1487,46 @@
     }[m]));
   }
 
+  function renderEventInterestCheckboxes(selectedEventIds) {
+    const container = document.getElementById("interest-row");
+    container.querySelectorAll(".dynamic-event-toggle").forEach(el => el.remove());
+    seasonEvents.forEach(ev => {
+      const label = document.createElement("label");
+      label.className = "switch-toggle dynamic-event-toggle";
+      label.innerHTML = `
+        <input type="checkbox" data-event-id="${ev.id}" ${selectedEventIds.has(ev.id) ? "checked" : ""} />
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span>${escapeHtml(ev.name)}</span>
+      `;
+      container.appendChild(label);
+    });
+  }
+
+  function getCheckedEventIds() {
+    return new Set(
+      Array.from(document.querySelectorAll("#interest-row .dynamic-event-toggle input:checked"))
+        .map(input => input.dataset.eventId)
+    );
+  }
+
+  async function syncEventInterest(contactId) {
+    const checkedIds = getCheckedEventIds();
+    const rowsToInsert = [];
+    const idsToDelete = [];
+    seasonEvents.forEach(ev => {
+      const wasInterested = !!eventInterestMap[`${contactId}::${ev.id}`];
+      const isInterested = checkedIds.has(ev.id);
+      if (isInterested && !wasInterested) rowsToInsert.push({ contact_id: contactId, event_id: ev.id });
+      if (!isInterested && wasInterested) idsToDelete.push(ev.id);
+    });
+    if (rowsToInsert.length > 0) {
+      await sb.from("event_interest").insert(rowsToInsert);
+    }
+    for (const eventId of idsToDelete) {
+      await sb.from("event_interest").delete().eq("contact_id", contactId).eq("event_id", eventId);
+    }
+  }
+
   async function deleteContact(id) {
     try {
       const { error } = await sb.from("contacts").delete().eq("id", id);
@@ -1505,9 +1560,11 @@
     form.followup_owner_type.value = c.followup_owner_type || "connector";
     document.getElementById("followup-other-field").style.display = form.followup_owner_type.value === "other" ? "block" : "none";
     form.followup_owner_other.value = c.followup_owner_other || "";
-    form.interest_event.checked = !!c.interest_event;
     form.interest_lg.checked = !!c.interest_lg;
-    form.interest_church.checked = !!c.interest_church;
+    const contactEventInterest = new Set(
+      seasonEvents.filter(ev => eventInterestMap[`${c.id}::${ev.id}`]).map(ev => ev.id)
+    );
+    renderEventInterestCheckboxes(contactEventInterest);
     form.age.value = c.age ?? "";
     form.year.value = c.year || "";
     form.birthday.value = c.birthday || "";
@@ -1659,6 +1716,7 @@
     document.getElementById("followup-other-field").style.display = "none";
     fpBirthday.clear();
     fpReminderDate.clear();
+    renderEventInterestCheckboxes(new Set());
     openDialog(dialog);
   });
 
@@ -1693,9 +1751,7 @@
       suggested_connection: form.suggested_connection.value.trim() || null,
       followup_owner_type: form.followup_owner_type.value,
       followup_owner_other: form.followup_owner_type.value === "other" ? (form.followup_owner_other.value.trim() || null) : null,
-      interest_event: form.interest_event.checked,
       interest_lg: form.interest_lg.checked,
-      interest_church: form.interest_church.checked,
       age: form.age.value ? parseInt(form.age.value, 10) : null,
       year: form.year.value.trim() || null,
       birthday: form.birthday.value || null,
@@ -1732,6 +1788,7 @@
       if (editingId) {
         const { data, error } = await sb.from("contacts").update(payload).eq("id", editingId).select();
         if (error) throw error;
+        if (!isTransfer) await syncEventInterest(editingId);
         closeDialog(dialog);
         const idx = contacts.findIndex(x => x.id === editingId);
         if (isTransfer) {
@@ -1747,6 +1804,7 @@
       } else {
         const { data, error } = await sb.from("contacts").insert(payload).select();
         if (error) throw error;
+        await syncEventInterest(data[0].id);
         closeDialog(dialog);
         if (targetSeasonId !== seasonId) {
           const chosenCampusName = allCampuses.find(c => c.id === chosenCampusId)?.name || "the other campus";
@@ -1876,29 +1934,53 @@
 
   exportCancelBtn.addEventListener("click", () => closeDialog(exportDialog));
 
-  function contactRowsToSheet(list) {
-    return list.map(c => ({
-      "Name": c.name || "",
-      "Season": c.season_name || currentSeasonName || "",
-      "Nationality": c.nationality || "",
-      "Course": c.course || "",
-      "Point person": c.connector || "",
-      "Age": c.age ?? "",
-      "Year": c.year || "",
-      "Birthday": c.birthday || "",
-      "Phone / WeChat": c.phone || "",
-      "Faith background": c.faith_background || "",
-      "Suggested connection": c.suggested_connection || "",
-      "Interested — Event": c.interest_event ? "Yes" : "No",
-      "Interested — LG": c.interest_lg ? "Yes" : "No",
-      "Interested — Church": c.interest_church ? "Yes" : "No",
-      "Progress": c.progress || "",
-      "Reminder date": c.reminder_date || "",
-      "Reminder note": c.reminder_note || "",
-      "Source": c.source || "",
-      "Other school note": c.other_campus_note || "",
-      "Added": c.created_at ? new Date(c.created_at).toLocaleDateString() : ""
-    }));
+  async function buildInterestSummaryMap(list) {
+    const map = {};
+    const seasonIds = [...new Set(list.map(c => c.season_id).filter(Boolean))];
+    if (seasonIds.length === 0) return map;
+
+    const { data: eventsData } = await sb.from("events").select("id, name, season_id").in("season_id", seasonIds);
+    const events = eventsData || [];
+    if (events.length === 0) return map;
+
+    const eventNameById = {};
+    events.forEach(e => { eventNameById[e.id] = e.name; });
+
+    const { data: interestData } = await sb.from("event_interest").select("contact_id, event_id").in("event_id", events.map(e => e.id));
+    (interestData || []).forEach(row => {
+      if (!map[row.contact_id]) map[row.contact_id] = [];
+      const name = eventNameById[row.event_id];
+      if (name) map[row.contact_id].push(name);
+    });
+    return map;
+  }
+
+  async function contactRowsToSheet(list) {
+    const interestMap = await buildInterestSummaryMap(list);
+    return list.map(c => {
+      const interested = [...(interestMap[c.id] || [])];
+      if (c.interest_lg) interested.push("LG");
+      return {
+        "Name": c.name || "",
+        "Season": c.season_name || currentSeasonName || "",
+        "Nationality": c.nationality || "",
+        "Course": c.course || "",
+        "Point person": c.connector || "",
+        "Age": c.age ?? "",
+        "Year": c.year || "",
+        "Birthday": c.birthday || "",
+        "Phone / WeChat": c.phone || "",
+        "Faith background": c.faith_background || "",
+        "Suggested connection": c.suggested_connection || "",
+        "Interested in": interested.length ? interested.join(", ") : "",
+        "Progress": c.progress || "",
+        "Reminder date": c.reminder_date || "",
+        "Reminder note": c.reminder_note || "",
+        "Source": c.source || "",
+        "Other school note": c.other_campus_note || "",
+        "Added": c.created_at ? new Date(c.created_at).toLocaleDateString() : ""
+      };
+    });
   }
 
   exportForm.addEventListener("submit", async (e) => {
@@ -1911,7 +1993,7 @@
     try {
       let rows, filenamePart;
       if (scope === "season") {
-        rows = contactRowsToSheet(contacts);
+        rows = await contactRowsToSheet(contacts);
         filenamePart = (currentSeasonName || "season").replace(/[^a-z0-9]+/gi, "-");
       } else {
         const { data, error } = await sb
@@ -1920,7 +2002,7 @@
           .eq("campus_id", currentCampusId)
           .order("created_at", { ascending: false });
         if (error) throw error;
-        rows = contactRowsToSheet(data || []);
+        rows = await contactRowsToSheet(data || []);
         const campusName = allCampuses.find(c => c.id === currentCampusId)?.name || "campus";
         filenamePart = `${campusName}-all-seasons`.replace(/[^a-z0-9]+/gi, "-");
       }
@@ -1963,9 +2045,7 @@
     { key: "phone", label: "Phone / WeChat", match: ["phone / wechat", "phone", "wechat"] },
     { key: "faith_background", label: "Faith background", match: ["faith background"] },
     { key: "suggested_connection", label: "Suggested connection", match: ["suggested connection"] },
-    { key: "interest_event", label: "Interested — Event (Yes/No)", match: ["interested — event", "interested - event", "interest event"] },
     { key: "interest_lg", label: "Interested — LG (Yes/No)", match: ["interested — lg", "interested - lg", "interest lg"] },
-    { key: "interest_church", label: "Interested — Church (Yes/No)", match: ["interested — church", "interested - church", "interest church"] },
     { key: "progress", label: "Progress", match: ["progress"] },
     { key: "reminder_date", label: "Reminder date", match: ["reminder date"] },
     { key: "reminder_note", label: "Reminder note", match: ["reminder note"] },
@@ -2098,7 +2178,7 @@
       const n = parseInt(raw, 10);
       return isNaN(n) ? null : n;
     }
-    if (key === "interest_event" || key === "interest_lg" || key === "interest_church") {
+    if (key === "interest_lg") {
       const s = String(raw).trim().toLowerCase();
       return s === "yes" || s === "true" || s === "1";
     }
@@ -2289,7 +2369,7 @@
       } else if (pendingSeasonAction === "delete-contacts") {
         if (contacts.length > 0) {
           try {
-            const rows = contactRowsToSheet(contacts);
+            const rows = await contactRowsToSheet(contacts);
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Contacts");
