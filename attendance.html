@@ -882,7 +882,7 @@
 
   <div class="add-row">
     <button id="filter-toggle-btn" class="toggle-btn" style="display:none;">Filter</button>
-    <button id="open-add-event" class="btn-primary" style="display:none;">+ Add Event</button>
+    <button id="open-add-event" class="btn-primary" style="display:none;">Manage Events</button>
   </div>
 
   <div id="confirm-banner"></div>
@@ -933,17 +933,20 @@
   </div>
 
   <dialog id="add-event-dialog">
-    <form id="add-event-form" style="padding: 20px;">
-      <h2 style="margin: 0 0 16px; font-size: 17px;">Add event</h2>
-      <div class="field">
-        <label for="f-event-name">Event name</label>
-        <input id="f-event-name" name="event_name" type="text" placeholder="e.g. Welcome BBQ" required />
-      </div>
-      <div class="form-actions">
-        <button type="button" id="add-event-cancel-btn" class="btn-ghost">Cancel</button>
-        <button type="submit" id="add-event-submit-btn" class="btn-submit">Add event</button>
-      </div>
-    </form>
+    <div style="padding: 20px;">
+      <h2 style="margin: 0 0 12px; font-size: 17px;">Manage events</h2>
+      <div id="manage-events-list" style="margin-bottom: 16px;"></div>
+      <form id="add-event-form">
+        <div class="field">
+          <label for="f-event-name">Add a new event</label>
+          <input id="f-event-name" name="event_name" type="text" placeholder="e.g. Welcome BBQ" required />
+        </div>
+        <div class="form-actions">
+          <button type="button" id="add-event-cancel-btn" class="btn-ghost">Close</button>
+          <button type="submit" id="add-event-submit-btn" class="btn-submit">Add event</button>
+        </div>
+      </form>
+    </div>
   </dialog>
 </main>
 
@@ -1324,9 +1327,62 @@
 
   document.getElementById("open-add-event").addEventListener("click", () => {
     addEventForm.reset();
+    renderManageEventsList();
     openDialog(addEventDialog);
   });
   addEventCancelBtn.addEventListener("click", () => closeDialog(addEventDialog));
+
+  function renderManageEventsList() {
+    const list = document.getElementById("manage-events-list");
+    if (events.length === 0) {
+      list.innerHTML = `<p style="font-size:13px; color:var(--text-muted); margin:0;">No events yet.</p>`;
+      return;
+    }
+    list.innerHTML = events.map(ev => `
+      <div class="manage-event-row" data-event-id="${ev.id}" style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
+        <span class="manage-event-name" style="flex:1; font-size:14px;">${escapeHtml(ev.name)}</span>
+        <button type="button" class="btn-ghost rename-event-btn" data-event-id="${ev.id}" style="padding:6px 12px; font-size:13px;">Rename</button>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("manage-events-list").addEventListener("click", async (e) => {
+    const renameBtn = e.target.closest(".rename-event-btn");
+    if (!renameBtn) return;
+    const row = renameBtn.closest(".manage-event-row");
+    const eventId = renameBtn.dataset.eventId;
+    const ev = events.find(x => x.id === eventId);
+    if (!ev) return;
+
+    const nameSpan = row.querySelector(".manage-event-name");
+    nameSpan.outerHTML = `<input type="text" class="rename-event-input" value="${escapeHtml(ev.name)}" style="flex:1; font-family:var(--font); font-size:14px; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:#FFFFFF; color:#1A1D23;" />`;
+    row.querySelector(".rename-event-input").focus();
+    renameBtn.textContent = "Save";
+    renameBtn.classList.add("save-event-btn");
+    renameBtn.classList.remove("rename-event-btn");
+  });
+
+  document.getElementById("manage-events-list").addEventListener("click", async (e) => {
+    const saveBtn = e.target.closest(".save-event-btn");
+    if (!saveBtn) return;
+    const row = saveBtn.closest(".manage-event-row");
+    const eventId = saveBtn.dataset.eventId;
+    const input = row.querySelector(".rename-event-input");
+    const newName = input.value.trim();
+    if (!newName) return;
+
+    saveBtn.disabled = true;
+    try {
+      const { error } = await sb.from("events").update({ name: newName }).eq("id", eventId);
+      if (error) throw error;
+      showBanner("Event renamed", false);
+      await loadEventsAndAttendance();
+      renderManageEventsList();
+    } catch (err) {
+      showBanner(`Couldn't rename event — ${err.message || "check your connection"}`, true);
+      saveBtn.disabled = false;
+    }
+  });
 
   addEventForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1343,9 +1399,10 @@
         sort_order: nextSortOrder
       });
       if (error) throw error;
-      closeDialog(addEventDialog);
+      addEventForm.reset();
       showBanner("Event added", false);
       await loadEventsAndAttendance();
+      renderManageEventsList();
     } catch (err) {
       showBanner(`Couldn't add event — ${err.message || "check your connection"}`, true);
     } finally {
