@@ -603,6 +603,10 @@
     font-size: 13px;
     color: var(--text-muted);
   }
+  .row .connector.unconnected {
+    font-style: italic;
+    opacity: 0.65;
+  }
 
   .row select.reminder-select {
     width: 100%;
@@ -964,6 +968,11 @@
       <div class="field">
         <label for="f-phone">Phone / WeChat ID *</label>
         <input id="f-phone" name="phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
+      </div>
+
+      <div class="field">
+        <label for="f-instagram">Instagram handle</label>
+        <input id="f-instagram" name="instagram" type="text" placeholder="e.g. username123 (no @ needed)" />
       </div>
 
       <div class="field">
@@ -1403,7 +1412,7 @@
       wrap.innerHTML = `
         <div class="row">
           <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
-          <span class="connector">${escapeHtml(c.connector || "—")}</span>
+          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(c.connector || "—")}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
@@ -1467,6 +1476,7 @@
       ["Gender", c.gender],
       ["Major / School", c.course],
       ["Phone", c.phone],
+      ["Instagram", c.instagram],
       ["Age", c.age],
       ["Year", c.year],
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
@@ -1535,6 +1545,7 @@
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
     form.phone.value = c.phone || "";
+    form.instagram.value = c.instagram || "";
     form.faith_background.value = c.faith_background || "";
     form.suggested_connection.value = c.suggested_connection || "";
     form.followup_owner_type.value = c.followup_owner_type || "connector";
@@ -1725,6 +1736,7 @@
       course: form.course.value.trim() || null,
       connector: form.connector.value.trim() || null,
       phone: phone,
+      instagram: form.instagram.value.trim().replace(/^@/, "") || null,
       faith_background: form.faith_background.value || null,
       suggested_connection: form.suggested_connection.value.trim() || null,
       followup_owner_type: form.followup_owner_type.value,
@@ -1924,6 +1936,7 @@
       "Year": c.year || "",
       "Birthday": c.birthday || "",
       "Phone / WeChat": c.phone || "",
+      "Instagram": c.instagram || "",
       "Faith background": c.faith_background || "",
       "Suggested connection": c.suggested_connection || "",
       "Interested — Event": c.interest_event ? "Yes" : "No",
@@ -1999,6 +2012,7 @@
     { key: "year", label: "Year", match: ["year"] },
     { key: "birthday", label: "Birthday", match: ["birthday"] },
     { key: "phone", label: "Phone / WeChat", match: ["phone / wechat", "phone", "wechat"] },
+    { key: "instagram", label: "Instagram", match: ["instagram", "ig"] },
     { key: "faith_background", label: "Faith background", match: ["faith background"] },
     { key: "suggested_connection", label: "Suggested connection", match: ["suggested connection"] },
     { key: "interest_event", label: "Interested — Event (Yes/No)", match: ["interested — event", "interested - event", "interest event"] },
