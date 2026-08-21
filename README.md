@@ -367,9 +367,10 @@ This intentionally isn't a Supabase Edge Function (see the now-resolved Roadmap 
 
 **Registered vs. attended (important distinction):** submitting the Form marks someone **registered**, not attended — those are different columns on the same `event_attendance` row (`registered` and `attended`, both boolean). Registered means "signed up in advance"; attended means "actually showed up," confirmed separately by whoever's checking people in at the event, via `attendance.html`. This script never sets `attended` itself, and never overwrites an existing `attended: true` when updating a row (partial `PATCH` bodies in PostgREST only touch the fields present in them). Alongside the registration write, it also inserts an `event_interest` row (interest is even earlier than registered — someone might express interest without ever formally signing up) — that's the same table the tracker's own per-event interest checkboxes read from, so a Gform sign-up shows up as interested there too, not just registered.
 
-`event_attendance.registered` needs to exist for this to work — run this once in Supabase's SQL Editor if it doesn't yet:
+`event_attendance` needs both `registered` and `attended` columns for this to work. If your table still has the old single `attended` column doing double duty as "registered" (i.e. it was set the moment someone submitted the Form), migrate it in place rather than adding a redundant new column — this renames the existing data to its correct name, then adds a fresh, empty `attended` for real attendance confirmation to start from:
 ```sql
-alter table event_attendance add column registered boolean default false;
+alter table event_attendance rename column attended to registered;
+alter table event_attendance add column attended boolean default false;
 ```
 
 **How it matches:** primarily by normalized WhatsApp number (digits only, `852` country code stripped) against `contacts.phone`, scoped to a specific `season_id`. When that finds nothing (or no WhatsApp was given at all), it falls back to the Form's "If you don't have WhatsApp, how can we contact you?" answer — that question now requires the format `ContactMethod: Username` (e.g. `Instagram: username123`), so the script parses out just the handle and checks it as a substring against `contacts.phone` and `contacts.instagram` — a member may have typed a WeChat/Instagram handle into Quick Add's "Phone / WeChat ID" field (with or without the method prefix) instead of using the dedicated Instagram field. Handles under 3 characters are skipped for this fallback, since a very short string risks matching an unrelated phone number.
@@ -383,7 +384,7 @@ If their event answer doesn't match a configured event, the contact is still mat
 
 ### Setup
 
-1. If `contacts.gender`, `contacts.instagram`, or `event_attendance.registered` don't exist yet, run `alter table contacts add column gender text;`, `alter table contacts add column instagram text;`, and `alter table event_attendance add column registered boolean default false;` once in Supabase's SQL Editor — the auto-create path and the registered/attended distinction below both need them.
+1. If `contacts.gender` or `contacts.instagram` don't exist yet, run `alter table contacts add column gender text;` and `alter table contacts add column instagram text;` once in Supabase's SQL Editor — the auto-create path below needs them. If `event_attendance` doesn't have both `registered` and `attended` yet, see the migration above.
 2. Open the Form's linked response Sheet → **Extensions → Apps Script**.
 3. Paste in `apps-script/event-signup-sync.gs`.
 4. Fill in the `CONFIG` block at the top of the script:
