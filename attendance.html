@@ -812,14 +812,13 @@
 
   /* Wraps the name text inside the sticky first cell. On mobile the cell
      gets a fixed max-width (above) so a long name doesn't eat space an
-     event column needs — this makes that overflow swipeable in place
-     (its own horizontal scroll) rather than just clipped, so the last
-     name is always reachable, not permanently hidden. */
+     event column needs — this wraps that overflow onto a second line
+     instead of scrolling/truncating it, so the whole name (first AND
+     last) is always visible with no swipe or tap needed. */
   .name-cell {
-    overflow-x: auto;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.25;
   }
 
   .summary-row {
