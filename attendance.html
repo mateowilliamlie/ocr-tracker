@@ -814,9 +814,13 @@
      gets a fixed max-width (above) so a long name doesn't eat space an
      event column needs — this wraps that overflow onto a second line
      instead of scrolling/truncating it, so the whole name (first AND
-     last) is always visible with no swipe or tap needed. */
+     last) is always visible with no swipe or tap needed. hyphens:auto
+     picks a real syllable break (with a visible "-") for a single word
+     too long to fit on one line (e.g. "Chaudhary"), instead of
+     overflow-wrap's arbitrary mid-word slice as a last resort. */
   .name-cell {
     white-space: normal;
+    hyphens: auto;
     overflow-wrap: break-word;
     line-height: 1.25;
   }
