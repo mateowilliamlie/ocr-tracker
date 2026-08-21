@@ -741,13 +741,19 @@
       font-size: 16px;
     }
 
-    /* Attendance matrix: shrink the sticky Name column and cell padding so
-       more of the screen goes to the event columns/toggle buttons, which
-       need their own min-width (below, not mobile-only) to stay tappable
-       instead of getting squeezed by the browser's table auto-layout. */
+    /* Attendance matrix: shrink the sticky Name column — capped with a real
+       width (not just min-width) plus an ellipsis, so a long name truncates
+       instead of eating the space more than one event column needs — and
+       tighten cell padding, so more events fit on screen at once. Event
+       columns keep their own min-width (below, not mobile-only) to stay
+       tappable instead of getting squeezed by the table's auto-layout. */
     #attendance-table th:first-child,
     #attendance-table td:first-child {
-      min-width: 110px;
+      width: 76px;
+      max-width: 76px;
+      min-width: 76px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     #attendance-table th,
     #attendance-table td {
