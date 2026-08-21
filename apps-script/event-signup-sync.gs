@@ -31,11 +31,12 @@
  * more than one — every recognized event gets marked registered, not just
  * the first one in their answer.
  *
- * Registered vs. attended: submitting the Form only means someone signed
- * up (event_attendance.registered). It is NOT the same as showing up —
- * that's event_attendance.attended, confirmed separately by whoever's
- * checking people in at the actual event via attendance.html. This script
- * never sets `attended` itself. It also inserts an event_interest row
+ * Registered: submitting the Form marks event_attendance.registered — this
+ * is the "signed up" stage, distinct from event_interest (interest,
+ * earlier/weaker — someone might be interested without ever formally
+ * signing up). A separate "confirmed showed up at the actual event" stage
+ * doesn't exist yet — that's future work, not tracked by this script or
+ * attendance.html today. It also inserts an event_interest row
  * (markInterested) for the same event, since signing up clearly implies
  * interest — that's what the tracker's own per-event interest checkboxes
  * read from.
@@ -583,14 +584,7 @@ function createContact(form, altContact) {
   return JSON.parse(res.getContentText())[0];
 }
 
-// Signing up via the Form means they've REGISTERED for the event — it does
-// NOT mean they showed up. That's a separate, later confirmation (done by
-// whoever's checking people in at the actual event, via attendance.html),
-// tracked by the same row's `attended` column. This only ever sets
-// `registered`, deliberately never touching `attended` — a partial PATCH
-// body in PostgREST only updates the fields present in it, so an existing
-// `attended: true` (someone confirmed present, then re-submitted the Form
-// for some reason) is left alone rather than silently overwritten.
+// Signing up via the Form means they've REGISTERED for the event.
 function markRegistered(contactId, eventId) {
   const filter = `contact_id=eq.${contactId}&event_id=eq.${eventId}`;
   const existingRes = UrlFetchApp.fetch(

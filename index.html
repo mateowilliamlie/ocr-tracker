@@ -484,8 +484,8 @@
   }
 
   /* Event Signups tab: which event(s) a contact is down for, colored by
-     their furthest stage reached (interested -> registered -> attended),
-     plus the chip row above the list to filter to just one event. */
+     their furthest stage reached (interested -> registered), plus the
+     chip row above the list to filter to just one event. */
   .event-badges { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 14px 10px; }
   .event-badge {
     display: inline-block;
@@ -496,7 +496,6 @@
   }
   .event-badge-interested { background: var(--warn-bg); color: var(--warn); }
   .event-badge-registered { background: var(--success-bg); color: var(--success); }
-  .event-badge-attended { background: var(--info-bg); color: var(--info); }
   .event-chip {
     font-family: var(--font);
     font-size: 13px;
@@ -1283,8 +1282,7 @@
   let contacts = [];
   let seasonEvents = [];
   let eventInterestMap = {};
-  let eventRegisteredMap = {}; // signed up in advance (e.g. via the Gform) — not the same as attended
-  let eventAttendedMap = {}; // confirmed present at the actual event
+  let eventRegisteredMap = {}; // signed up (e.g. via the Gform), or manually checked off in attendance.html
   let openDetailId = null;
   let followupsOnly = false;
   let activeTab = "all";
@@ -1372,12 +1370,11 @@
 
     eventInterestMap = {};
     eventRegisteredMap = {};
-    eventAttendedMap = {};
     if (seasonEvents.length > 0) {
       const eventIds = seasonEvents.map(e => e.id);
       const [{ data: interestData, error: interestErr }, { data: attData, error: attErr }] = await Promise.all([
         sb.from("event_interest").select("contact_id, event_id").in("event_id", eventIds),
-        sb.from("event_attendance").select("contact_id, event_id, registered, attended").in("event_id", eventIds)
+        sb.from("event_attendance").select("contact_id, event_id, registered").in("event_id", eventIds)
       ]);
       if (!interestErr && interestData) {
         interestData.forEach(row => {
@@ -1387,7 +1384,6 @@
       if (!attErr && attData) {
         attData.forEach(row => {
           if (row.registered) eventRegisteredMap[`${row.contact_id}::${row.event_id}`] = true;
-          if (row.attended) eventAttendedMap[`${row.contact_id}::${row.event_id}`] = true;
         });
       }
     }
@@ -1417,11 +1413,10 @@
   }
 
   // Highest stage a contact has reached for one event: interested (yellow)
-  // -> registered (green, e.g. via the Gform) -> attended (blue, confirmed
-  // present at the actual event). null means no engagement at all yet.
+  // -> registered (green, e.g. via the Gform, or manually checked off in
+  // attendance.html). null means no engagement at all yet.
   function contactEventStatus(c, eventId) {
     const key = `${c.id}::${eventId}`;
-    if (eventAttendedMap[key]) return "attended";
     if (eventRegisteredMap[key]) return "registered";
     if (eventInterestMap[key]) return "interested";
     return null;
