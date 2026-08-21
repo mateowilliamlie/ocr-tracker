@@ -742,18 +742,21 @@
     }
 
     /* Attendance matrix: shrink the sticky Name column — capped with a real
-       width (not just min-width) plus an ellipsis, so a long name truncates
-       instead of eating the space more than one event column needs — and
-       tighten cell padding, so more events fit on screen at once. Event
-       columns keep their own min-width (below, not mobile-only) to stay
-       tappable instead of getting squeezed by the table's auto-layout. */
+       width (not just min-width), so it doesn't eat more space than one
+       event column needs — and tighten cell padding, so more events fit
+       on screen at once. A long name truncates visually inside .name-cell
+       below, but stays swipeable in place so the last name is never
+       actually unreachable. Event columns keep their own min-width
+       (below, not mobile-only) to stay tappable instead of getting
+       squeezed by the table's auto-layout. */
     #attendance-table th:first-child,
     #attendance-table td:first-child {
       width: 76px;
       max-width: 76px;
       min-width: 76px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    }
+    .name-cell {
+      max-width: 76px;
     }
     #attendance-table th,
     #attendance-table td {
@@ -806,6 +809,18 @@
     box-shadow: 1px 0 0 var(--border);
   }
   #attendance-table thead th:first-child { z-index: 4; background: var(--surface-2); }
+
+  /* Wraps the name text inside the sticky first cell. On mobile the cell
+     gets a fixed max-width (above) so a long name doesn't eat space an
+     event column needs — this makes that overflow swipeable in place
+     (its own horizontal scroll) rather than just clipped, so the last
+     name is always reachable, not permanently hidden. */
+  .name-cell {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
 
   .summary-row {
     padding: 14px 18px;
@@ -864,10 +879,15 @@
   .att-legend {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 14px;
     font-size: 12px;
     color: var(--text-muted);
-    margin: 10px 0;
+    margin: 10px 0 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
   }
   .att-legend-swatch {
     width: 13px;
@@ -1009,10 +1029,6 @@
   <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
   <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Event Attendance</span>
 
-  <div class="toolbar" id="attendance-search-toolbar" style="display:none;">
-    <input id="search-input" type="text" placeholder="Search by name" />
-  </div>
-
   <div class="add-row">
     <button id="open-add-event" class="btn-primary" style="display:none;">Manage Events</button>
   </div>
@@ -1026,6 +1042,10 @@
   <div id="event-chips" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;"></div>
 
   <div id="no-events-state" class="empty-state" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">No events yet — add one to start tracking attendance.</div>
+
+  <div class="toolbar" id="attendance-search-toolbar" style="display:none;">
+    <input id="search-input" type="text" placeholder="Search by name" />
+  </div>
 
   <!-- Editable matrix view, shown while the season is active -->
   <div id="matrix-view" class="board" style="display:none; background:none; border:none;">
@@ -1473,7 +1493,7 @@
           </div>
         </td>`;
       }).join("");
-      return `<tr><td>${escapeHtml(c.name)}</td>${cells}</tr>`;
+      return `<tr><td><div class="name-cell">${escapeHtml(c.name)}</div></td>${cells}</tr>`;
     }).join("");
   }
 
