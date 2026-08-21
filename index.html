@@ -469,6 +469,19 @@
     margin-left: 6px;
     vertical-align: middle;
   }
+  .unconnected-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    color: var(--warn);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
 
   .flatpickr-calendar {
     font-family: var(--font);
@@ -589,6 +602,10 @@
   .row .connector {
     font-size: 13px;
     color: var(--text-muted);
+  }
+  .row .connector.unconnected {
+    font-style: italic;
+    opacity: 0.65;
   }
 
   .row select.reminder-select {
@@ -933,9 +950,14 @@
           <input id="f-nationality" name="nationality" type="text" />
         </div>
         <div class="field">
-          <label for="f-course">Course</label>
-          <input id="f-course" name="course" type="text" />
+          <label for="f-gender">Gender</label>
+          <input id="f-gender" name="gender" type="text" placeholder="e.g. Male, Female" />
         </div>
+      </div>
+
+      <div class="field">
+        <label for="f-course">Major / School</label>
+        <input id="f-course" name="course" type="text" placeholder="Major, or school if undeclared" />
       </div>
 
       <div class="field">
@@ -946,6 +968,11 @@
       <div class="field">
         <label for="f-phone">Phone / WeChat ID *</label>
         <input id="f-phone" name="phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
+      </div>
+
+      <div class="field">
+        <label for="f-instagram">Instagram handle</label>
+        <input id="f-instagram" name="instagram" type="text" placeholder="e.g. username123 (no @ needed)" />
       </div>
 
       <div class="field">
@@ -1398,8 +1425,8 @@
 
       wrap.innerHTML = `
         <div class="row">
-          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}</span>
-          <span class="connector">${escapeHtml(c.connector || "—")}</span>
+          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
+          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(c.connector || "—")}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
@@ -1428,6 +1455,21 @@
     return opts.join("");
   }
 
+  // Free-text phrases people type into "connector" when they weren't
+  // actually invited by a specific member (found the Form via social media,
+  // a poster, etc.) — flagged the same as a blank connector so the team can
+  // spot who still needs a real point person assigned.
+  const NON_PERSON_CONNECTOR_KEYWORDS = [
+    "instagram", "social media", "facebook", "tiktok", "walked in", "walk-in",
+    "word of mouth", "flyer", "poster", "randomly", "no one", "nobody", "n/a", "none", "google form"
+  ];
+
+  function isUnconnected(c) {
+    const v = (c.connector || "").trim().toLowerCase();
+    if (!v) return true;
+    return NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k));
+  }
+
   function interestsSummary(c) {
     const list = [];
     seasonEvents.forEach(ev => {
@@ -1446,8 +1488,10 @@
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
-      ["Course", c.course],
+      ["Gender", c.gender],
+      ["Major / School", c.course],
       ["Phone", c.phone],
+      ["Instagram", c.instagram],
       ["Age", c.age],
       ["Year", c.year],
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
@@ -1552,9 +1596,11 @@
       form.other_campus_note.value = c.other_campus_note;
     }
     form.nationality.value = c.nationality || "";
+    form.gender.value = c.gender || "";
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
     form.phone.value = c.phone || "";
+    form.instagram.value = c.instagram || "";
     form.faith_background.value = c.faith_background || "";
     form.suggested_connection.value = c.suggested_connection || "";
     form.followup_owner_type.value = c.followup_owner_type || "connector";
@@ -1744,9 +1790,11 @@
     const payload = {
       name,
       nationality: form.nationality.value.trim() || null,
+      gender: form.gender.value.trim() || null,
       course: form.course.value.trim() || null,
       connector: form.connector.value.trim() || null,
       phone: phone,
+      instagram: form.instagram.value.trim().replace(/^@/, "") || null,
       faith_background: form.faith_background.value || null,
       suggested_connection: form.suggested_connection.value.trim() || null,
       followup_owner_type: form.followup_owner_type.value,
@@ -1964,12 +2012,14 @@
         "Name": c.name || "",
         "Season": c.season_name || currentSeasonName || "",
         "Nationality": c.nationality || "",
-        "Course": c.course || "",
+        "Gender": c.gender || "",
+        "Major / School": c.course || "",
         "Point person": c.connector || "",
         "Age": c.age ?? "",
         "Year": c.year || "",
         "Birthday": c.birthday || "",
         "Phone / WeChat": c.phone || "",
+        "Instagram": c.instagram || "",
         "Faith background": c.faith_background || "",
         "Suggested connection": c.suggested_connection || "",
         "Interested in": interested.length ? interested.join(", ") : "",
@@ -2037,12 +2087,14 @@
     { key: "", label: "Skip this column" },
     { key: "name", label: "Name", match: ["name"] },
     { key: "nationality", label: "Nationality", match: ["nationality"] },
-    { key: "course", label: "Course", match: ["course"] },
+    { key: "gender", label: "Gender", match: ["gender", "sex"] },
+    { key: "course", label: "Major / School", match: ["major / school", "major", "school", "course"] },
     { key: "connector", label: "Point person", match: ["point person", "connector"] },
     { key: "age", label: "Age", match: ["age"] },
     { key: "year", label: "Year", match: ["year"] },
     { key: "birthday", label: "Birthday", match: ["birthday"] },
     { key: "phone", label: "Phone / WeChat", match: ["phone / wechat", "phone", "wechat"] },
+    { key: "instagram", label: "Instagram", match: ["instagram", "ig"] },
     { key: "faith_background", label: "Faith background", match: ["faith background"] },
     { key: "suggested_connection", label: "Suggested connection", match: ["suggested connection"] },
     { key: "interest_lg", label: "Interested — LG (Yes/No)", match: ["interested — lg", "interested - lg", "interest lg"] },

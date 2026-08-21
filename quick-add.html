@@ -291,13 +291,27 @@
             <input id="f-nationality" type="text" />
           </div>
           <div class="field">
-            <label for="f-course">Course</label>
+            <label for="f-gender">Gender</label>
+            <input id="f-gender" type="text" placeholder="e.g. Male, Female" />
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="f-year">Year</label>
+            <input id="f-year" type="text" placeholder="e.g. Year 1" />
+          </div>
+          <div class="field">
+            <label for="f-course">Major / School</label>
             <input id="f-course" type="text" />
           </div>
         </div>
         <div class="field">
           <label for="f-phone">Phone / WeChat ID *</label>
           <input id="f-phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
+        </div>
+        <div class="field">
+          <label for="f-instagram">Instagram handle</label>
+          <input id="f-instagram" type="text" placeholder="e.g. username123 (no @ needed)" />
         </div>
         <div class="field">
           <label for="f-connector">Your name (point person)</label>
@@ -381,8 +395,11 @@
       const payload = {
         name,
         nationality: document.getElementById("f-nationality").value.trim() || null,
+        gender: document.getElementById("f-gender").value.trim() || null,
+        year: document.getElementById("f-year").value.trim() || null,
         course: document.getElementById("f-course").value.trim() || null,
         phone: phone,
+        instagram: document.getElementById("f-instagram").value.trim().replace(/^@/, "") || null,
         connector: connector || null,
         progress: document.getElementById("f-note").value.trim() || null,
         other_campus_note: document.getElementById("f-other-campus").value.trim() || null,
