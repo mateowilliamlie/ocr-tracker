@@ -847,31 +847,56 @@
     vertical-align: middle;
     margin-right: 5px;
   }
-  .att-cell-btn {
-    width: 100%;
+  .att-split-cell {
+    display: flex;
+    gap: 2px;
     height: 32px;
     border-radius: 8px;
+    overflow: hidden;
     border: 1px solid var(--border);
+  }
+  .att-half-btn {
+    flex: 1;
+    border: none;
     background: var(--surface-2);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: transparent;
   }
-  .att-cell-btn.interest {
+  .att-half-btn.on-interest {
     background: var(--warn-bg);
-    border-color: transparent;
-    color: transparent;
+    color: var(--warn);
   }
-  .att-cell-btn.attend {
+  .att-half-btn.on-attend {
     background: var(--success-bg);
-    border-color: transparent;
     color: var(--success);
   }
-  .att-cell-btn:disabled { opacity: 0.6; cursor: default; }
+  .att-half-btn:disabled { opacity: 0.6; cursor: default; }
+  .drill-toggle-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .drill-toggle-btn.on-interest {
+    background: var(--warn-bg);
+    color: var(--warn);
+    border-color: transparent;
+  }
+  .drill-toggle-btn.on-attend {
+    background: var(--success-bg);
+    color: var(--success);
+    border-color: transparent;
+  }
+  .drill-toggle-btn:disabled { opacity: 0.6; cursor: default; }
   .drill-row {
     display: flex;
     align-items: center;
@@ -1204,12 +1229,6 @@
     return contacts.filter(c => c.name.toLowerCase().includes(q));
   }
 
-  function cellState(contactId, eventId) {
-    if (attendanceMap[`${contactId}::${eventId}`]) return "attend";
-    if (interestMap[`${contactId}::${eventId}`]) return "interest";
-    return "none";
-  }
-
   function eventCounts(eventId) {
     let interested = 0, attended = 0;
     contacts.forEach(c => {
@@ -1219,9 +1238,12 @@
     return { interested, attended };
   }
 
-  function statusLabel(state) {
-    if (state === "attend") return `<span style="color:var(--success);">Attended</span>`;
-    if (state === "interest") return `<span style="color:var(--warn);">Interested, no response yet</span>`;
+  function statusLabel(contactId, eventId) {
+    const interested = !!interestMap[`${contactId}::${eventId}`];
+    const attended = !!attendanceMap[`${contactId}::${eventId}`];
+    if (interested && attended) return `<span style="color:var(--success);">Interested + attended</span>`;
+    if (attended) return `<span style="color:var(--success);">Attended</span>`;
+    if (interested) return `<span style="color:var(--warn);">Interested, no response yet</span>`;
     return `<span style="color:var(--text-muted);">No response</span>`;
   }
 
@@ -1234,6 +1256,24 @@
       );
       if (error) throw error;
       attendanceMap[`${contactId}::${eventId}`] = nextAttended;
+      if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
+    } catch (err) {
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
+      if (btnEl) btnEl.disabled = false;
+    }
+  }
+
+  async function toggleInterest(contactId, eventId, nextInterested, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+    try {
+      if (nextInterested) {
+        const { error } = await sb.from("event_interest").insert({ contact_id: contactId, event_id: eventId });
+        if (error && error.code !== "23505") throw error; // 23505 = already exists, fine
+      } else {
+        const { error } = await sb.from("event_interest").delete().eq("contact_id", contactId).eq("event_id", eventId);
+        if (error) throw error;
+      }
+      interestMap[`${contactId}::${eventId}`] = nextInterested;
       if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
     } catch (err) {
       showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
@@ -1331,9 +1371,9 @@
         }).join("")}
       </div>
       <div class="att-legend">
-        <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Attended</span>
-        <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested only</span>
-        <span><span class="att-legend-swatch" style="background:var(--surface-2); border:1px solid var(--border);"></span>No response</span>
+        <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Attended (right half)</span>
+        <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested (left half)</span>
+        <span>Click either half to toggle</span>
       </div>
     `;
 
@@ -1354,9 +1394,14 @@
 
     body.innerHTML = visibleContacts.map(c => {
       const cells = events.map(ev => {
-        const state = cellState(c.id, ev.id);
-        const attended = state === "attend";
-        return `<td><button type="button" class="att-cell-btn ${state}" data-contact-id="${c.id}" data-event-id="${ev.id}" data-attended="${attended}" aria-label="${escapeHtml(c.name)} — ${ev.name}">${attended ? "✓" : ""}</button></td>`;
+        const interested = !!interestMap[`${c.id}::${ev.id}`];
+        const attended = !!attendanceMap[`${c.id}::${ev.id}`];
+        return `<td>
+          <div class="att-split-cell">
+            <button type="button" class="att-half-btn ${interested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${interested}" aria-label="${escapeHtml(c.name)} interested in ${escapeHtml(ev.name)}">${interested ? "●" : ""}</button>
+            <button type="button" class="att-half-btn ${attended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${attended}" aria-label="${escapeHtml(c.name)} attended ${escapeHtml(ev.name)}">${attended ? "✓" : ""}</button>
+          </div>
+        </td>`;
       }).join("");
       return `<tr><td>${escapeHtml(c.name)}</td>${cells}</tr>`;
     }).join("");
@@ -1386,33 +1431,34 @@
     }
 
     listEl.innerHTML = visibleContacts.map(c => {
-      const state = cellState(c.id, eventId);
-      const attended = state === "attend";
+      const isInterested = !!interestMap[`${c.id}::${eventId}`];
+      const isAttended = !!attendanceMap[`${c.id}::${eventId}`];
       return `
         <div class="drill-row">
           <span>${escapeHtml(c.name)}</span>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="drill-status">${statusLabel(state)}</span>
-            <button type="button" class="att-cell-btn ${state}" style="width:32px;" data-contact-id="${c.id}" data-event-id="${eventId}" data-attended="${attended}" aria-label="Toggle attendance for ${escapeHtml(c.name)}">${attended ? "✓" : ""}</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="drill-status">${statusLabel(c.id, eventId)}</span>
+            <button type="button" class="drill-toggle-btn ${isInterested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isInterested}">Interested</button>
+            <button type="button" class="drill-toggle-btn ${isAttended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isAttended}">Attended</button>
           </div>
         </div>
       `;
     }).join("");
   }
 
-  document.getElementById("attendance-body").addEventListener("click", (e) => {
-    const btn = e.target.closest(".att-cell-btn");
+  function handleCellClick(e) {
+    const btn = e.target.closest(".att-half-btn, .drill-toggle-btn");
     if (!btn) return;
-    const nextAttended = btn.dataset.attended !== "true";
-    toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextAttended, btn);
-  });
+    const nextOn = btn.dataset.on !== "true";
+    if (btn.dataset.kind === "interest") {
+      toggleInterest(btn.dataset.contactId, btn.dataset.eventId, nextOn, btn);
+    } else {
+      toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextOn, btn);
+    }
+  }
 
-  document.getElementById("event-drill-list").addEventListener("click", (e) => {
-    const btn = e.target.closest(".att-cell-btn");
-    if (!btn) return;
-    const nextAttended = btn.dataset.attended !== "true";
-    toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextAttended, btn);
-  });
+  document.getElementById("attendance-body").addEventListener("click", handleCellClick);
+  document.getElementById("event-drill-list").addEventListener("click", handleCellClick);
 
   document.getElementById("search-input").addEventListener("input", () => {
     if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
