@@ -866,7 +866,7 @@
     border-color: transparent;
     color: transparent;
   }
-  .att-cell-btn.attended {
+  .att-cell-btn.attend {
     background: var(--success-bg);
     border-color: transparent;
     color: var(--success);
@@ -1213,9 +1213,8 @@
   function eventCounts(eventId) {
     let interested = 0, attended = 0;
     contacts.forEach(c => {
-      const s = cellState(c.id, eventId);
-      if (s === "interest" || s === "attend") interested++;
-      if (s === "attend") attended++;
+      if (interestMap[`${c.id}::${eventId}`]) interested++;
+      if (attendanceMap[`${c.id}::${eventId}`]) attended++;
     });
     return { interested, attended };
   }
