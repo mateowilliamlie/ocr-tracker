@@ -483,6 +483,35 @@
     vertical-align: middle;
   }
 
+  /* Event Signups tab: which event(s) a contact is down for, plus the
+     chip row above the list to filter to just one event. */
+  .event-badges { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 14px 10px; }
+  .event-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  .event-chip {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 7px 15px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .event-chip.active {
+    border-color: var(--accent);
+    background: var(--info-bg);
+    color: var(--accent);
+  }
+
   .flatpickr-calendar {
     font-family: var(--font);
     border-radius: 16px;
@@ -895,6 +924,8 @@
     <button class="tab-btn" id="tab-online" data-tab="online">Event Signups</button>
   </div>
 
+  <div id="event-signup-chips" style="display:none; gap:6px; flex-wrap:wrap; margin-bottom:14px;"></div>
+
   <div class="toolbar">
     <input id="search-input" type="text" placeholder="Search by name" />
     <select id="sort-select">
@@ -1253,6 +1284,8 @@
   let openDetailId = null;
   let followupsOnly = false;
   let activeTab = "all";
+  let eventSignupFilter = "all";
+  const eventSignupChipsEl = document.getElementById("event-signup-chips");
   const tabAll = document.getElementById("tab-all");
   const tabInPerson = document.getElementById("tab-inperson");
   const tabOnline = document.getElementById("tab-online");
@@ -1363,6 +1396,7 @@
 
       contacts = data;
       loadingStateEl.style.display = "none";
+      renderEventSignupChips();
       render();
     } catch (err) {
       loadingStateEl.textContent = "Couldn't load contacts — check your connection and try refreshing.";
@@ -1370,12 +1404,43 @@
     }
   }
 
+  // Which events (by name) a contact is signed up for — same event_interest
+  // data the Gform sync writes and the Add/Edit dialog's per-event
+  // checkboxes edit, so this always matches what's shown there.
+  function contactEventNames(c) {
+    return seasonEvents.filter(ev => eventInterestMap[`${c.id}::${ev.id}`]).map(ev => ev.name);
+  }
+
+  function renderEventSignupChips() {
+    if (activeTab !== "online" || seasonEvents.length === 0) {
+      eventSignupChipsEl.style.display = "none";
+      return;
+    }
+    eventSignupChipsEl.style.display = "flex";
+    const chip = (label, isActive, filterValue) =>
+      `<button type="button" class="event-chip ${isActive ? "active" : ""}" data-filter="${filterValue}">${escapeHtml(label)}</button>`;
+    eventSignupChipsEl.innerHTML =
+      chip("All events", eventSignupFilter === "all", "all") +
+      seasonEvents.map(ev => chip(ev.name, eventSignupFilter === ev.id, ev.id)).join("");
+  }
+
+  eventSignupChipsEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".event-chip");
+    if (!btn) return;
+    eventSignupFilter = btn.dataset.filter;
+    renderEventSignupChips();
+    render();
+  });
+
   function getFilteredSorted() {
     const q = searchInput.value.trim().toLowerCase();
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
 
     if (activeTab === "online") {
       list = list.filter(c => c.source === "online");
+      if (eventSignupFilter !== "all") {
+        list = list.filter(c => !!eventInterestMap[`${c.id}::${eventSignupFilter}`]);
+      }
     } else if (activeTab === "inperson") {
       list = list.filter(c => c.source !== "online");
     }
@@ -1422,6 +1487,7 @@
       wrap.className = "row-wrap";
 
       const isOpen = openDetailId === c.id;
+      const eventNames = activeTab === "online" ? contactEventNames(c) : [];
 
       wrap.innerHTML = `
         <div class="row">
@@ -1432,6 +1498,7 @@
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
+        ${eventNames.length > 0 ? `<div class="event-badges">${eventNames.map(n => `<span class="event-badge">${escapeHtml(n)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
           ${detailFieldsHtml(c)}
         </div>
@@ -1743,9 +1810,11 @@
 
   function setActiveTab(tab) {
     activeTab = tab;
+    eventSignupFilter = "all";
     tabAll.classList.toggle("active", tab === "all");
     tabInPerson.classList.toggle("active", tab === "inperson");
     tabOnline.classList.toggle("active", tab === "online");
+    renderEventSignupChips();
     render();
   }
   tabAll.addEventListener("click", () => setActiveTab("all"));
