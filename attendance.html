@@ -1447,39 +1447,40 @@
 
   document.getElementById("manage-events-list").addEventListener("click", async (e) => {
     const renameBtn = e.target.closest(".rename-event-btn");
-    if (!renameBtn) return;
-    const row = renameBtn.closest(".manage-event-row");
-    const eventId = renameBtn.dataset.eventId;
-    const ev = events.find(x => x.id === eventId);
-    if (!ev) return;
+    if (renameBtn) {
+      const row = renameBtn.closest(".manage-event-row");
+      const eventId = renameBtn.dataset.eventId;
+      const ev = events.find(x => x.id === eventId);
+      if (!ev) return;
 
-    const nameSpan = row.querySelector(".manage-event-name");
-    nameSpan.outerHTML = `<input type="text" class="rename-event-input" value="${escapeHtml(ev.name)}" style="flex:1; font-family:var(--font); font-size:14px; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:#FFFFFF; color:#1A1D23;" />`;
-    row.querySelector(".rename-event-input").focus();
-    renameBtn.textContent = "Save";
-    renameBtn.classList.add("save-event-btn");
-    renameBtn.classList.remove("rename-event-btn");
-  });
+      const nameSpan = row.querySelector(".manage-event-name");
+      nameSpan.outerHTML = `<input type="text" class="rename-event-input" value="${escapeHtml(ev.name)}" style="flex:1; font-family:var(--font); font-size:14px; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:#FFFFFF; color:#1A1D23;" />`;
+      row.querySelector(".rename-event-input").focus();
+      renameBtn.textContent = "Save";
+      renameBtn.classList.add("save-event-btn");
+      renameBtn.classList.remove("rename-event-btn");
+      return;
+    }
 
-  document.getElementById("manage-events-list").addEventListener("click", async (e) => {
     const saveBtn = e.target.closest(".save-event-btn");
-    if (!saveBtn) return;
-    const row = saveBtn.closest(".manage-event-row");
-    const eventId = saveBtn.dataset.eventId;
-    const input = row.querySelector(".rename-event-input");
-    const newName = input.value.trim();
-    if (!newName) return;
+    if (saveBtn) {
+      const row = saveBtn.closest(".manage-event-row");
+      const eventId = saveBtn.dataset.eventId;
+      const input = row.querySelector(".rename-event-input");
+      const newName = input.value.trim();
+      if (!newName) return;
 
-    saveBtn.disabled = true;
-    try {
-      const { error } = await sb.from("events").update({ name: newName }).eq("id", eventId);
-      if (error) throw error;
-      showBanner("Event renamed", false);
-      await loadEventsAndAttendance();
-      renderManageEventsList();
-    } catch (err) {
-      showBanner(`Couldn't rename event — ${err.message || "check your connection"}`, true);
-      saveBtn.disabled = false;
+      saveBtn.disabled = true;
+      try {
+        const { error } = await sb.from("events").update({ name: newName }).eq("id", eventId);
+        if (error) throw error;
+        showBanner("Event renamed", false);
+        await loadEventsAndAttendance();
+        renderManageEventsList();
+      } catch (err) {
+        showBanner(`Couldn't rename event — ${err.message || "check your connection"}`, true);
+        saveBtn.disabled = false;
+      }
     }
   });
 
