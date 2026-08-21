@@ -744,19 +744,19 @@
     /* Attendance matrix: shrink the sticky Name column — capped with a real
        width (not just min-width), so it doesn't eat more space than one
        event column needs — and tighten cell padding, so more events fit
-       on screen at once. A long name truncates visually inside .name-cell
-       below, but stays swipeable in place so the last name is never
-       actually unreachable. Event columns keep their own min-width
+       on screen at once. 100px is wide enough that most names wrap onto
+       just 2 lines at a word boundary (see .name-cell) without needing
+       the hyphens:auto fallback. Event columns keep their own min-width
        (below, not mobile-only) to stay tappable instead of getting
        squeezed by the table's auto-layout. */
     #attendance-table th:first-child,
     #attendance-table td:first-child {
-      width: 76px;
-      max-width: 76px;
-      min-width: 76px;
+      width: 100px;
+      max-width: 100px;
+      min-width: 100px;
     }
     .name-cell {
-      max-width: 76px;
+      max-width: 100px;
     }
     #attendance-table th,
     #attendance-table td {
