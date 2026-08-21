@@ -469,6 +469,19 @@
     margin-left: 6px;
     vertical-align: middle;
   }
+  .unconnected-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    color: var(--warn);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
 
   .flatpickr-calendar {
     font-family: var(--font);
@@ -933,9 +946,14 @@
           <input id="f-nationality" name="nationality" type="text" />
         </div>
         <div class="field">
-          <label for="f-course">Course</label>
-          <input id="f-course" name="course" type="text" />
+          <label for="f-gender">Gender</label>
+          <input id="f-gender" name="gender" type="text" placeholder="e.g. Male, Female" />
         </div>
+      </div>
+
+      <div class="field">
+        <label for="f-course">Major / School</label>
+        <input id="f-course" name="course" type="text" placeholder="Major, or school if undeclared" />
       </div>
 
       <div class="field">
@@ -1384,7 +1402,7 @@
 
       wrap.innerHTML = `
         <div class="row">
-          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}</span>
+          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
           <span class="connector">${escapeHtml(c.connector || "—")}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
@@ -1414,6 +1432,21 @@
     return opts.join("");
   }
 
+  // Free-text phrases people type into "connector" when they weren't
+  // actually invited by a specific member (found the Form via social media,
+  // a poster, etc.) — flagged the same as a blank connector so the team can
+  // spot who still needs a real point person assigned.
+  const NON_PERSON_CONNECTOR_KEYWORDS = [
+    "instagram", "social media", "facebook", "tiktok", "walked in", "walk-in",
+    "word of mouth", "flyer", "poster", "randomly", "no one", "nobody", "n/a", "none", "google form"
+  ];
+
+  function isUnconnected(c) {
+    const v = (c.connector || "").trim().toLowerCase();
+    if (!v) return true;
+    return NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k));
+  }
+
   function interestsSummary(c) {
     const list = [];
     if (c.interest_event) list.push("Event");
@@ -1431,7 +1464,8 @@
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
-      ["Course", c.course],
+      ["Gender", c.gender],
+      ["Major / School", c.course],
       ["Phone", c.phone],
       ["Age", c.age],
       ["Year", c.year],
@@ -1497,6 +1531,7 @@
       form.other_campus_note.value = c.other_campus_note;
     }
     form.nationality.value = c.nationality || "";
+    form.gender.value = c.gender || "";
     form.course.value = c.course || "";
     form.connector.value = c.connector || "";
     form.phone.value = c.phone || "";
@@ -1686,6 +1721,7 @@
     const payload = {
       name,
       nationality: form.nationality.value.trim() || null,
+      gender: form.gender.value.trim() || null,
       course: form.course.value.trim() || null,
       connector: form.connector.value.trim() || null,
       phone: phone,
@@ -1881,7 +1917,8 @@
       "Name": c.name || "",
       "Season": c.season_name || currentSeasonName || "",
       "Nationality": c.nationality || "",
-      "Course": c.course || "",
+      "Gender": c.gender || "",
+      "Major / School": c.course || "",
       "Point person": c.connector || "",
       "Age": c.age ?? "",
       "Year": c.year || "",
@@ -1955,7 +1992,8 @@
     { key: "", label: "Skip this column" },
     { key: "name", label: "Name", match: ["name"] },
     { key: "nationality", label: "Nationality", match: ["nationality"] },
-    { key: "course", label: "Course", match: ["course"] },
+    { key: "gender", label: "Gender", match: ["gender", "sex"] },
+    { key: "course", label: "Major / School", match: ["major / school", "major", "school", "course"] },
     { key: "connector", label: "Point person", match: ["point person", "connector"] },
     { key: "age", label: "Age", match: ["age"] },
     { key: "year", label: "Year", match: ["year"] },

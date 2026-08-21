@@ -54,6 +54,7 @@ Everything built so far, checked off, organized by phase. Unchecked items are ge
 - [x] signup.html — public guest form, no login, season-branded, zero internal links
 - [x] Optional "not from one of these schools" note on signup.html
 - [x] source column (member / online), Online Sign-ups / In Person / All tabs
+- [x] "Unconnected" badge next to a contact's name when their connector is blank, or free text like "Instagram"/"social media"/etc. (`NON_PERSON_CONNECTOR_KEYWORDS` in index.html) — flags people who found OCR organically rather than through a specific member, so the team can spot who still needs a real point person assigned.
 - [x] quick-add.html — URL-first + localStorage fallback, remembers point person, quick note field
 
 ## Phase 8 — Cross-Campus Support
@@ -138,5 +139,8 @@ Roadmap v2 planning doc.
 - [ ] Multi-date reminders (scoped in detail, explicitly declined for now)
 - [ ] Email confirmation on guest sign-up (explicitly declined — WhatsApp preferred; would need a real backend)
 - [ ] Revisit member onboarding if OCR's membership grows much larger than one campus's shared credentials can reasonably serve
-- [ ] Google Sheets auto-sync and email-based reminders — parked pending real backend infrastructure (Supabase Edge Functions), by design (see Roadmap v2 Phase 3)
+- [x] Google Form → attendance sync — resolved without needing Edge Functions. `apps-script/event-signup-sync.gs`, triggered on Form submit, matches respondents to existing contacts by phone and writes `event_attendance` directly; multiple matches are flagged back into the Sheet for a member to resolve instead of guessed.
+- [x] Google Form sign-up notification email — same script now also emails Faus/Ryan/Joan (`NOTIFY_EMAILS`) on every submission via `MailApp`, reporting the gender/nationality/year/major-school/connector the Form now collects directly, plus a tracker cross-check (connector/source already on file) when matched to an existing contact. Ryan's real address still needs to replace the placeholder in `NOTIFY_EMAILS`.
+- [x] Auto-create contacts from cold Google Form sign-ups — previously a "No Match" respondent (someone who filled out the Form without ever being met/added by a member) only got flagged in the Sheet and email, with a member expected to notice and Quick Add them; now the script creates their `contacts` row directly (`source: "online"`) so they actually show up in the tracker. Added a `contacts.gender` column and split the Form's combined "Year and Major" question into separate Year/Major questions to support this; renamed "Course" to "Major / School" across the tracker, Quick Add, and signup.html to match. See "Event Sign-up Sync" in README.md.
+- [ ] Email-based reminders — still parked pending real backend infrastructure (Supabase Edge Functions), by design (see Roadmap v2 Phase 3)
 - [ ] In-app self-service password change (Settings \u2192 change your own password). Not built yet; in the meantime, a password reset for any campus's account is done directly via SQL (see Credentials section in README.md) since these are synthetic shared-credential emails and Supabase's built-in email-based recovery/magic-link flows don't work against them. A dev-triggered override of *another* account's password would need real backend infrastructure (a service-role-key-holding Edge Function) to do safely from within the app \u2014 explicitly not worth building until/unless the app gets a real backend for other reasons too.
