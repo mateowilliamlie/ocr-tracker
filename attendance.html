@@ -855,7 +855,7 @@
     overflow: hidden;
     border: 1px solid var(--border);
   }
-  .att-half-btn {
+  .att-third-btn {
     flex: 1;
     border: none;
     background: var(--surface-2);
@@ -867,15 +867,19 @@
     font-weight: 700;
     color: transparent;
   }
-  .att-half-btn.on-interest {
+  .att-third-btn.on-interest {
     background: var(--warn-bg);
     color: var(--warn);
   }
-  .att-half-btn.on-registered {
+  .att-third-btn.on-registered {
     background: var(--success-bg);
     color: var(--success);
   }
-  .att-half-btn:disabled { opacity: 0.6; cursor: default; }
+  .att-third-btn.on-attend {
+    background: var(--info-bg);
+    color: var(--info);
+  }
+  .att-third-btn:disabled { opacity: 0.6; cursor: default; }
   .drill-toggle-btn {
     font-size: 12px;
     padding: 6px 12px;
@@ -894,6 +898,11 @@
   .drill-toggle-btn.on-registered {
     background: var(--success-bg);
     color: var(--success);
+    border-color: transparent;
+  }
+  .drill-toggle-btn.on-attend {
+    background: var(--info-bg);
+    color: var(--info);
     border-color: transparent;
   }
   .drill-toggle-btn:disabled { opacity: 0.6; cursor: default; }
@@ -1105,7 +1114,8 @@
   let events = [];
   let contacts = [];
   // key: `${contactId}::${eventId}` -> boolean
-  let registeredMap = {}; // "registered" — signed up (e.g. via the Gform), or manually checked off here
+  let attendanceMap = {}; // "attended" — confirmed present at the actual event
+  let registeredMap = {}; // "registered" — signed up in advance (e.g. via the Gform)
   let interestMap = {};
   let activeEventFilter = "all";
 
@@ -1186,16 +1196,18 @@
       events = eventsRes.data || [];
       contacts = contactsRes.data || [];
 
+      attendanceMap = {};
       registeredMap = {};
       interestMap = {};
       if (events.length > 0) {
         const eventIds = events.map(e => e.id);
         const [attRes, interestRes] = await Promise.all([
-          sb.from("event_attendance").select("contact_id, event_id, registered").in("event_id", eventIds),
+          sb.from("event_attendance").select("contact_id, event_id, attended, registered").in("event_id", eventIds),
           sb.from("event_interest").select("contact_id, event_id").in("event_id", eventIds)
         ]);
         if (attRes.error) throw attRes.error;
         (attRes.data || []).forEach(row => {
+          attendanceMap[`${row.contact_id}::${row.event_id}`] = row.attended;
           registeredMap[`${row.contact_id}::${row.event_id}`] = row.registered;
         });
         if (!interestRes.error) {
@@ -1212,10 +1224,14 @@
     }
   }
 
-  function registeredEventNames(contactId) {
+  function attendedEventNames(contactId) {
     return events
-      .filter(ev => registeredMap[`${contactId}::${ev.id}`])
+      .filter(ev => attendanceMap[`${contactId}::${ev.id}`])
       .map(ev => ev.name);
+  }
+
+  function countAttended(contactId) {
+    return events.filter(ev => attendanceMap[`${contactId}::${ev.id}`]).length;
   }
 
   // Filter/sort state for the matrix view
@@ -1226,23 +1242,42 @@
   }
 
   function eventCounts(eventId) {
-    let interested = 0, registered = 0;
+    let interested = 0, registered = 0, attended = 0;
     contacts.forEach(c => {
       if (interestMap[`${c.id}::${eventId}`]) interested++;
       if (registeredMap[`${c.id}::${eventId}`]) registered++;
+      if (attendanceMap[`${c.id}::${eventId}`]) attended++;
     });
-    return { interested, registered };
+    return { interested, registered, attended };
   }
 
-  // Registered wins the headline label — someone registered is worth
-  // saying even if they were never marked interested first (e.g. added
-  // directly here rather than through the Form).
+  // Highest stage reached wins the headline label — someone attended is
+  // worth saying even if they were never marked registered (e.g. added at
+  // the door), same idea for registered-without-interest.
   function statusLabel(contactId, eventId) {
     const interested = !!interestMap[`${contactId}::${eventId}`];
     const registered = !!registeredMap[`${contactId}::${eventId}`];
-    if (registered) return `<span style="color:var(--success);">Registered</span>`;
+    const attended = !!attendanceMap[`${contactId}::${eventId}`];
+    if (attended) return `<span style="color:var(--info);">Attended${registered ? " (was registered)" : ""}</span>`;
+    if (registered) return `<span style="color:var(--success);">Registered, not yet confirmed</span>`;
     if (interested) return `<span style="color:var(--warn);">Interested, not registered</span>`;
     return `<span style="color:var(--text-muted);">No response</span>`;
+  }
+
+  async function toggleAttendance(contactId, eventId, nextAttended, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+    try {
+      const { error } = await sb.from("event_attendance").upsert(
+        { contact_id: contactId, event_id: eventId, attended: nextAttended, updated_at: new Date().toISOString() },
+        { onConflict: "contact_id,event_id" }
+      );
+      if (error) throw error;
+      attendanceMap[`${contactId}::${eventId}`] = nextAttended;
+      if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
+    } catch (err) {
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
+      if (btnEl) btnEl.disabled = false;
+    }
   }
 
   async function toggleRegistered(contactId, eventId, nextRegistered, btnEl) {
@@ -1342,8 +1377,8 @@
       return;
     }
     summaryList.innerHTML = contacts.map(c => {
-      const names = registeredEventNames(c.id);
-      const eventsText = names.length > 0 ? names.map(escapeHtml).join(", ") : "No events registered";
+      const names = attendedEventNames(c.id);
+      const eventsText = names.length > 0 ? names.map(escapeHtml).join(", ") : "No events attended";
       return `<div class="summary-row"><span class="summary-name">${escapeHtml(c.name)}</span><span class="summary-events">${eventsText}</span></div>`;
     }).join("");
   }
@@ -1356,22 +1391,24 @@
     statsEl.innerHTML = `
       <div class="stat-card-grid">
         ${events.map(ev => {
-          const { interested, registered } = eventCounts(ev.id);
+          const { interested, registered, attended } = eventCounts(ev.id);
           return `
             <div class="stat-card">
               <p class="stat-card-label">${escapeHtml(ev.name)}</p>
               <div class="stat-card-nums">
                 <div><p class="stat-num" style="color:var(--warn);">${interested}</p><p class="stat-num-label" style="color:var(--warn);">interested</p></div>
                 <div><p class="stat-num" style="color:var(--success);">${registered}</p><p class="stat-num-label" style="color:var(--success);">registered</p></div>
+                <div><p class="stat-num" style="color:var(--info);">${attended}</p><p class="stat-num-label" style="color:var(--info);">attended</p></div>
               </div>
             </div>
           `;
         }).join("")}
       </div>
       <div class="att-legend">
-        <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Registered (right half)</span>
-        <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested (left half)</span>
-        <span>Click either half to toggle</span>
+        <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested</span>
+        <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Registered</span>
+        <span><span class="att-legend-swatch" style="background:var(--info-bg);"></span>Attended</span>
+        <span>Click any third to toggle</span>
       </div>
     `;
 
@@ -1394,10 +1431,12 @@
       const cells = events.map(ev => {
         const interested = !!interestMap[`${c.id}::${ev.id}`];
         const registered = !!registeredMap[`${c.id}::${ev.id}`];
+        const attended = !!attendanceMap[`${c.id}::${ev.id}`];
         return `<td>
           <div class="att-split-cell">
-            <button type="button" class="att-half-btn ${interested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${interested}" aria-label="${escapeHtml(c.name)} interested in ${escapeHtml(ev.name)}">${interested ? "●" : ""}</button>
-            <button type="button" class="att-half-btn ${registered ? "on-registered" : ""}" data-kind="register" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${registered}" aria-label="${escapeHtml(c.name)} registered for ${escapeHtml(ev.name)}">${registered ? "✓" : ""}</button>
+            <button type="button" class="att-third-btn ${interested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${interested}" aria-label="${escapeHtml(c.name)} interested in ${escapeHtml(ev.name)}">${interested ? "●" : ""}</button>
+            <button type="button" class="att-third-btn ${registered ? "on-registered" : ""}" data-kind="register" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${registered}" aria-label="${escapeHtml(c.name)} registered for ${escapeHtml(ev.name)}">${registered ? "●" : ""}</button>
+            <button type="button" class="att-third-btn ${attended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${ev.id}" data-on="${attended}" aria-label="${escapeHtml(c.name)} attended ${escapeHtml(ev.name)}">${attended ? "✓" : ""}</button>
           </div>
         </td>`;
       }).join("");
@@ -1410,13 +1449,14 @@
     document.getElementById("event-drill-list").style.display = "block";
 
     const ev = events.find(e => e.id === eventId);
-    const { interested, registered } = eventCounts(eventId);
+    const { interested, registered, attended } = eventCounts(eventId);
 
     const statsEl = document.getElementById("event-stats");
     statsEl.innerHTML = `
       <div class="stat-card-grid">
         <div class="stat-card"><p class="stat-card-label" style="color:var(--warn);">Interested</p><p class="stat-num" style="color:var(--warn); font-size:24px;">${interested}</p></div>
         <div class="stat-card"><p class="stat-card-label" style="color:var(--success);">Registered</p><p class="stat-num" style="color:var(--success); font-size:24px;">${registered}</p></div>
+        <div class="stat-card"><p class="stat-card-label" style="color:var(--info);">Attended</p><p class="stat-num" style="color:var(--info); font-size:24px;">${attended}</p></div>
       </div>
     `;
 
@@ -1431,6 +1471,7 @@
     listEl.innerHTML = visibleContacts.map(c => {
       const isInterested = !!interestMap[`${c.id}::${eventId}`];
       const isRegistered = !!registeredMap[`${c.id}::${eventId}`];
+      const isAttended = !!attendanceMap[`${c.id}::${eventId}`];
       return `
         <div class="drill-row">
           <span>${escapeHtml(c.name)}</span>
@@ -1438,6 +1479,7 @@
             <span class="drill-status">${statusLabel(c.id, eventId)}</span>
             <button type="button" class="drill-toggle-btn ${isInterested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isInterested}">Interested</button>
             <button type="button" class="drill-toggle-btn ${isRegistered ? "on-registered" : ""}" data-kind="register" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isRegistered}">Registered</button>
+            <button type="button" class="drill-toggle-btn ${isAttended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isAttended}">Attended</button>
           </div>
         </div>
       `;
@@ -1445,13 +1487,15 @@
   }
 
   function handleCellClick(e) {
-    const btn = e.target.closest(".att-half-btn, .drill-toggle-btn");
+    const btn = e.target.closest(".att-third-btn, .drill-toggle-btn");
     if (!btn) return;
     const nextOn = btn.dataset.on !== "true";
     if (btn.dataset.kind === "interest") {
       toggleInterest(btn.dataset.contactId, btn.dataset.eventId, nextOn, btn);
-    } else {
+    } else if (btn.dataset.kind === "register") {
       toggleRegistered(btn.dataset.contactId, btn.dataset.eventId, nextOn, btn);
+    } else {
+      toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextOn, btn);
     }
   }
 
