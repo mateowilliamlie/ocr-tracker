@@ -777,7 +777,6 @@
     box-shadow: 1px 0 0 var(--border);
   }
   #attendance-table thead th:first-child { z-index: 4; background: var(--surface-2); }
-  .attendance-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
 
   .summary-row {
     padding: 14px 18px;
@@ -789,33 +788,100 @@
   .summary-row:last-child { border-radius: 0 0 var(--radius) var(--radius); border-bottom: none; }
   .summary-name { font-weight: 700; margin-right: 8px; }
   .summary-events { color: var(--text-muted); }
-  #rank-sort-select {
-    font-family: var(--font);
-    font-size: 14px;
-    padding: 9px 34px 9px 14px;
+  .event-chip {
+    padding: 7px 15px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .event-chip.active {
+    border-color: var(--accent);
+    background: var(--info-bg);
+    color: var(--accent);
+  }
+  .stat-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .stat-card {
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--surface-2);
-    color: var(--text);
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B93A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 16px;
+    padding: 12px;
   }
-  .event-checkbox-pill {
-    display: inline-flex;
+  .stat-card .stat-card-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 6px;
+  }
+  .stat-card .stat-card-nums {
+    display: flex;
+    gap: 16px;
+  }
+  .stat-card .stat-num {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .stat-card .stat-num-label {
+    font-size: 11px;
+    margin: 2px 0 0;
+  }
+  .att-legend {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 7px 12px;
-    cursor: pointer;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 10px 0;
   }
-  .event-checkbox-pill input { accent-color: var(--accent); cursor: pointer; }
+  .att-legend-swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+  }
+  .att-cell-btn {
+    width: 100%;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: transparent;
+  }
+  .att-cell-btn.interest {
+    background: var(--warn-bg);
+    border-color: transparent;
+    color: transparent;
+  }
+  .att-cell-btn.attended {
+    background: var(--success-bg);
+    border-color: transparent;
+    color: var(--success);
+  }
+  .att-cell-btn:disabled { opacity: 0.6; cursor: default; }
+  .drill-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .drill-row:last-child { border-bottom: none; }
+  .drill-status { font-size: 13px; }
 </style>
 </head>
 <body>
@@ -881,7 +947,6 @@
   </div>
 
   <div class="add-row">
-    <button id="filter-toggle-btn" class="toggle-btn" style="display:none;">Filter</button>
     <button id="open-add-event" class="btn-primary" style="display:none;">Manage Events</button>
   </div>
 
@@ -891,31 +956,14 @@
     This season has concluded — attendance is shown as a read-only summary.
   </div>
 
-  <div id="filter-panel" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px;">
-    <div style="margin-bottom:16px;">
-      <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">Joined at least <span id="min-events-value">0</span> event(s)</label>
-      <input type="range" id="min-events-slider" min="0" max="0" value="0" style="width:100%; accent-color:var(--accent);" />
-    </div>
-    <div style="margin-bottom:16px;">
-      <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:8px;">Attended any of</label>
-      <div id="event-checkbox-list" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;">Sort</label>
-      <select id="rank-sort-select">
-        <option value="name">Default (name)</option>
-        <option value="most">Most events joined</option>
-        <option value="least">Least events joined</option>
-      </select>
-    </div>
-    <button type="button" id="clear-filters-btn" class="btn-ghost">Clear filters</button>
-  </div>
+  <div id="event-chips" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;"></div>
 
   <div id="no-events-state" class="empty-state" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">No events yet — add one to start tracking attendance.</div>
 
   <!-- Editable matrix view, shown while the season is active -->
-  <div id="matrix-view" class="board" style="display:none;">
-    <div id="matrix-scroll" style="overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch;">
+  <div id="matrix-view" class="board" style="display:none; background:none; border:none;">
+    <div id="event-stats" style="margin-bottom:12px;"></div>
+    <div id="matrix-scroll" style="overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">
       <table id="attendance-table" style="border-collapse:collapse; width:100%;">
         <thead>
           <tr id="attendance-head-row"></tr>
@@ -923,6 +971,7 @@
         <tbody id="attendance-body"></tbody>
       </table>
     </div>
+    <div id="event-drill-list" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;"></div>
     <div id="matrix-loading-state" class="empty-state">Loading attendance…</div>
   </div>
 
@@ -1032,6 +1081,8 @@
   let contacts = [];
   // key: `${contactId}::${eventId}` -> boolean
   let attendanceMap = {};
+  let interestMap = {};
+  let activeEventFilter = "all";
 
   function getIsAdminFromSession(session) {
     const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
@@ -1111,16 +1162,22 @@
       contacts = contactsRes.data || [];
 
       attendanceMap = {};
+      interestMap = {};
       if (events.length > 0) {
         const eventIds = events.map(e => e.id);
-        const { data: attData, error: attError } = await sb
-          .from("event_attendance")
-          .select("contact_id, event_id, attended")
-          .in("event_id", eventIds);
-        if (attError) throw attError;
-        (attData || []).forEach(row => {
+        const [attRes, interestRes] = await Promise.all([
+          sb.from("event_attendance").select("contact_id, event_id, attended").in("event_id", eventIds),
+          sb.from("event_interest").select("contact_id, event_id").in("event_id", eventIds)
+        ]);
+        if (attRes.error) throw attRes.error;
+        (attRes.data || []).forEach(row => {
           attendanceMap[`${row.contact_id}::${row.event_id}`] = row.attended;
         });
+        if (!interestRes.error) {
+          (interestRes.data || []).forEach(row => {
+            interestMap[`${row.contact_id}::${row.event_id}`] = true;
+          });
+        }
       }
 
       matrixLoadingEl.style.display = "none";
@@ -1141,53 +1198,73 @@
   }
 
   // Filter/sort state for the matrix view
-  let minEventsFilter = 0;
-  let selectedEventFilterIds = new Set();
-  let rankSort = "name";
-
-  function rebuildFilterControls() {
-    const slider = document.getElementById("min-events-slider");
-    slider.max = events.length;
-    if (Number(slider.value) > events.length) slider.value = events.length;
-    minEventsFilter = Number(slider.value);
-    document.getElementById("min-events-value").textContent = slider.value;
-
-    const list = document.getElementById("event-checkbox-list");
-    list.innerHTML = events.map(ev => `
-      <label class="event-checkbox-pill">
-        <input type="checkbox" class="event-filter-checkbox" value="${ev.id}" ${selectedEventFilterIds.has(ev.id) ? "checked" : ""} />
-        ${escapeHtml(ev.name)}
-      </label>
-    `).join("");
-  }
-
-  function getFilteredSortedContacts() {
+  function getSearchFilteredContacts() {
     const q = (document.getElementById("search-input")?.value || "").trim().toLowerCase();
-    let result = contacts.filter(c => {
-      if (q && !c.name.toLowerCase().includes(q)) return false;
-      const count = countAttended(c.id);
-      if (count < minEventsFilter) return false;
-      if (selectedEventFilterIds.size > 0) {
-        const attendedAny = [...selectedEventFilterIds].some(eventId => attendanceMap[`${c.id}::${eventId}`]);
-        if (!attendedAny) return false;
-      }
-      return true;
-    });
-
-    if (rankSort === "most") {
-      result = result.slice().sort((a, b) => countAttended(b.id) - countAttended(a.id));
-    } else if (rankSort === "least") {
-      result = result.slice().sort((a, b) => countAttended(a.id) - countAttended(b.id));
-    }
-    return result;
+    if (!q) return contacts;
+    return contacts.filter(c => c.name.toLowerCase().includes(q));
   }
+
+  function cellState(contactId, eventId) {
+    if (attendanceMap[`${contactId}::${eventId}`]) return "attend";
+    if (interestMap[`${contactId}::${eventId}`]) return "interest";
+    return "none";
+  }
+
+  function eventCounts(eventId) {
+    let interested = 0, attended = 0;
+    contacts.forEach(c => {
+      const s = cellState(c.id, eventId);
+      if (s === "interest" || s === "attend") interested++;
+      if (s === "attend") attended++;
+    });
+    return { interested, attended };
+  }
+
+  function statusLabel(state) {
+    if (state === "attend") return `<span style="color:var(--success);">Attended</span>`;
+    if (state === "interest") return `<span style="color:var(--warn);">Interested, no response yet</span>`;
+    return `<span style="color:var(--text-muted);">No response</span>`;
+  }
+
+  async function toggleAttendance(contactId, eventId, nextAttended, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+    try {
+      const { error } = await sb.from("event_attendance").upsert(
+        { contact_id: contactId, event_id: eventId, attended: nextAttended, updated_at: new Date().toISOString() },
+        { onConflict: "contact_id,event_id" }
+      );
+      if (error) throw error;
+      attendanceMap[`${contactId}::${eventId}`] = nextAttended;
+      if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
+    } catch (err) {
+      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
+      if (btnEl) btnEl.disabled = false;
+    }
+  }
+
+  function renderEventChips() {
+    const chipsEl = document.getElementById("event-chips");
+    const chip = (label, isActive, filterValue) => `
+      <button type="button" class="event-chip ${isActive ? "active" : ""}" data-filter="${filterValue}">${escapeHtml(label)}</button>
+    `;
+    chipsEl.innerHTML =
+      chip("All events", activeEventFilter === "all", "all") +
+      events.map(ev => chip(ev.name, activeEventFilter === ev.id, ev.id)).join("");
+  }
+
+  document.getElementById("event-chips").addEventListener("click", (e) => {
+    const btn = e.target.closest(".event-chip");
+    if (!btn) return;
+    activeEventFilter = btn.dataset.filter;
+    renderEventChips();
+    if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
+  });
 
   function renderAttendance() {
     const noEventsEl = document.getElementById("no-events-state");
     const matrixView = document.getElementById("matrix-view");
     const summaryView = document.getElementById("summary-view");
     const concludedBanner = document.getElementById("concluded-banner");
-    const filterToggleBtn = document.getElementById("filter-toggle-btn");
 
     concludedBanner.style.display = seasonConcluded ? "block" : "none";
 
@@ -1195,27 +1272,29 @@
       noEventsEl.style.display = "block";
       matrixView.style.display = "none";
       summaryView.style.display = "none";
-      filterToggleBtn.style.display = "none";
-      document.getElementById("filter-panel").style.display = "none";
+      document.getElementById("event-chips").style.display = "none";
       document.getElementById("attendance-search-toolbar").style.display = "none";
       return;
     }
     noEventsEl.style.display = "none";
 
+    if (activeEventFilter !== "all" && !events.some(ev => ev.id === activeEventFilter)) {
+      activeEventFilter = "all";
+    }
+
     if (seasonConcluded) {
       matrixView.style.display = "none";
       summaryView.style.display = "block";
-      filterToggleBtn.style.display = "none";
-      document.getElementById("filter-panel").style.display = "none";
+      document.getElementById("event-chips").style.display = "none";
       document.getElementById("attendance-search-toolbar").style.display = "none";
       renderSummary();
     } else {
       summaryView.style.display = "none";
       matrixView.style.display = "block";
-      filterToggleBtn.style.display = "inline-block";
+      document.getElementById("event-chips").style.display = "flex";
       document.getElementById("attendance-search-toolbar").style.display = "flex";
-      rebuildFilterControls();
-      renderMatrix();
+      renderEventChips();
+      if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
     }
   }
 
@@ -1232,92 +1311,112 @@
     }).join("");
   }
 
-  function renderMatrix() {
+  function renderMatrixAll() {
+    document.getElementById("matrix-scroll").style.display = "block";
+    document.getElementById("event-drill-list").style.display = "none";
+
+    const statsEl = document.getElementById("event-stats");
+    statsEl.innerHTML = `
+      <div class="stat-card-grid">
+        ${events.map(ev => {
+          const { interested, attended } = eventCounts(ev.id);
+          return `
+            <div class="stat-card">
+              <p class="stat-card-label">${escapeHtml(ev.name)}</p>
+              <div class="stat-card-nums">
+                <div><p class="stat-num" style="color:var(--warn);">${interested}</p><p class="stat-num-label" style="color:var(--warn);">interested</p></div>
+                <div><p class="stat-num" style="color:var(--success);">${attended}</p><p class="stat-num-label" style="color:var(--success);">attended</p></div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="att-legend">
+        <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Attended</span>
+        <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested only</span>
+        <span><span class="att-legend-swatch" style="background:var(--surface-2); border:1px solid var(--border);"></span>No response</span>
+      </div>
+    `;
+
     const headRow = document.getElementById("attendance-head-row");
     const body = document.getElementById("attendance-body");
-
     headRow.innerHTML = `<th>Name</th>` + events.map(ev => `<th>${escapeHtml(ev.name)}</th>`).join("");
 
-    const visibleContacts = getFilteredSortedContacts();
+    const visibleContacts = getSearchFilteredContacts();
 
     if (contacts.length === 0) {
       body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts in this season.</td></tr>`;
       return;
     }
     if (visibleContacts.length === 0) {
-      body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts match this filter.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts match this search.</td></tr>`;
       return;
     }
 
     body.innerHTML = visibleContacts.map(c => {
       const cells = events.map(ev => {
-        const checked = !!attendanceMap[`${c.id}::${ev.id}`];
-        return `<td><input type="checkbox" class="attendance-checkbox" data-contact-id="${c.id}" data-event-id="${ev.id}" ${checked ? "checked" : ""} /></td>`;
+        const state = cellState(c.id, ev.id);
+        const attended = state === "attend";
+        return `<td><button type="button" class="att-cell-btn ${state}" data-contact-id="${c.id}" data-event-id="${ev.id}" data-attended="${attended}" aria-label="${escapeHtml(c.name)} — ${ev.name}">${attended ? "✓" : ""}</button></td>`;
       }).join("");
       return `<tr><td>${escapeHtml(c.name)}</td>${cells}</tr>`;
     }).join("");
   }
 
-  document.getElementById("attendance-body").addEventListener("change", async (e) => {
-    if (!e.target.classList.contains("attendance-checkbox")) return;
-    const contactId = e.target.dataset.contactId;
-    const eventId = e.target.dataset.eventId;
-    const attended = e.target.checked;
-    e.target.disabled = true;
-    try {
-      const { error } = await sb.from("event_attendance").upsert(
-        { contact_id: contactId, event_id: eventId, attended, updated_at: new Date().toISOString() },
-        { onConflict: "contact_id,event_id" }
-      );
-      if (error) throw error;
-      attendanceMap[`${contactId}::${eventId}`] = attended;
-      const filterActive = minEventsFilter > 0 || selectedEventFilterIds.size > 0 || rankSort !== "name";
-      if (filterActive) renderMatrix();
-    } catch (err) {
-      e.target.checked = !attended;
-      showBanner(`Couldn't save — ${err.message || "check your connection"}`, true);
-    } finally {
-      e.target.disabled = false;
+  function renderMatrixSingleEvent(eventId) {
+    document.getElementById("matrix-scroll").style.display = "none";
+    document.getElementById("event-drill-list").style.display = "block";
+
+    const ev = events.find(e => e.id === eventId);
+    const { interested, attended } = eventCounts(eventId);
+
+    const statsEl = document.getElementById("event-stats");
+    statsEl.innerHTML = `
+      <div class="stat-card-grid">
+        <div class="stat-card"><p class="stat-card-label" style="color:var(--warn);">Interested</p><p class="stat-num" style="color:var(--warn); font-size:24px;">${interested}</p></div>
+        <div class="stat-card"><p class="stat-card-label" style="color:var(--success);">Attended</p><p class="stat-num" style="color:var(--success); font-size:24px;">${attended}</p></div>
+      </div>
+    `;
+
+    const listEl = document.getElementById("event-drill-list");
+    const visibleContacts = getSearchFilteredContacts();
+
+    if (visibleContacts.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">No contacts match this search.</div>`;
+      return;
     }
+
+    listEl.innerHTML = visibleContacts.map(c => {
+      const state = cellState(c.id, eventId);
+      const attended = state === "attend";
+      return `
+        <div class="drill-row">
+          <span>${escapeHtml(c.name)}</span>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="drill-status">${statusLabel(state)}</span>
+            <button type="button" class="att-cell-btn ${state}" style="width:32px;" data-contact-id="${c.id}" data-event-id="${eventId}" data-attended="${attended}" aria-label="Toggle attendance for ${escapeHtml(c.name)}">${attended ? "✓" : ""}</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.getElementById("attendance-body").addEventListener("click", (e) => {
+    const btn = e.target.closest(".att-cell-btn");
+    if (!btn) return;
+    const nextAttended = btn.dataset.attended !== "true";
+    toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextAttended, btn);
   });
 
-  document.getElementById("search-input").addEventListener("input", renderMatrix);
-
-  document.getElementById("filter-toggle-btn").addEventListener("click", () => {
-    const panel = document.getElementById("filter-panel");
-    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  document.getElementById("event-drill-list").addEventListener("click", (e) => {
+    const btn = e.target.closest(".att-cell-btn");
+    if (!btn) return;
+    const nextAttended = btn.dataset.attended !== "true";
+    toggleAttendance(btn.dataset.contactId, btn.dataset.eventId, nextAttended, btn);
   });
 
-  document.getElementById("min-events-slider").addEventListener("input", (e) => {
-    minEventsFilter = Number(e.target.value);
-    document.getElementById("min-events-value").textContent = e.target.value;
-    renderMatrix();
-  });
-
-  document.getElementById("event-checkbox-list").addEventListener("change", (e) => {
-    if (!e.target.classList.contains("event-filter-checkbox")) return;
-    if (e.target.checked) {
-      selectedEventFilterIds.add(e.target.value);
-    } else {
-      selectedEventFilterIds.delete(e.target.value);
-    }
-    renderMatrix();
-  });
-
-  document.getElementById("rank-sort-select").addEventListener("change", (e) => {
-    rankSort = e.target.value;
-    renderMatrix();
-  });
-
-  document.getElementById("clear-filters-btn").addEventListener("click", () => {
-    minEventsFilter = 0;
-    selectedEventFilterIds = new Set();
-    rankSort = "name";
-    document.getElementById("min-events-slider").value = 0;
-    document.getElementById("min-events-value").textContent = "0";
-    document.getElementById("rank-sort-select").value = "name";
-    rebuildFilterControls();
-    renderMatrix();
+  document.getElementById("search-input").addEventListener("input", () => {
+    if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
   });
 
   const addEventDialog = document.getElementById("add-event-dialog");
