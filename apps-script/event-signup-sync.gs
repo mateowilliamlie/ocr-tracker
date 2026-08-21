@@ -208,7 +208,7 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
 
     let statusText = matchStatus === "matched" ? `Matched: ${contact.name}` : `Added new contact: ${contact.name}`;
     if (eventIds.length) {
-      eventIds.forEach(id => markAttended(contact.id, id));
+      eventIds.forEach(id => { markAttended(contact.id, id); markInterested(contact.id, id); });
       if (eventIds.length > 1) statusText += ` — ${eventIds.length} events`;
     } else {
       statusText += ` — unrecognized event "${form.eventLabel}", attendance not marked`;
@@ -307,7 +307,7 @@ function backfillMissingEvents() {
       continue;
     }
 
-    eventIds.forEach(id => markAttended(matches[0].id, id));
+    eventIds.forEach(id => { markAttended(matches[0].id, id); markInterested(matches[0].id, id); });
     fixed++;
     Utilities.sleep(200); // gentle pacing against Supabase rate limits
   }
@@ -606,6 +606,38 @@ function markAttended(contactId, eventId) {
   );
   if (writeRes.getResponseCode() >= 300) {
     throw new Error(`attendance write failed: ${writeRes.getContentText()}`);
+  }
+}
+
+// Someone who signed up via the Form for an event clearly wanted to be
+// there, so their tracker profile (the website's edit/new form checkboxes)
+// should reflect that too — not just the attendance record. event_interest
+// has no status column, just a (contact_id, event_id) row meaning
+// "interested" — so this is a plain insert, and an already-existing row
+// (someone who'd already checked the box manually, or filled the Form
+// twice) is expected, not an error: Postgres returns 409 on the duplicate
+// primary key, which we treat as success rather than surfacing as a
+// failure. A failure here should never block the attendance write above —
+// it's a secondary nicety, not the primary action — so this never throws;
+// worst case a name is missing an interest checkmark that a member can
+// tick manually, same as it would've been before this existed.
+function markInterested(contactId, eventId) {
+  try {
+    const res = UrlFetchApp.fetch(
+      `${SUPABASE_URL}/rest/v1/event_interest`,
+      {
+        method: "post",
+        contentType: "application/json",
+        headers: supabaseHeaders(),
+        payload: JSON.stringify({ contact_id: contactId, event_id: eventId }),
+        muteHttpExceptions: true,
+      }
+    );
+    if (res.getResponseCode() >= 300 && res.getResponseCode() !== 409) {
+      Logger.log(`markInterested: non-fatal write failure for contact ${contactId}, event ${eventId}: ${res.getContentText()}`);
+    }
+  } catch (err) {
+    Logger.log(`markInterested: non-fatal error for contact ${contactId}, event ${eventId}: ${err}`);
   }
 }
 
