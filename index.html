@@ -892,7 +892,7 @@
   <div class="tab-row">
     <button class="tab-btn active" id="tab-all" data-tab="all">All</button>
     <button class="tab-btn" id="tab-inperson" data-tab="inperson">In Person</button>
-    <button class="tab-btn" id="tab-online" data-tab="online">Online Sign-ups</button>
+    <button class="tab-btn" id="tab-online" data-tab="online">Event Signups</button>
   </div>
 
   <div class="toolbar">
@@ -1407,7 +1407,7 @@
     if (list.length === 0) {
       emptyStateEl.style.display = "block";
       emptyStateEl.textContent = activeTab === "online"
-        ? "No online sign-ups yet."
+        ? "No event signups yet."
         : activeTab === "inperson"
         ? "No in-person contacts yet."
         : followupsOnly

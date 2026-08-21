@@ -34,17 +34,17 @@
  * Notification email: every submission also emails NOTIFY_EMAILS below.
  * The Form asks gender, nationality, year, major/school, and "Who
  * connected you?" directly, so the email reports those as typed by the
- * respondent. "Who connected you?" is the one optional question on the
- * Form though, so when it's left blank and there IS an existing tracker
- * match, the connector already on file there (set via Quick Add or the
- * tracker's own Add Contact dialog — both write the same contacts.connector
- * column) is used instead, clearly marked "from tracker" so it's never
- * confused with what the respondent actually typed. If the respondent's
- * answer instead conflicts with what's already on file, that's flagged
- * rather than silently overwritten. Sent via MailApp, so no extra
- * credentials or setup beyond a valid Google account running the script
- * (free quota: 100 emails/day on a plain Gmail account, 1,500/day on
- * Workspace — far above real signup volume).
+ * respondent. The connector is deliberately shown as two SEPARATE lines,
+ * never merged: "Who they said connected them (form)" is exactly what the
+ * respondent typed (or "(not given)" — it's the one optional Form
+ * question), and "Point person on file (tracker)" is contacts.connector
+ * from the matched tracker record (set via Quick Add or the tracker's own
+ * Add Contact dialog). Showing both lets the team actually confirm they
+ * agree instead of silently trusting one over the other; if they disagree,
+ * the cross-check section flags it explicitly. Sent via MailApp, so no
+ * extra credentials or setup beyond a valid Google account running the
+ * script (free quota: 100 emails/day on a plain Gmail account, 1,500/day
+ * on Workspace — far above real signup volume).
  *
  * Schema note: contacts.gender and contacts.instagram must exist for the
  * auto-create path to store them — run this once in Supabase's SQL
@@ -341,20 +341,6 @@ function sourceLabel(source) {
     : "Added manually by an OCR member (in-person conversation)";
 }
 
-// Falls back to the matched tracker contact's value only when the Form's
-// own answer was left blank. Used for "Who connected you?" specifically,
-// since it's the one optional Form question — everything else is required.
-function mergedField(formValue, contact, contactField) {
-  if (formValue) return { value: formValue, fromTracker: false };
-  const trackerValue = contact && contact[contactField];
-  return trackerValue ? { value: trackerValue, fromTracker: true } : { value: "", fromTracker: false };
-}
-
-function mergedConnector(info) {
-  const contact = info.matchStatus === "matched" ? info.contact : null;
-  return mergedField(info.form.connector, contact, "connector");
-}
-
 // Cross-check section content shared by the plain-text and HTML bodies:
 // a status ("ok"/"warn") plus one or more lines of detail.
 function crossCheckStatus(info) {
@@ -369,10 +355,8 @@ function crossCheckStatus(info) {
     const trackerConnector = (c.connector || "").trim().toLowerCase();
 
     if (formConnector && trackerConnector && formConnector !== trackerConnector) {
-      lines.unshift(`Connector on the form ("${f.connector}") differs from what's on file ("${c.connector}") — worth confirming which is right.`);
+      lines.unshift(`They and the tracker disagree on who connected them — worth confirming which is right.`);
       status = "warn";
-    } else if (!f.connector && c.connector) {
-      lines.unshift(`"Who connected them" was left blank on the form — backfilled above from the existing tracker record.`);
     }
   } else if (info.matchStatus === "created") {
     lines.push("Wasn't in the tracker yet — added automatically from their sign-up answers.");
@@ -399,8 +383,11 @@ function buildNotificationBody(info) {
     ? `WhatsApp: ${f.rawPhone}`
     : `WhatsApp: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
   const crossCheck = crossCheckStatus(info);
-  const connector = mergedConnector(info);
-  const connectorLine = `Who connected them: ${connector.value || "(not given)"}` + (connector.fromTracker ? " (from tracker, not entered on the form)" : "");
+  // Always shown separately, never merged — the form answer is what THEY
+  // say connected them; the tracker value is who WE already have on
+  // record as their point person. They should usually agree, but showing
+  // both lets the team actually confirm that instead of assuming it.
+  const trackerConnector = info.matchStatus === "matched" ? (info.contact.connector || "(not recorded)") : null;
 
   const lines = [
     `${f.name || "(no name given)"} just signed up for "${event || "(no event given)"}" via the Google Form.`,
@@ -411,11 +398,12 @@ function buildNotificationBody(info) {
     `  Year: ${f.year || "(not given)"}`,
     `  Major / School: ${f.major || "(not given)"}`,
     `  ${contactLine}`,
-    `  ${connectorLine}`,
-    "",
-    "Tracker cross-check:",
-    ...crossCheck.lines.map(l => `  ${l}`),
+    `  Who they said connected them (form): ${f.connector || "(not given)"}`,
   ];
+  if (trackerConnector !== null) {
+    lines.push(`  Point person on file (tracker): ${trackerConnector}`);
+  }
+  lines.push("", "Tracker cross-check:", ...crossCheck.lines.map(l => `  ${l}`));
 
   return lines.join("\n");
 }
@@ -431,7 +419,6 @@ function buildNotificationHtml(info) {
   const event = eventLabelsDisplay(f.eventLabel);
   const contactLabel = f.rawPhone ? "WhatsApp" : "Contact (no WhatsApp given)";
   const contactValue = f.rawPhone || f.altContact || "(not given)";
-  const connector = mergedConnector(info);
   const crossCheck = crossCheckStatus(info);
   const crossCheckColor = crossCheck.status === "ok"
     ? { bg: "#DCFCE7", fg: "#15803D" }
@@ -442,6 +429,14 @@ function buildNotificationHtml(info) {
         <td style="padding:7px 0; color:#6B7280; font-size:13px; vertical-align:top; white-space:nowrap; padding-right:16px;">${escapeHtml(label)}</td>
         <td style="padding:7px 0; color:#1A1D23; font-size:14px;">${escapeHtml(value) || "<span style=\"color:#9AA0AC;\">(not given)</span>"}${note ? ` <span style="color:#9AA0AC; font-size:11px;">${escapeHtml(note)}</span>` : ""}</td>
       </tr>`;
+
+  // Always shown separately, never merged — the form answer is what THEY
+  // say connected them; the tracker value is who WE already have on
+  // record as their point person, shown only when there's a tracker
+  // record to compare against.
+  const trackerConnectorRow = info.matchStatus === "matched"
+    ? row("Point person on file (tracker)", info.contact.connector, null)
+    : "";
 
   const crossCheckLinesHtml = crossCheck.lines.map(l => `<div style="margin-top:4px;">${escapeHtml(l)}</div>`).join("");
 
@@ -459,7 +454,8 @@ function buildNotificationHtml(info) {
       ${row("Year", f.year)}
       ${row("Major / School", f.major)}
       ${row(contactLabel, contactValue)}
-      ${row("Who connected them", connector.value, connector.fromTracker ? "from tracker" : null)}
+      ${row("Who they said connected them (form)", f.connector, null)}
+      ${trackerConnectorRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
       <div style="font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.04em;">Tracker cross-check</div>

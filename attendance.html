@@ -779,6 +779,28 @@
   #attendance-table thead th:first-child { z-index: 4; background: var(--surface-2); }
   .attendance-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
 
+  /* Contact + Point person: always visible (not part of the details toggle),
+     pinned alongside Name so they stay in view while scrolling through
+     event columns. */
+  #attendance-table th:nth-child(2), #attendance-table td:nth-child(2),
+  #attendance-table th:nth-child(3), #attendance-table td:nth-child(3) {
+    position: sticky;
+    z-index: 3;
+    background: var(--surface);
+    text-align: left;
+    white-space: normal;
+    box-shadow: 1px 0 0 var(--border);
+  }
+  #attendance-table th:nth-child(2), #attendance-table td:nth-child(2) { left: 160px; min-width: 150px; }
+  #attendance-table th:nth-child(3), #attendance-table td:nth-child(3) { left: 310px; min-width: 130px; }
+  #attendance-table thead th:nth-child(2), #attendance-table thead th:nth-child(3) { z-index: 4; background: var(--surface-2); }
+
+  /* Gender/Year/Major/Nationality/Connected by — hidden unless "Show details" is on. */
+  .detail-col { display: none; }
+  #attendance-table.show-details .detail-col { display: table-cell; }
+  .contact-cell { font-size: 13px; }
+  .muted { color: var(--text-muted); }
+
   .summary-row {
     padding: 14px 18px;
     border-bottom: 1px solid var(--border);
@@ -882,6 +904,7 @@
 
   <div class="add-row">
     <button id="filter-toggle-btn" class="toggle-btn" style="display:none;">Filter</button>
+    <button id="details-toggle-btn" class="toggle-btn" style="display:none;">Show details</button>
     <button id="open-add-event" class="btn-primary" style="display:none;">Manage Events</button>
   </div>
 
@@ -1188,6 +1211,7 @@
     const summaryView = document.getElementById("summary-view");
     const concludedBanner = document.getElementById("concluded-banner");
     const filterToggleBtn = document.getElementById("filter-toggle-btn");
+    const detailsToggleBtn = document.getElementById("details-toggle-btn");
 
     concludedBanner.style.display = seasonConcluded ? "block" : "none";
 
@@ -1196,6 +1220,7 @@
       matrixView.style.display = "none";
       summaryView.style.display = "none";
       filterToggleBtn.style.display = "none";
+      detailsToggleBtn.style.display = "none";
       document.getElementById("filter-panel").style.display = "none";
       document.getElementById("attendance-search-toolbar").style.display = "none";
       return;
@@ -1206,6 +1231,7 @@
       matrixView.style.display = "none";
       summaryView.style.display = "block";
       filterToggleBtn.style.display = "none";
+      detailsToggleBtn.style.display = "none";
       document.getElementById("filter-panel").style.display = "none";
       document.getElementById("attendance-search-toolbar").style.display = "none";
       renderSummary();
@@ -1213,6 +1239,7 @@
       summaryView.style.display = "none";
       matrixView.style.display = "block";
       filterToggleBtn.style.display = "inline-block";
+      detailsToggleBtn.style.display = "inline-block";
       document.getElementById("attendance-search-toolbar").style.display = "flex";
       rebuildFilterControls();
       renderMatrix();
@@ -1232,29 +1259,77 @@
     }).join("");
   }
 
+  // Same "who's actually following up" logic as index.html's
+  // followupOwnerDisplay — can differ from contacts.connector (who
+  // originally connected them) if ownership was reassigned.
+  function followupOwnerDisplay(c) {
+    if (c.followup_owner_type === "suggested") return c.suggested_connection || "";
+    if (c.followup_owner_type === "other") return c.followup_owner_other || "";
+    return c.connector || "";
+  }
+
+  // "Phone / WeChat ID" is one free-text field — a run of digits (allowing
+  // spaces/+/-/parens) reads as a real number; anything else (a WeChat
+  // handle, "wechat: xyz", etc.) gets flagged so it's not mistaken for a
+  // WhatsApp number when someone's about to message it.
+  function looksLikePhoneNumber(raw) {
+    const digits = raw.replace(/[\s()+-]/g, "");
+    return digits.length > 0 && /^\d+$/.test(digits);
+  }
+
+  function contactSummary(c) {
+    const parts = [];
+    if (c.phone) {
+      const tag = looksLikePhoneNumber(c.phone) ? "" : " (WeChat)";
+      parts.push(escapeHtml(c.phone) + tag);
+    }
+    if (c.instagram) parts.push(`IG: ${escapeHtml(c.instagram)}`);
+    return parts.length ? parts.join(" · ") : `<span class="muted">—</span>`;
+  }
+
+  const DETAIL_COLUMNS = [
+    ["Gender", c => c.gender],
+    ["Year", c => c.year],
+    ["Major / School", c => c.course],
+    ["Nationality", c => c.nationality],
+    ["Connected by", c => c.connector],
+  ];
+
   function renderMatrix() {
     const headRow = document.getElementById("attendance-head-row");
     const body = document.getElementById("attendance-body");
 
-    headRow.innerHTML = `<th>Name</th>` + events.map(ev => `<th>${escapeHtml(ev.name)}</th>`).join("");
+    headRow.innerHTML = `<th>Name</th><th>Contact</th><th>Point person</th>` +
+      DETAIL_COLUMNS.map(([label]) => `<th class="detail-col">${label}</th>`).join("") +
+      events.map(ev => `<th>${escapeHtml(ev.name)}</th>`).join("");
 
+    const totalCols = 3 + DETAIL_COLUMNS.length + events.length;
     const visibleContacts = getFilteredSortedContacts();
 
     if (contacts.length === 0) {
-      body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts in this season.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; color:var(--text-muted);">No contacts in this season.</td></tr>`;
       return;
     }
     if (visibleContacts.length === 0) {
-      body.innerHTML = `<tr><td colspan="${events.length + 1}" style="text-align:center; color:var(--text-muted);">No contacts match this filter.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; color:var(--text-muted);">No contacts match this filter.</td></tr>`;
       return;
     }
 
     body.innerHTML = visibleContacts.map(c => {
-      const cells = events.map(ev => {
+      const detailCells = DETAIL_COLUMNS.map(([, getValue]) =>
+        `<td class="detail-col">${escapeHtml(getValue(c) || "—")}</td>`
+      ).join("");
+      const eventCells = events.map(ev => {
         const checked = !!attendanceMap[`${c.id}::${ev.id}`];
         return `<td><input type="checkbox" class="attendance-checkbox" data-contact-id="${c.id}" data-event-id="${ev.id}" ${checked ? "checked" : ""} /></td>`;
       }).join("");
-      return `<tr><td>${escapeHtml(c.name)}</td>${cells}</tr>`;
+      return `<tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td class="contact-cell">${contactSummary(c)}</td>
+        <td>${escapeHtml(followupOwnerDisplay(c)) || `<span class="muted">—</span>`}</td>
+        ${detailCells}
+        ${eventCells}
+      </tr>`;
     }).join("");
   }
 
@@ -1286,6 +1361,12 @@
   document.getElementById("filter-toggle-btn").addEventListener("click", () => {
     const panel = document.getElementById("filter-panel");
     panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("details-toggle-btn").addEventListener("click", (e) => {
+    const table = document.getElementById("attendance-table");
+    const showing = table.classList.toggle("show-details");
+    e.target.textContent = showing ? "Hide details" : "Show details";
   });
 
   document.getElementById("min-events-slider").addEventListener("input", (e) => {
