@@ -740,6 +740,19 @@
     .row .reminder-date-input {
       font-size: 16px;
     }
+
+    /* Attendance matrix: shrink the sticky Name column and cell padding so
+       more of the screen goes to the event columns/toggle buttons, which
+       need their own min-width (below, not mobile-only) to stay tappable
+       instead of getting squeezed by the browser's table auto-layout. */
+    #attendance-table th:first-child,
+    #attendance-table td:first-child {
+      min-width: 110px;
+    }
+    #attendance-table th,
+    #attendance-table td {
+      padding: 10px 8px;
+    }
   }
   #matrix-scroll {
     border: 1px solid var(--border);
@@ -851,6 +864,9 @@
     display: flex;
     gap: 2px;
     height: 32px;
+    min-width: 108px; /* keeps all 3 toggle buttons tappable instead of getting
+                          squeezed by the table's auto column sizing on narrow
+                          screens — the column just scrolls wider instead */
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--border);
