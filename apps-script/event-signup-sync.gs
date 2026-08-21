@@ -18,18 +18,27 @@
  * substring against both contacts.phone (a member may have typed a
  * WeChat/Instagram handle into Quick Add's "Phone / WeChat ID" field,
  * with or without the method prefix) and contacts.instagram.
- *   - Exactly one match -> that's them, just mark them attended.
+ *   - Exactly one match -> that's them, just mark them registered.
  *   - Zero matches -> nobody's added this person before, so a new contact
  *     is created directly from their Form answers (source: "online"), then
- *     marked attended. No manual Quick Add step needed.
+ *     marked registered. No manual Quick Add step needed.
  *   - Multiple matches -> too ambiguous to guess or create a duplicate; a
  *     status is written back to the response row for a member to resolve
  *     by hand instead.
  * If their event answer doesn't match a configured event, the contact is
- * still matched/created as above, just without marking attendance for it.
+ * still matched/created as above, just without marking registration for it.
  * The event question is checkboxes (multi-select), so a person can pick
- * more than one — every recognized event gets marked attended, not just
+ * more than one — every recognized event gets marked registered, not just
  * the first one in their answer.
+ *
+ * Registered vs. attended: submitting the Form only means someone signed
+ * up (event_attendance.registered). It is NOT the same as showing up —
+ * that's event_attendance.attended, confirmed separately by whoever's
+ * checking people in at the actual event via attendance.html. This script
+ * never sets `attended` itself. It also inserts an event_interest row
+ * (markInterested) for the same event, since signing up clearly implies
+ * interest — that's what the tracker's own per-event interest checkboxes
+ * read from.
  *
  * Notification email: every submission also emails NOTIFY_EMAILS below.
  * The Form asks gender, nationality, year, major/school, and "Who
@@ -208,10 +217,10 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
 
     let statusText = matchStatus === "matched" ? `Matched: ${contact.name}` : `Added new contact: ${contact.name}`;
     if (eventIds.length) {
-      eventIds.forEach(id => { markAttended(contact.id, id); markInterested(contact.id, id); });
+      eventIds.forEach(id => { markRegistered(contact.id, id); markInterested(contact.id, id); });
       if (eventIds.length > 1) statusText += ` — ${eventIds.length} events`;
     } else {
-      statusText += ` — unrecognized event "${form.eventLabel}", attendance not marked`;
+      statusText += ` — unrecognized event "${form.eventLabel}", not marked registered`;
     }
     writeStatus(sheet, row, statusText);
     if (sendEmail) notifySignup({ form, matchStatus, contact, eventIds });
@@ -259,7 +268,7 @@ function backfillExistingResponses() {
 }
 
 // One-off fix for rows that picked MORE THAN ONE event but, under the
-// multi-event bug (fixed above), only got attendance marked for the
+// multi-event bug (fixed above), only got registered for the
 // first one. Deliberately narrower than backfillExistingResponses: this
 // NEVER creates or matches a new contact — it only looks up an existing
 // contact by phone and marks any additional events found. That makes it
@@ -307,7 +316,7 @@ function backfillMissingEvents() {
       continue;
     }
 
-    eventIds.forEach(id => { markAttended(matches[0].id, id); markInterested(matches[0].id, id); });
+    eventIds.forEach(id => { markRegistered(matches[0].id, id); markInterested(matches[0].id, id); });
     fixed++;
     Utilities.sleep(200); // gentle pacing against Supabase rate limits
   }
@@ -369,7 +378,7 @@ function crossCheckStatus(info) {
   }
 
   if (!info.eventIds.length) {
-    lines.push(`Their event answer ("${f.eventLabel}") didn't match a configured event — attendance was not marked. Check EVENT_ID_BY_LABEL in the script.`);
+    lines.push(`Their event answer ("${f.eventLabel}") didn't match a configured event — registration was not marked. Check EVENT_ID_BY_LABEL in the script.`);
     status = "warn";
   }
 
@@ -574,21 +583,29 @@ function createContact(form, altContact) {
   return JSON.parse(res.getContentText())[0];
 }
 
-function markAttended(contactId, eventId) {
+// Signing up via the Form means they've REGISTERED for the event — it does
+// NOT mean they showed up. That's a separate, later confirmation (done by
+// whoever's checking people in at the actual event, via attendance.html),
+// tracked by the same row's `attended` column. This only ever sets
+// `registered`, deliberately never touching `attended` — a partial PATCH
+// body in PostgREST only updates the fields present in it, so an existing
+// `attended: true` (someone confirmed present, then re-submitted the Form
+// for some reason) is left alone rather than silently overwritten.
+function markRegistered(contactId, eventId) {
   const filter = `contact_id=eq.${contactId}&event_id=eq.${eventId}`;
   const existingRes = UrlFetchApp.fetch(
     `${SUPABASE_URL}/rest/v1/event_attendance?${filter}&select=contact_id`,
     { method: "get", headers: supabaseHeaders(), muteHttpExceptions: true }
   );
   if (existingRes.getResponseCode() >= 300) {
-    throw new Error(`attendance lookup failed: ${existingRes.getContentText()}`);
+    throw new Error(`registration lookup failed: ${existingRes.getContentText()}`);
   }
   const exists = JSON.parse(existingRes.getContentText()).length > 0;
 
   const payload = {
     contact_id: contactId,
     event_id: eventId,
-    attended: true,
+    registered: true,
     updated_at: new Date().toISOString(),
   };
 
@@ -605,19 +622,19 @@ function markAttended(contactId, eventId) {
     }
   );
   if (writeRes.getResponseCode() >= 300) {
-    throw new Error(`attendance write failed: ${writeRes.getContentText()}`);
+    throw new Error(`registration write failed: ${writeRes.getContentText()}`);
   }
 }
 
 // Someone who signed up via the Form for an event clearly wanted to be
 // there, so their tracker profile (the website's edit/new form checkboxes)
-// should reflect that too — not just the attendance record. event_interest
+// should reflect that too — not just the registration record. event_interest
 // has no status column, just a (contact_id, event_id) row meaning
 // "interested" — so this is a plain insert, and an already-existing row
 // (someone who'd already checked the box manually, or filled the Form
 // twice) is expected, not an error: Postgres returns 409 on the duplicate
 // primary key, which we treat as success rather than surfacing as a
-// failure. A failure here should never block the attendance write above —
+// failure. A failure here should never block the registration write above —
 // it's a secondary nicety, not the primary action — so this never throws;
 // worst case a name is missing an interest checkmark that a member can
 // tick manually, same as it would've been before this existed.
