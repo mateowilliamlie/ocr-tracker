@@ -753,6 +753,16 @@
     #attendance-table td {
       padding: 10px 8px;
     }
+
+    /* One stat card per row instead of 2 crammed side by side — a card
+       needs to fit 3 numbers (interested/registered/attended) across, and
+       2-per-row doesn't leave enough width for that on a phone screen. */
+    .stat-card-grid {
+      grid-template-columns: 1fr;
+    }
+    .stat-card .stat-card-nums {
+      gap: 10px;
+    }
   }
   #matrix-scroll {
     border: 1px solid var(--border);
@@ -833,6 +843,7 @@
   }
   .stat-card .stat-card-nums {
     display: flex;
+    flex-wrap: wrap;
     gap: 16px;
   }
   .stat-card .stat-num {
