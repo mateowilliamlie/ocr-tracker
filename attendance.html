@@ -1137,6 +1137,15 @@
     }[m]));
   }
 
+  // Forces a line break between every part of a name (first/middle/last)
+  // instead of letting the browser's own wrapping decide — that could put
+  // two short parts on one line and leave a long one to hyphenate, when
+  // breaking at every space already means each part is far more likely to
+  // fit its own line without needing to.
+  function nameCellHtml(name) {
+    return String(name).trim().split(/\s+/).map(escapeHtml).join("<br>");
+  }
+
   const banner = document.getElementById("confirm-banner");
   function showBanner(message, isError) {
     banner.textContent = message;
@@ -1497,7 +1506,7 @@
           </div>
         </td>`;
       }).join("");
-      return `<tr><td><div class="name-cell">${escapeHtml(c.name)}</div></td>${cells}</tr>`;
+      return `<tr><td><div class="name-cell">${nameCellHtml(c.name)}</div></td>${cells}</tr>`;
     }).join("");
   }
 
