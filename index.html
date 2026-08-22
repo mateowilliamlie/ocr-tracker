@@ -916,6 +916,7 @@
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
   <a href="#" id="attendance-link" class="breadcrumb" style="display:none; margin-left:8px;">Event Attendance &rarr;</a>
   <a href="#" id="calendar-link" class="breadcrumb" style="display:none; margin-left:8px;">Calendar &rarr;</a>
+  <a href="#" id="dashboard-link" class="breadcrumb" style="display:none; margin-left:8px;">Dashboard &rarr;</a>
   <div class="add-row">
     <button id="open-add" class="btn-primary">+ New</button>
   </div>
@@ -2701,6 +2702,11 @@
     if (calendarLink) {
       calendarLink.href = `calendar.html?season=${seasonId}&campus=${currentCampusId}`;
       calendarLink.style.display = "inline-block";
+    }
+    const dashboardLink = document.getElementById("dashboard-link");
+    if (dashboardLink) {
+      dashboardLink.href = `dashboard.html?season=${seasonId}&campus=${currentCampusId}`;
+      dashboardLink.style.display = "inline-block";
     }
 
     const bgUrl = data.background_override_url || data.photo_url;
