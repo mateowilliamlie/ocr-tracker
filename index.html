@@ -1001,8 +1001,8 @@
       </div>
 
       <div class="field">
-        <label for="f-phone">Phone / WeChat ID *</label>
-        <input id="f-phone" name="phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
+        <label for="f-phone">Phone / WeChat ID</label>
+        <input id="f-phone" name="phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" />
       </div>
 
       <div class="field">
@@ -1899,11 +1899,6 @@
     }
 
     const phone = form.phone.value.trim();
-    if (!phone) {
-      showBanner("Phone / WeChat ID is required.", true);
-      form.phone.focus();
-      return;
-    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = editingId ? "Saving..." : "Saving...";

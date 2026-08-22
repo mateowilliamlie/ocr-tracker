@@ -306,8 +306,8 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-phone">Phone / WeChat ID *</label>
-          <input id="f-phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" required />
+          <label for="f-phone">Phone / WeChat ID</label>
+          <input id="f-phone" type="text" placeholder="e.g. 9123 4567 or WeChat ID" />
         </div>
         <div class="field">
           <label for="f-instagram">Instagram handle</label>
@@ -360,12 +360,6 @@
       if (!name) return;
 
       const phone = document.getElementById("f-phone").value.trim();
-      if (!phone) {
-        errorMsg.textContent = "Phone / WeChat ID is required.";
-        errorMsg.style.display = "block";
-        document.getElementById("f-phone").focus();
-        return;
-      }
 
       const connector = document.getElementById("f-connector").value.trim();
       if (connector) localStorage.setItem(LS_NAME, connector);
