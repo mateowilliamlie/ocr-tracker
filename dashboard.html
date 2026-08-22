@@ -180,10 +180,10 @@
     margin: 4px 0 18px;
   }
 
-  .dash-section { margin-bottom: 26px; }
+  .dash-section { margin-bottom: 14px; }
   .dash-section-label {
-    font-size: 12px; font-weight: 700; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 10px 2px;
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px 2px;
   }
 
   /* Rate stat cards — reuses attendance.html's .stat-card pattern, extended
@@ -191,98 +191,100 @@
   .stat-card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
   .stat-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px;
+    padding: 12px 14px;
   }
   .stat-card .stat-card-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    margin: 0 0 8px;
+    margin: 0 0 4px;
   }
   .stat-card .stat-num {
-    font-size: 32px;
+    font-size: 26px;
     font-weight: 700;
     margin: 0;
     font-family: var(--display-font);
+    line-height: 1.1;
   }
   .stat-card .stat-sub {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    margin: 4px 0 0;
+    margin: 3px 0 0;
   }
 
   /* Source split — a single two-segment horizontal bar plus a small legend,
      matching the app's flat/no-chart-library visual language. */
   .split-bar-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 16px;
+    padding: 12px 14px;
   }
   .split-bar-track {
-    display: flex; width: 100%; height: 22px; border-radius: 999px; overflow: hidden;
+    display: flex; width: 100%; height: 16px; border-radius: 999px; overflow: hidden;
     background: var(--surface-2); border: 1px solid var(--border);
   }
   .split-bar-seg { height: 100%; transition: width 0.3s ease; }
   .split-bar-seg.seg-online { background: var(--info); }
   .split-bar-seg.seg-member { background: var(--accent); }
   .split-legend {
-    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--text-muted);
+    display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-muted);
   }
   .split-legend-item { display: flex; align-items: center; gap: 6px; }
-  .split-legend-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .split-legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
   .placeholder-card {
     background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
-    padding: 18px; font-size: 13px; color: var(--text-muted);
+    padding: 12px 14px; font-size: 12px; color: var(--text-muted);
   }
 
-  /* Weekly signups — dependency-free bar chart, plain divs sized by height %. */
-  .signup-chart-card {
+  /* Events panel — 60% line graph (attendance count per event) / 40% condensed
+     per-event stat list, side by side in one dense card instead of stacked
+     full-width sections. */
+  .events-panel-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 16px;
+    display: flex; overflow: hidden;
   }
-  .signup-chart {
-    display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 8px;
+  .events-graph-col {
+    flex: 0 0 60%;
+    max-width: 60%;
+    padding: 14px 14px 8px;
+    border-right: 1px solid var(--border);
   }
-  .signup-bar-col {
-    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    height: 100%; min-width: 0;
+  .events-list-col {
+    flex: 1 1 40%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
-  .signup-bar {
-    width: 100%; max-width: 34px; background: var(--accent); border-radius: 4px 4px 0 0;
-    min-height: 2px;
-  }
-  .signup-bar-count {
-    font-size: 10px; color: var(--text-muted); margin-bottom: 2px;
-  }
-  .signup-bar-label {
-    font-size: 10px; color: var(--text-muted); margin-top: 6px; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+  @media (max-width: 720px) {
+    .events-panel-card { flex-direction: column; }
+    .events-graph-col { flex: 1 1 auto; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
   }
 
-  /* Condensed per-event table */
-  .event-table-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    overflow: hidden;
+  .events-line-chart-svg { width: 100%; height: 150px; display: block; overflow: visible; }
+  .events-line-path { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+  .events-line-dot { fill: var(--accent); }
+  .events-line-dot-label { font-size: 10px; fill: var(--text); font-weight: 700; }
+  .events-line-axis-label { font-size: 10px; fill: var(--text-muted); }
+
+  .events-list { flex: 1 1 auto; }
+  .events-list-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 12px;
   }
-  .event-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .event-table th, .event-table td {
-    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
+  .events-list-row:last-of-type { border-bottom: none; }
+  .events-list-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .events-list-nums { display: flex; gap: 10px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .events-list-nums b { color: var(--text); font-weight: 700; }
+  .events-list-viewlink {
+    display: block; padding: 9px 14px; text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--accent); text-decoration: none; border-top: 1px solid var(--border); margin-top: auto;
   }
-  .event-table th {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); font-weight: 700;
-  }
-  .event-table tr:last-child td { border-bottom: none; }
-  .event-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .event-table-viewlink {
-    display: block; padding: 12px 14px; text-align: center; font-size: 13px; font-weight: 600;
-    color: var(--accent); text-decoration: none; border-top: 1px solid var(--border);
-  }
-  .event-table-viewlink:hover { background: var(--surface-2); }
+  .events-list-viewlink:hover { background: var(--surface-2); }
 </style>
 </head>
 <body>
@@ -397,27 +399,15 @@
       </div>
 
       <div class="dash-section">
-        <p class="dash-section-label">Signups this season, by week</p>
-        <div class="signup-chart-card">
-          <div class="signup-chart" id="signup-chart"></div>
-        </div>
-      </div>
-
-      <div class="dash-section">
         <p class="dash-section-label">Events</p>
-        <div class="event-table-card">
-          <table class="event-table">
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th class="num">Interested</th>
-                <th class="num">Registered</th>
-                <th class="num">Attended</th>
-              </tr>
-            </thead>
-            <tbody id="event-table-body"></tbody>
-          </table>
-          <a href="attendance.html" id="event-table-viewlink" class="event-table-viewlink">View full attendance &rarr;</a>
+        <div class="events-panel-card">
+          <div class="events-graph-col">
+            <svg class="events-line-chart-svg" id="events-line-chart" viewBox="0 0 560 150" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="events-list-col">
+            <div class="events-list" id="events-list"></div>
+            <a href="attendance.html" id="events-list-viewlink" class="events-list-viewlink">View full attendance &rarr;</a>
+          </div>
         </div>
       </div>
 
@@ -544,7 +534,7 @@
     }
 
     document.getElementById("dash-season-heading").textContent = `Dashboard — ${data.name || "Season"}`;
-    const viewLink = document.getElementById("event-table-viewlink");
+    const viewLink = document.getElementById("events-list-viewlink");
     if (viewLink) viewLink.href = `attendance.html?season=${seasonId}&campus=${currentCampusId}`;
 
     return data;
@@ -654,52 +644,6 @@
     document.getElementById("split-label-member").textContent = `Added by member — ${memberCount}`;
   }
 
-  // ISO-week-ish bucketing: group contacts by the Monday of the week they
-  // were added (created_at), across the whole season's contact history.
-  function startOfWeek(d) {
-    const date = new Date(d);
-    date.setHours(0, 0, 0, 0);
-    const day = date.getDay(); // 0 = Sunday
-    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-    date.setDate(date.getDate() + diff);
-    return date;
-  }
-
-  function renderSignupChart() {
-    const chartEl = document.getElementById("signup-chart");
-    const withDates = contacts.filter(c => c.created_at);
-    if (!withDates.length) {
-      chartEl.innerHTML = `<div class="empty-state" style="padding:16px;">No signups recorded yet.</div>`;
-      return;
-    }
-
-    const buckets = {};
-    withDates.forEach(c => {
-      const weekStart = startOfWeek(new Date(c.created_at));
-      const key = weekStart.toISOString().slice(0, 10);
-      buckets[key] = (buckets[key] || 0) + 1;
-    });
-
-    const weekKeys = Object.keys(buckets).sort();
-    const maxCount = Math.max(...weekKeys.map(k => buckets[k]));
-
-    // Keep the chart readable — cap to the most recent 16 weeks.
-    const shownKeys = weekKeys.slice(-16);
-
-    chartEl.innerHTML = shownKeys.map(key => {
-      const count = buckets[key];
-      const heightPct = maxCount ? Math.max((count / maxCount) * 100, 4) : 4;
-      const label = new Date(key + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      return `
-        <div class="signup-bar-col">
-          <span class="signup-bar-count">${count}</span>
-          <div class="signup-bar" style="height:${heightPct}%;"></div>
-          <span class="signup-bar-label">${label}</span>
-        </div>
-      `;
-    }).join("");
-  }
-
   function eventCounts(eventId) {
     let interested = 0, registered = 0, attended = 0;
     contacts.forEach(c => {
@@ -710,23 +654,64 @@
     return { interested, registered, attended };
   }
 
-  function renderEventTable() {
-    const tbody = document.getElementById("event-table-body");
+  // Line graph: attendance count per event, in season order (events are
+  // already sorted by sort_order from the query). SVG is hand-built rather
+  // than pulling in a chart library, matching the rest of the app.
+  function renderEventsLineChart(perEventCounts) {
+    const svg = document.getElementById("events-line-chart");
+    const width = 560, height = 150;
+    const padTop = 22, padBottom = 24, padSide = 28;
+
     if (!events.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No events yet this season.</td></tr>`;
+      svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No events yet this season.</text>`;
       return;
     }
-    tbody.innerHTML = events.map(ev => {
-      const { interested, registered, attended } = eventCounts(ev.id);
-      return `
-        <tr>
-          <td>${escapeHtml(ev.name)}</td>
-          <td class="num">${interested}</td>
-          <td class="num">${registered}</td>
-          <td class="num">${attended}</td>
-        </tr>
-      `;
-    }).join("");
+
+    const attendedCounts = perEventCounts.map(p => p.attended);
+    const maxCount = Math.max(...attendedCounts, 1);
+    const n = events.length;
+    const plotWidth = width - padSide * 2;
+    const plotHeight = height - padTop - padBottom;
+
+    const points = perEventCounts.map((p, i) => {
+      const x = n === 1 ? width / 2 : padSide + (i / (n - 1)) * plotWidth;
+      const y = padTop + plotHeight - (p.attended / maxCount) * plotHeight;
+      return { x, y, count: p.attended, name: p.name };
+    });
+
+    const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
+
+    const dotsAndLabels = points.map(pt => `
+      <circle class="events-line-dot" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4"></circle>
+      <text class="events-line-dot-label" x="${pt.x.toFixed(1)}" y="${(pt.y - 10).toFixed(1)}" text-anchor="middle">${pt.count}</text>
+      <text class="events-line-axis-label" x="${pt.x.toFixed(1)}" y="${height - 6}" text-anchor="middle">${escapeHtml(pt.name.length > 12 ? pt.name.slice(0, 11) + "…" : pt.name)}</text>
+    `).join("");
+
+    svg.innerHTML = `<path class="events-line-path" d="${pathD}"></path>${dotsAndLabels}`;
+  }
+
+  function renderEventsList(perEventCounts) {
+    const listEl = document.getElementById("events-list");
+    if (!events.length) {
+      listEl.innerHTML = `<div class="empty-state" style="padding:16px;">No events yet.</div>`;
+      return;
+    }
+    listEl.innerHTML = perEventCounts.map(p => `
+      <div class="events-list-row">
+        <span class="events-list-name">${escapeHtml(p.name)}</span>
+        <span class="events-list-nums">
+          <span>Int <b>${p.interested}</b></span>
+          <span>Reg <b>${p.registered}</b></span>
+          <span>Att <b>${p.attended}</b></span>
+        </span>
+      </div>
+    `).join("");
+  }
+
+  function renderEventsPanel() {
+    const perEventCounts = events.map(ev => ({ name: ev.name, ...eventCounts(ev.id) }));
+    renderEventsLineChart(perEventCounts);
+    renderEventsList(perEventCounts);
   }
 
   async function renderDashboard() {
@@ -736,8 +721,7 @@
       await loadDashboardData();
       renderStatCards();
       renderSourceSplit();
-      renderSignupChart();
-      renderEventTable();
+      renderEventsPanel();
       document.getElementById("dash-loading-state").style.display = "none";
       document.getElementById("dash-body").style.display = "block";
     } catch (err) {
