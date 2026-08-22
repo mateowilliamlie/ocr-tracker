@@ -402,12 +402,6 @@
 
   #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
-  .add-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-  }
-
   #auth-gate, #access-denied {
     display: flex;
     align-items: center;
@@ -917,9 +911,6 @@
   <a href="#" id="attendance-link" class="breadcrumb" style="display:none; margin-left:8px;">Event Attendance &rarr;</a>
   <a href="#" id="calendar-link" class="breadcrumb" style="display:none; margin-left:8px;">Calendar &rarr;</a>
   <a href="#" id="dashboard-link" class="breadcrumb" style="display:none; margin-left:8px;">Dashboard &rarr;</a>
-  <div class="add-row">
-    <button id="open-add" class="btn-primary">+ New</button>
-  </div>
 
   <div id="confirm-banner"></div>
 
@@ -1252,7 +1243,6 @@
     }, 160);
   }
 
-  const openBtn = document.getElementById("open-add");
   const cancelBtn = document.getElementById("cancel-btn");
   const form = document.getElementById("add-form");
   const submitBtn = document.getElementById("submit-btn");
@@ -1874,20 +1864,6 @@
   tabInPerson.addEventListener("click", () => setActiveTab("inperson"));
   tabOnline.addEventListener("click", () => setActiveTab("online"));
 
-  openBtn.addEventListener("click", () => {
-    editingId = null;
-    addDialogTitle.textContent = "Add a contact";
-    submitBtn.textContent = "Save contact";
-    form.reset();
-    form.campus.value = currentCampusId;
-    document.getElementById("other-campus-field").style.display = "none";
-    document.getElementById("followup-other-field").style.display = "none";
-    fpBirthday.clear();
-    fpReminderDate.clear();
-    renderEventInterestCheckboxes(new Set());
-    openDialog(dialog);
-  });
-
   cancelBtn.addEventListener("click", () => closeDialog(dialog));
 
   form.addEventListener("submit", async (e) => {
@@ -2036,7 +2012,6 @@
       concludeBtn.style.display = "inline-block";
       reopenBtn.style.display = "none";
     }
-    openBtn.style.display = (isAdmin || !seasonConcluded) ? "inline-block" : "none";
     render();
   }
 
