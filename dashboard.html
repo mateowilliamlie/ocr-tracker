@@ -180,70 +180,19 @@
     margin: 4px 0 18px;
   }
 
-  .dash-section { margin-bottom: 14px; }
-  .dash-section-label {
-    font-size: 11px; font-weight: 700; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px 2px;
+  /* Tabs: Total + one per event */
+  .dash-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
   }
+  .dash-tab-btn {
+    font-family: var(--font); font-size: 12px; font-weight: 600; padding: 8px 14px;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  }
+  .dash-tab-btn:hover { background: var(--surface-2); }
+  .dash-tab-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
 
-  /* Rate stat cards — reuses attendance.html's .stat-card pattern, extended
-     with a subtext line for the raw counts under each %. */
-  .stat-card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 8px;
-  }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-  }
-  .stat-card .stat-card-label {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin: 0 0 4px;
-  }
-  .stat-card .stat-num {
-    font-size: 26px;
-    font-weight: 700;
-    margin: 0;
-    font-family: var(--display-font);
-    line-height: 1.1;
-  }
-  .stat-card .stat-sub {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin: 3px 0 0;
-  }
-
-  /* Source split — a single two-segment horizontal bar plus a small legend,
-     matching the app's flat/no-chart-library visual language. */
-  .split-bar-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 12px 14px;
-  }
-  .split-bar-track {
-    display: flex; width: 100%; height: 16px; border-radius: 999px; overflow: hidden;
-    background: var(--surface-2); border: 1px solid var(--border);
-  }
-  .split-bar-seg { height: 100%; transition: width 0.3s ease; }
-  .split-bar-seg.seg-online { background: var(--info); }
-  .split-bar-seg.seg-member { background: var(--accent); }
-  .split-legend {
-    display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-muted);
-  }
-  .split-legend-item { display: flex; align-items: center; gap: 6px; }
-  .split-legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-
-  .placeholder-card {
-    background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
-    padding: 12px 14px; font-size: 12px; color: var(--text-muted);
-  }
-
-  /* Events panel — 60% line graph (attendance count per event) / 40% condensed
-     per-event stat list, side by side in one dense card instead of stacked
-     full-width sections. */
+  /* Panel: 60% graph / 40% feature boxes, side by side in one dense card */
   .events-panel-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     display: flex; overflow: hidden;
@@ -251,8 +200,10 @@
   .events-graph-col {
     flex: 0 0 60%;
     max-width: 60%;
-    padding: 14px 14px 8px;
+    padding: 16px 16px 8px;
     border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
   }
   .events-list-col {
     flex: 1 1 40%;
@@ -265,24 +216,42 @@
     .events-graph-col { flex: 1 1 auto; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
   }
 
-  .events-line-chart-svg { width: 100%; height: 150px; display: block; overflow: visible; }
-  .events-line-path { fill: none; stroke: var(--accent); stroke-width: 2.5; }
-  .events-line-dot { fill: var(--accent); }
+  .events-line-chart-svg { width: 100%; height: 180px; display: block; overflow: visible; }
+  .events-line-path { fill: none; stroke-width: 2.5; }
+  .events-line-path.line-interested { stroke: var(--info); }
+  .events-line-path.line-signups { stroke: var(--warn); }
+  .events-line-path.line-attended { stroke: var(--accent); }
+  .events-line-dot.dot-interested { fill: var(--info); }
+  .events-line-dot.dot-signups { fill: var(--warn); }
+  .events-line-dot.dot-attended { fill: var(--accent); }
   .events-line-dot-label { font-size: 10px; fill: var(--text); font-weight: 700; }
   .events-line-axis-label { font-size: 10px; fill: var(--text-muted); }
+  .events-bar { }
+  .events-bar-label { font-size: 11px; fill: var(--text-muted); }
+  .events-bar-count { font-size: 12px; fill: var(--text); font-weight: 700; }
 
-  .events-list { flex: 1 1 auto; }
-  .events-list-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 12px;
+  .events-legend {
+    display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 11px; color: var(--text-muted);
   }
-  .events-list-row:last-of-type { border-bottom: none; }
-  .events-list-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .events-list-nums { display: flex; gap: 10px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  .events-list-nums b { color: var(--text); font-weight: 700; }
+  .events-legend-item { display: flex; align-items: center; gap: 6px; }
+  .events-legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* Feature boxes: right column, stacked */
+  .feature-box {
+    padding: 14px 16px; border-bottom: 1px solid var(--border); flex: 1 1 0;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .feature-box-label {
+    font-size: 11px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 5px;
+  }
+  .feature-box-num {
+    font-size: 26px; font-weight: 700; margin: 0; font-family: var(--display-font); line-height: 1.1;
+  }
+  .feature-box-sub { font-size: 11px; color: var(--text-muted); margin: 3px 0 0; }
   .events-list-viewlink {
-    display: block; padding: 9px 14px; text-align: center; font-size: 12px; font-weight: 600;
-    color: var(--accent); text-decoration: none; border-top: 1px solid var(--border); margin-top: auto;
+    display: block; padding: 10px 14px; text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--accent); text-decoration: none; border-top: 1px solid var(--border);
   }
   .events-list-viewlink:hover { background: var(--surface-2); }
 </style>
@@ -354,60 +323,30 @@
 
     <div id="dash-body" style="display:none;">
 
-      <div class="dash-section">
-        <p class="dash-section-label">Season overview</p>
-        <div class="stat-card-grid">
-          <div class="stat-card">
-            <p class="stat-card-label">Outreach rate</p>
-            <p class="stat-num" id="stat-outreach-pct">—</p>
-            <p class="stat-sub" id="stat-outreach-sub"></p>
-          </div>
-          <div class="stat-card">
-            <p class="stat-card-label">Attendance rate</p>
-            <p class="stat-num" id="stat-attendance-pct">—</p>
-            <p class="stat-sub" id="stat-attendance-sub"></p>
-          </div>
-          <div class="stat-card">
-            <p class="stat-card-label">Retention rate</p>
-            <p class="stat-num" id="stat-retention-pct">—</p>
-            <p class="stat-sub" id="stat-retention-sub"></p>
-          </div>
+      <div class="dash-tabs" id="dash-tabs"></div>
+
+      <div class="events-panel-card">
+        <div class="events-graph-col">
+          <svg class="events-line-chart-svg" id="events-line-chart" viewBox="0 0 560 180" preserveAspectRatio="none"></svg>
+          <div class="events-legend" id="events-legend"></div>
         </div>
-      </div>
-
-      <div class="dash-section">
-        <p class="dash-section-label">Source split</p>
-        <div class="split-bar-card">
-          <div class="split-bar-track">
-            <div class="split-bar-seg seg-online" id="split-seg-online" style="width:0%;"></div>
-            <div class="split-bar-seg seg-member" id="split-seg-member" style="width:0%;"></div>
+        <div class="events-list-col">
+          <div class="feature-box" id="feature-box-1">
+            <p class="feature-box-label" id="feature-box-1-label">Total participants</p>
+            <p class="feature-box-num" id="feature-box-1-num">—</p>
+            <p class="feature-box-sub" id="feature-box-1-sub"></p>
           </div>
-          <div class="split-legend">
-            <span class="split-legend-item"><span class="split-legend-swatch" style="background:var(--info);"></span><span id="split-label-online">Online — 0</span></span>
-            <span class="split-legend-item"><span class="split-legend-swatch" style="background:var(--accent);"></span><span id="split-label-member">Added by member — 0</span></span>
+          <div class="feature-box" id="feature-box-2">
+            <p class="feature-box-label" id="feature-box-2-label">Attendance rate</p>
+            <p class="feature-box-num" id="feature-box-2-num">—</p>
+            <p class="feature-box-sub" id="feature-box-2-sub"></p>
           </div>
-        </div>
-      </div>
-
-      <div class="dash-section">
-        <p class="dash-section-label">Interest breakdown</p>
-        <!-- TODO: definition still undecided as of this build — per-event interest
-             stages (interested/registered/attended) vs. the legacy LG/church
-             interest flags. Placeholder until that call is made; see
-             CONTEXT_SUMMARY "Loose ends" for the open question. -->
-        <div class="placeholder-card">Not built yet — waiting on a decision about whether this covers per-event interest stages or the legacy LG/church flags.</div>
-      </div>
-
-      <div class="dash-section">
-        <p class="dash-section-label">Events</p>
-        <div class="events-panel-card">
-          <div class="events-graph-col">
-            <svg class="events-line-chart-svg" id="events-line-chart" viewBox="0 0 560 150" preserveAspectRatio="none"></svg>
+          <div class="feature-box" id="feature-box-3">
+            <p class="feature-box-label" id="feature-box-3-label">Outreach rate</p>
+            <p class="feature-box-num" id="feature-box-3-num">—</p>
+            <p class="feature-box-sub" id="feature-box-3-sub"></p>
           </div>
-          <div class="events-list-col">
-            <div class="events-list" id="events-list"></div>
-            <a href="attendance.html" id="events-list-viewlink" class="events-list-viewlink">View full attendance &rarr;</a>
-          </div>
+          <a href="attendance.html" id="events-list-viewlink" class="events-list-viewlink">View full attendance &rarr;</a>
         </div>
       </div>
 
@@ -599,51 +538,6 @@
     }
   }
 
-  function renderStatCards() {
-    const total = contacts.length;
-
-    // Outreach rate
-    const resolvedCount = contacts.filter(hasResolvedPointPerson).length;
-    const outreachPct = total ? Math.round((resolvedCount / total) * 100) : 0;
-    document.getElementById("stat-outreach-pct").textContent = total ? `${outreachPct}%` : "—";
-    document.getElementById("stat-outreach-sub").textContent = total ? `${resolvedCount} of ${total} have a point person` : "No contacts yet";
-
-    // Attendance rate — attended at least one event this season
-    const attendedContactIds = new Set();
-    Object.keys(attendanceMap).forEach(key => attendedContactIds.add(key.split("::")[0]));
-    const attendedCount = contacts.filter(c => attendedContactIds.has(c.id)).length;
-    const attendancePct = total ? Math.round((attendedCount / total) * 100) : 0;
-    document.getElementById("stat-attendance-pct").textContent = total ? `${attendancePct}%` : "—";
-    document.getElementById("stat-attendance-sub").textContent = total ? `${attendedCount} of ${total} attended at least once` : "No contacts yet";
-
-    // Retention rate — of attendees, % who attended 2+ distinct events
-    const attendCountByContact = {};
-    Object.keys(attendanceMap).forEach(key => {
-      const [contactId] = key.split("::");
-      attendCountByContact[contactId] = (attendCountByContact[contactId] || 0) + 1;
-    });
-    const attendeeIds = Object.keys(attendCountByContact);
-    const repeatCount = attendeeIds.filter(id => attendCountByContact[id] >= 2).length;
-    const retentionPct = attendeeIds.length ? Math.round((repeatCount / attendeeIds.length) * 100) : 0;
-    document.getElementById("stat-retention-pct").textContent = attendeeIds.length ? `${retentionPct}%` : "—";
-    document.getElementById("stat-retention-sub").textContent = attendeeIds.length
-      ? `${repeatCount} of ${attendeeIds.length} attendees came back`
-      : "No attendees yet";
-  }
-
-  function renderSourceSplit() {
-    const total = contacts.length;
-    const onlineCount = contacts.filter(c => c.source === "online").length;
-    const memberCount = total - onlineCount;
-    const onlinePct = total ? (onlineCount / total) * 100 : 0;
-    const memberPct = total ? (memberCount / total) * 100 : 0;
-
-    document.getElementById("split-seg-online").style.width = `${onlinePct}%`;
-    document.getElementById("split-seg-member").style.width = `${memberPct}%`;
-    document.getElementById("split-label-online").textContent = `Online — ${onlineCount}`;
-    document.getElementById("split-label-member").textContent = `Added by member — ${memberCount}`;
-  }
-
   function eventCounts(eventId) {
     let interested = 0, registered = 0, attended = 0;
     contacts.forEach(c => {
@@ -654,64 +548,154 @@
     return { interested, registered, attended };
   }
 
-  // Line graph: attendance count per event, in season order (events are
-  // already sorted by sort_order from the query). SVG is hand-built rather
-  // than pulling in a chart library, matching the rest of the app.
-  function renderEventsLineChart(perEventCounts) {
+  // "total" = aggregate tab; otherwise an event id string.
+  let activeTab = "total";
+
+  function renderTabs() {
+    const tabsEl = document.getElementById("dash-tabs");
+    const buttons = [`<button type="button" class="dash-tab-btn${activeTab === "total" ? " active" : ""}" data-tab="total">Total</button>`]
+      .concat(events.map(ev => `<button type="button" class="dash-tab-btn${activeTab === ev.id ? " active" : ""}" data-tab="${ev.id}">${escapeHtml(ev.name)}</button>`));
+    tabsEl.innerHTML = buttons.join("");
+  }
+
+  document.getElementById("dash-tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".dash-tab-btn");
+    if (!btn) return;
+    activeTab = btn.dataset.tab;
+    renderTabs();
+    renderActiveTab();
+  });
+
+  // Total tab: 3 lines (interested / signups=registered / attended) across
+  // events in season order. SVG hand-built, no chart library, matching the
+  // rest of the app.
+  function renderTotalLineChart(perEventCounts) {
     const svg = document.getElementById("events-line-chart");
-    const width = 560, height = 150;
-    const padTop = 22, padBottom = 24, padSide = 28;
+    const width = 560, height = 180;
+    const padTop = 26, padBottom = 26, padSide = 28;
 
     if (!events.length) {
       svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No events yet this season.</text>`;
       return;
     }
 
-    const attendedCounts = perEventCounts.map(p => p.attended);
-    const maxCount = Math.max(...attendedCounts, 1);
     const n = events.length;
+    const maxCount = Math.max(...perEventCounts.flatMap(p => [p.interested, p.registered, p.attended]), 1);
     const plotWidth = width - padSide * 2;
     const plotHeight = height - padTop - padBottom;
+    const xFor = (i) => n === 1 ? width / 2 : padSide + (i / (n - 1)) * plotWidth;
+    const yFor = (count) => padTop + plotHeight - (count / maxCount) * plotHeight;
 
-    const points = perEventCounts.map((p, i) => {
-      const x = n === 1 ? width / 2 : padSide + (i / (n - 1)) * plotWidth;
-      const y = padTop + plotHeight - (p.attended / maxCount) * plotHeight;
-      return { x, y, count: p.attended, name: p.name };
+    const series = [
+      { key: "interested", cls: "interested" },
+      { key: "signups", dataKey: "registered", cls: "signups" },
+      { key: "attended", cls: "attended" }
+    ];
+
+    let svgOut = "";
+    series.forEach(s => {
+      const dataKey = s.dataKey || s.key;
+      const points = perEventCounts.map((p, i) => ({ x: xFor(i), y: yFor(p[dataKey]), count: p[dataKey] }));
+      const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
+      const dots = points.map(pt => `<circle class="events-line-dot dot-${s.cls}" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"></circle>`).join("");
+      svgOut += `<path class="events-line-path line-${s.cls}" d="${pathD}"></path>${dots}`;
     });
 
-    const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
+    const axisLabels = perEventCounts.map((p, i) => {
+      const name = p.name.length > 12 ? p.name.slice(0, 11) + "…" : p.name;
+      return `<text class="events-line-axis-label" x="${xFor(i).toFixed(1)}" y="${height - 6}" text-anchor="middle">${escapeHtml(name)}</text>`;
+    }).join("");
 
-    const dotsAndLabels = points.map(pt => `
-      <circle class="events-line-dot" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4"></circle>
-      <text class="events-line-dot-label" x="${pt.x.toFixed(1)}" y="${(pt.y - 10).toFixed(1)}" text-anchor="middle">${pt.count}</text>
-      <text class="events-line-axis-label" x="${pt.x.toFixed(1)}" y="${height - 6}" text-anchor="middle">${escapeHtml(pt.name.length > 12 ? pt.name.slice(0, 11) + "…" : pt.name)}</text>
-    `).join("");
+    svg.innerHTML = svgOut + axisLabels;
 
-    svg.innerHTML = `<path class="events-line-path" d="${pathD}"></path>${dotsAndLabels}`;
+    document.getElementById("events-legend").innerHTML = `
+      <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--info);"></span>Interested</span>
+      <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--warn);"></span>Signups</span>
+      <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--accent);"></span>Attended</span>
+    `;
   }
 
-  function renderEventsList(perEventCounts) {
-    const listEl = document.getElementById("events-list");
-    if (!events.length) {
-      listEl.innerHTML = `<div class="empty-state" style="padding:16px;">No events yet.</div>`;
-      return;
+  // Single-event tab: no "across events" axis exists for one event, so this
+  // renders as 3 bars (interested / signups / attended) for just that event
+  // instead of a line — same SVG area, same visual language.
+  function renderSingleEventChart(counts) {
+    const svg = document.getElementById("events-line-chart");
+    const width = 560, height = 180;
+    const padTop = 26, padBottom = 26, padSide = 60;
+    const plotHeight = height - padTop - padBottom;
+    const maxCount = Math.max(counts.interested, counts.registered, counts.attended, 1);
+
+    const bars = [
+      { label: "Interested", value: counts.interested, cls: "interested" },
+      { label: "Signups", value: counts.registered, cls: "signups" },
+      { label: "Attended", value: counts.attended, cls: "attended" }
+    ];
+    const colWidth = (width - padSide * 2) / bars.length;
+    const barWidth = Math.min(colWidth * 0.5, 60);
+
+    const barsOut = bars.map((b, i) => {
+      const colCenter = padSide + colWidth * i + colWidth / 2;
+      const barHeight = (b.value / maxCount) * plotHeight;
+      const y = padTop + plotHeight - barHeight;
+      return `
+        <rect class="events-line-dot dot-${b.cls}" x="${(colCenter - barWidth / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(barHeight, 2).toFixed(1)}" rx="4"></rect>
+        <text class="events-bar-count" x="${colCenter.toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle">${b.value}</text>
+        <text class="events-bar-label" x="${colCenter.toFixed(1)}" y="${height - 6}" text-anchor="middle">${b.label}</text>
+      `;
+    }).join("");
+
+    svg.innerHTML = barsOut;
+    document.getElementById("events-legend").innerHTML = "";
+  }
+
+  function renderFeatureBoxes() {
+    const total = contacts.length;
+
+    if (activeTab === "total") {
+      document.getElementById("feature-box-1-label").textContent = "Total participants";
+      document.getElementById("feature-box-1-num").textContent = total || "—";
+      document.getElementById("feature-box-1-sub").textContent = total ? "contacts this season" : "No contacts yet";
+
+      const attendedContactIds = new Set();
+      Object.keys(attendanceMap).forEach(key => attendedContactIds.add(key.split("::")[0]));
+      const attendedCount = contacts.filter(c => attendedContactIds.has(c.id)).length;
+      const attendancePct = total ? Math.round((attendedCount / total) * 100) : 0;
+      document.getElementById("feature-box-2-label").textContent = "Attendance rate";
+      document.getElementById("feature-box-2-num").textContent = total ? `${attendancePct}%` : "—";
+      document.getElementById("feature-box-2-sub").textContent = total ? `${attendedCount} of ${total} attended at least once` : "No contacts yet";
+
+      const resolvedCount = contacts.filter(hasResolvedPointPerson).length;
+      const outreachPct = total ? Math.round((resolvedCount / total) * 100) : 0;
+      document.getElementById("feature-box-3-label").textContent = "Outreach rate";
+      document.getElementById("feature-box-3-num").textContent = total ? `${outreachPct}%` : "—";
+      document.getElementById("feature-box-3-sub").textContent = total ? `${resolvedCount} of ${total} have a point person` : "No contacts yet";
+    } else {
+      const counts = eventCounts(activeTab);
+      document.getElementById("feature-box-1-label").textContent = "Signups";
+      document.getElementById("feature-box-1-num").textContent = counts.registered || "—";
+      document.getElementById("feature-box-1-sub").textContent = "registered for this event";
+
+      const attendancePct = counts.registered ? Math.round((counts.attended / counts.registered) * 100) : 0;
+      document.getElementById("feature-box-2-label").textContent = "Attendance rate";
+      document.getElementById("feature-box-2-num").textContent = counts.registered ? `${attendancePct}%` : "—";
+      document.getElementById("feature-box-2-sub").textContent = counts.registered ? `${counts.attended} of ${counts.registered} registered showed up` : "No signups yet";
+
+      // Outreach isn't event-specific (point person is a contact-level field),
+      // so this box swaps to Interested for per-event tabs instead.
+      document.getElementById("feature-box-3-label").textContent = "Interested";
+      document.getElementById("feature-box-3-num").textContent = counts.interested || "—";
+      document.getElementById("feature-box-3-sub").textContent = "indicated interest";
     }
-    listEl.innerHTML = perEventCounts.map(p => `
-      <div class="events-list-row">
-        <span class="events-list-name">${escapeHtml(p.name)}</span>
-        <span class="events-list-nums">
-          <span>Int <b>${p.interested}</b></span>
-          <span>Reg <b>${p.registered}</b></span>
-          <span>Att <b>${p.attended}</b></span>
-        </span>
-      </div>
-    `).join("");
   }
 
-  function renderEventsPanel() {
+  function renderActiveTab() {
     const perEventCounts = events.map(ev => ({ name: ev.name, ...eventCounts(ev.id) }));
-    renderEventsLineChart(perEventCounts);
-    renderEventsList(perEventCounts);
+    if (activeTab === "total") {
+      renderTotalLineChart(perEventCounts);
+    } else {
+      renderSingleEventChart(eventCounts(activeTab));
+    }
+    renderFeatureBoxes();
   }
 
   async function renderDashboard() {
@@ -719,9 +703,9 @@
     document.getElementById("dash-body").style.display = "none";
     try {
       await loadDashboardData();
-      renderStatCards();
-      renderSourceSplit();
-      renderEventsPanel();
+      activeTab = "total";
+      renderTabs();
+      renderActiveTab();
       document.getElementById("dash-loading-state").style.display = "none";
       document.getElementById("dash-body").style.display = "block";
     } catch (err) {
