@@ -227,6 +227,19 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
       contact = createContact(form, altContact);
     }
 
+    // A MATCHED contact's own tracker record (contacts.connector) might be
+    // stale or simply about someone different from who they said connected
+    // them on the Form — e.g. a member met them in person and is already
+    // their point person, but the respondent separately named someone else
+    // here. That form answer was previously only visible in this one-time
+    // email/Sheet row; saving it lets the website show both side by side
+    // instead of silently losing the form's answer once this email scrolls
+    // out of an inbox. Always the LATEST form answer, so a second
+    // submission overwrites rather than stacking.
+    if (form.connector) {
+      updateLastFormConnector(contact.id, form.connector);
+    }
+
     let statusText = matchStatus === "matched" ? `Matched: ${contact.name}` : `Added new contact: ${contact.name}`;
     if (eventIds.length) {
       eventIds.forEach(id => { markRegistered(contact.id, id); markInterested(contact.id, id); });
@@ -626,6 +639,34 @@ function createContact(form, altContact) {
     throw new Error(`contact create failed: ${res.getContentText()}`);
   }
   return JSON.parse(res.getContentText())[0];
+}
+
+// Saves what THIS respondent typed for "Who connected you?" onto the
+// matched/created contact's own record (contacts.last_form_connector),
+// separate from contacts.connector (the tracker's own point-person field,
+// set via Quick Add/Add Contact/Edit) — the two can legitimately disagree
+// (a member's already the point person on file, but the respondent named
+// someone else), and the website flags that instead of one silently
+// overwriting the other. Never throws: a failure here shouldn't block the
+// registration/interest writes, which matter more.
+function updateLastFormConnector(contactId, formConnector) {
+  try {
+    const res = UrlFetchApp.fetch(
+      `${SUPABASE_URL}/rest/v1/contacts?id=eq.${contactId}`,
+      {
+        method: "patch",
+        contentType: "application/json",
+        headers: supabaseHeaders(),
+        payload: JSON.stringify({ last_form_connector: formConnector }),
+        muteHttpExceptions: true,
+      }
+    );
+    if (res.getResponseCode() >= 300) {
+      Logger.log(`updateLastFormConnector: non-fatal write failure for contact ${contactId}: ${res.getContentText()}`);
+    }
+  } catch (err) {
+    Logger.log(`updateLastFormConnector: non-fatal error for contact ${contactId}: ${err}`);
+  }
 }
 
 // Signing up via the Form means they've REGISTERED for the event — it does

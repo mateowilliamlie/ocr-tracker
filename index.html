@@ -1430,6 +1430,16 @@
       .filter(x => x.status !== null);
   }
 
+  // A contact met in person (source stays non-"online") can still later
+  // register for an event via the Form — matching an existing contact
+  // never touches `source`, since that's meant to record how they
+  // originally entered the tracker, not how every subsequent interaction
+  // happened. Event Signups should surface them too, not just contacts
+  // whose ORIGIN was the Form.
+  function hasAnyEventRegistration(c) {
+    return seasonEvents.some(ev => !!eventRegisteredMap[`${c.id}::${ev.id}`]);
+  }
+
   // "Phone / WeChat ID" is one free-text field — a run of digits (allowing
   // spaces/+/-/parens) reads as a real number; anything else (a WeChat
   // handle, "wechat: xyz", etc.) gets flagged so it's not mistaken for a
@@ -1480,7 +1490,7 @@
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
 
     if (activeTab === "online") {
-      list = list.filter(c => c.source === "online");
+      list = list.filter(c => c.source === "online" || hasAnyEventRegistration(c));
       if (eventSignupFilter !== "all") {
         list = list.filter(c => contactEventStatus(c, eventSignupFilter) !== null);
       }
@@ -1541,7 +1551,7 @@
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
-        ${pointPersonDiffersFromConnector(c) ? `<div class="connector-flag">Connected by ${escapeHtml(c.connector)} — different from point person above, worth confirming</div>` : ""}
+        ${connectorFlags(c).map(f => `<div class="connector-flag">${escapeHtml(f)}</div>`).join("")}
         ${activeTab === "online" ? `<div class="contact-line">${contactSummary(c)}</div>` : ""}
         ${contactEventList.length > 0 ? `<div class="event-badges">${contactEventList.map(({ ev, status }) => `<span class="event-badge event-badge-${status}">${escapeHtml(ev.name)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
@@ -1605,6 +1615,27 @@
     return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
   }
 
+  // Two independent things can disagree about who connected a contact:
+  // 1. Ownership was reassigned on the tracker itself (point person !=
+  //    original connector) — pointPersonDiffersFromConnector above.
+  // 2. What the respondent typed on their OWN event sign-up Form
+  //    (contacts.last_form_connector, saved by event-signup-sync.gs on
+  //    every submission) doesn't match who's currently the point person —
+  //    e.g. a member already met them in person and is their point person
+  //    on file, but the respondent separately named someone else on the
+  //    Form. Both are worth surfacing, not just whichever fires first.
+  function connectorFlags(c) {
+    const flags = [];
+    const pointPerson = followupOwnerDisplay(c);
+    if (pointPersonDiffersFromConnector(c)) {
+      flags.push(`Connected by ${c.connector} — different from point person above, worth confirming`);
+    }
+    if (c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
+      flags.push(`Per their event sign-up form, connected by ${c.last_form_connector} — different from point person above, worth confirming`);
+    }
+    return flags;
+  }
+
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
@@ -1618,6 +1649,7 @@
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
       ["Connected by", c.connector],
+      ["Per their event sign-up form", c.last_form_connector],
       ["Suggest to connect with", c.suggested_connection],
       ["Point person", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
