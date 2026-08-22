@@ -488,6 +488,10 @@
   .event-badge-registered { background: var(--success-bg); color: var(--success); }
   .event-badge-attended { background: var(--info-bg); color: var(--info); }
   .contact-line { font-size: 13px; color: var(--text-muted); padding: 0 14px 10px; }
+  /* Only when it directly follows the name row (no connector-flag warning
+     in between) — pulls it closer to the name, since .row's own bottom
+     padding otherwise left a bigger gap than a flag in between needs. */
+  .row + .contact-line { margin-top: -6px; }
   .connector-flag { font-size: 12px; color: var(--warn); background: var(--warn-bg); padding: 6px 14px; margin-bottom: 8px; }
   .muted { color: var(--text-muted); }
   .event-chip {
