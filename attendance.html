@@ -1080,6 +1080,10 @@
           <label for="f-event-name">Add a new event</label>
           <input id="f-event-name" name="event_name" type="text" placeholder="e.g. Welcome BBQ" required />
         </div>
+        <div class="field">
+          <label for="f-event-date">Event date</label>
+          <input id="f-event-date" name="event_date" type="date" required />
+        </div>
         <div class="form-actions">
           <button type="button" id="add-event-cancel-btn" class="btn-ghost">Close</button>
           <button type="submit" id="add-event-submit-btn" class="btn-submit">Add event</button>
@@ -1593,10 +1597,27 @@
     list.innerHTML = events.map(ev => `
       <div class="manage-event-row" data-event-id="${ev.id}" style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
         <span class="manage-event-name" style="flex:1; font-size:14px;">${escapeHtml(ev.name)}</span>
+        <input type="date" class="manage-event-date-input" data-event-id="${ev.id}" value="${ev.event_date || ""}" style="font-family:var(--font); font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:#FFFFFF; color:#1A1D23;" />
         <button type="button" class="btn-ghost rename-event-btn" data-event-id="${ev.id}" style="padding:6px 12px; font-size:13px;">Rename</button>
       </div>
     `).join("");
   }
+
+  document.getElementById("manage-events-list").addEventListener("change", async (e) => {
+    const dateInput = e.target.closest(".manage-event-date-input");
+    if (!dateInput) return;
+    const eventId = dateInput.dataset.eventId;
+    const newDate = dateInput.value || null;
+    try {
+      const { error } = await sb.from("events").update({ event_date: newDate }).eq("id", eventId);
+      if (error) throw error;
+      showBanner("Event date updated", false);
+      await loadEventsAndAttendance();
+      renderManageEventsList();
+    } catch (err) {
+      showBanner(`Couldn't update event date — ${err.message || "check your connection"}`, true);
+    }
+  });
 
   document.getElementById("manage-events-list").addEventListener("click", async (e) => {
     const renameBtn = e.target.closest(".rename-event-btn");
@@ -1640,6 +1661,7 @@
   addEventForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("f-event-name").value.trim();
+    const eventDate = document.getElementById("f-event-date").value || null;
     if (!name) return;
 
     addEventSubmitBtn.disabled = true;
@@ -1649,6 +1671,7 @@
       const { error } = await sb.from("events").insert({
         season_id: seasonId,
         name,
+        event_date: eventDate,
         sort_order: nextSortOrder
       });
       if (error) throw error;

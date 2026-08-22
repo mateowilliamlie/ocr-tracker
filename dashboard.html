@@ -327,7 +327,7 @@
 
       <div class="events-panel-card">
         <div class="events-graph-col">
-          <svg class="events-line-chart-svg" id="events-line-chart" viewBox="0 0 560 180" preserveAspectRatio="none"></svg>
+          <svg class="events-line-chart-svg" id="events-line-chart" viewBox="0 0 560 190" preserveAspectRatio="none"></svg>
           <div class="events-legend" id="events-legend"></div>
         </div>
         <div class="events-list-col">
@@ -569,21 +569,42 @@
   // Total tab: 3 lines (interested / signups=registered / attended) across
   // events in season order. SVG hand-built, no chart library, matching the
   // rest of the app.
+  // Total tab: x-axis is calendar days spanning the season's earliest to
+  // latest event date (inclusive), not event index — so spacing reflects
+  // real time gaps between events. Days without an event sit at 0 on all
+  // 3 lines. Any day that does have an event gets the event's name as a
+  // sub-label under its day-of-month tick.
   function renderTotalLineChart(perEventCounts) {
     const svg = document.getElementById("events-line-chart");
-    const width = 560, height = 180;
-    const padTop = 26, padBottom = 26, padSide = 28;
+    const width = 560, height = 190;
+    const padTop = 26, padBottom = 40, padSide = 28;
+
+    const datedEvents = events
+      .map((ev, i) => ({ ev, counts: perEventCounts[i] }))
+      .filter(x => x.ev.event_date);
 
     if (!events.length) {
       svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No events yet this season.</text>`;
+      document.getElementById("events-legend").innerHTML = "";
+      return;
+    }
+    if (!datedEvents.length) {
+      svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No event dates set yet — add dates on the Attendance page.</text>`;
+      document.getElementById("events-legend").innerHTML = "";
       return;
     }
 
-    const n = events.length;
-    const maxCount = Math.max(...perEventCounts.flatMap(p => [p.interested, p.registered, p.attended]), 1);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const toDay = (dateStr) => Math.floor(new Date(dateStr + "T00:00:00").getTime() / dayMs);
+    const dayNums = datedEvents.map(x => toDay(x.ev.event_date));
+    const minDay = Math.min(...dayNums);
+    const maxDay = Math.max(...dayNums);
+    const span = Math.max(maxDay - minDay, 1);
+
+    const maxCount = Math.max(...datedEvents.flatMap(x => [x.counts.interested, x.counts.registered, x.counts.attended]), 1);
     const plotWidth = width - padSide * 2;
     const plotHeight = height - padTop - padBottom;
-    const xFor = (i) => n === 1 ? width / 2 : padSide + (i / (n - 1)) * plotWidth;
+    const xForDay = (day) => padSide + ((day - minDay) / span) * plotWidth;
     const yFor = (count) => padTop + plotHeight - (count / maxCount) * plotHeight;
 
     const series = [
@@ -595,18 +616,28 @@
     let svgOut = "";
     series.forEach(s => {
       const dataKey = s.dataKey || s.key;
-      const points = perEventCounts.map((p, i) => ({ x: xFor(i), y: yFor(p[dataKey]), count: p[dataKey] }));
+      const points = datedEvents.map(x => ({ x: xForDay(toDay(x.ev.event_date)), y: yFor(x.counts[dataKey]), count: x.counts[dataKey] }));
       const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
       const dots = points.map(pt => `<circle class="events-line-dot dot-${s.cls}" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"></circle>`).join("");
       svgOut += `<path class="events-line-path line-${s.cls}" d="${pathD}"></path>${dots}`;
     });
 
-    const axisLabels = perEventCounts.map((p, i) => {
-      const name = p.name.length > 12 ? p.name.slice(0, 11) + "…" : p.name;
-      return `<text class="events-line-axis-label" x="${xFor(i).toFixed(1)}" y="${height - 6}" text-anchor="middle">${escapeHtml(name)}</text>`;
-    }).join("");
+    // Day ticks: every day in the range gets a day-of-month number; days
+    // with an event also get the event's name as a sub-label beneath it.
+    let tickLabels = "";
+    for (let day = minDay; day <= maxDay; day++) {
+      const x = xForDay(day);
+      const dateObj = new Date(day * dayMs);
+      const dayNum = dateObj.getUTCDate();
+      const evOnDay = datedEvents.find(x2 => toDay(x2.ev.event_date) === day);
+      tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 26}" text-anchor="middle">${dayNum}</text>`;
+      if (evOnDay) {
+        const name = evOnDay.ev.name.length > 10 ? evOnDay.ev.name.slice(0, 9) + "…" : evOnDay.ev.name;
+        tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 10}" text-anchor="middle" style="font-weight:700;">${escapeHtml(name)}</text>`;
+      }
+    }
 
-    svg.innerHTML = svgOut + axisLabels;
+    svg.innerHTML = svgOut + tickLabels;
 
     document.getElementById("events-legend").innerHTML = `
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--info);"></span>Interested</span>
