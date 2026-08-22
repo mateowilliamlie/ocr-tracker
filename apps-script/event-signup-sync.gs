@@ -162,16 +162,24 @@ function onFormSubmit(e) {
 // namedValues in the same {questionTitle: [answer]} shape either way, so
 // a backfilled row is processed identically to a real-time one.
 function processResponseRow(namedValues, sheet, row, sendEmail) {
+  // Exact match first (the common case, and the fast path). Falls back to
+  // "actual key starts with this Q_ constant" because someone editing a
+  // Form question to add usage instructions or a typo fix (e.g. appending
+  // "\nPlease type in the format of..." to the alt-contact question) changes
+  // its exact title — this happened for real: Q_ALT_CONTACT stopped
+  // matching the moment that instructional text was added to the question,
+  // so getAnswer() silently returned "" and every alt-contact answer
+  // (Instagram/WeChat/email) was lost even though respondents typed one.
+  // The Q_ constants only need to stay a prefix of the real question now,
+  // not match it exactly — much less likely to break on a wording tweak.
   const getAnswer = title => {
-    const v = namedValues[title];
+    let v = namedValues[title];
+    if (!v) {
+      const key = Object.keys(namedValues).find(k => k.startsWith(title));
+      v = key ? namedValues[key] : undefined;
+    }
     return v && v.length ? String(v[0]) : "";
   };
-
-  // TEMP DIAGNOSTIC — remove once the phone-goes-missing mystery is solved.
-  // Logs the exact question titles Google actually sent versus what Q_PHONE
-  // is hardcoded to, so an invisible mismatch (trailing space, different
-  // wording) shows up in the Executions log instead of staying a mystery.
-  Logger.log(`Q_PHONE="${Q_PHONE}" -> getAnswer="${getAnswer(Q_PHONE)}" | actual keys: ${JSON.stringify(Object.keys(namedValues))}`);
 
   const form = {
     name: getAnswer(Q_NAME).trim(),
@@ -555,8 +563,6 @@ function findContactsByHandle(handle) {
 // anyone who gave neither a WhatsApp number nor a usable alt-contact.
 function createContact(form, altContact) {
   const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
-  // TEMP DIAGNOSTIC — remove once the missing-Instagram mystery is solved.
-  Logger.log(`createContact: rawPhone="${form.rawPhone}" altContact.method="${altContact.method}" altContact.handle="${altContact.handle}" isInstagram=${isInstagram}`);
   const payload = {
     name: form.name,
     gender: form.gender || null,
