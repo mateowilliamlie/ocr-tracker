@@ -497,6 +497,8 @@
   .event-badge-interested { background: var(--warn-bg); color: var(--warn); }
   .event-badge-registered { background: var(--success-bg); color: var(--success); }
   .event-badge-attended { background: var(--info-bg); color: var(--info); }
+  .contact-line { font-size: 13px; color: var(--text-muted); padding: 0 14px 10px; }
+  .muted { color: var(--text-muted); }
   .event-chip {
     font-family: var(--font);
     font-size: 13px;
@@ -1436,6 +1438,30 @@
       .filter(x => x.status !== null);
   }
 
+  // "Phone / WeChat ID" is one free-text field — a run of digits (allowing
+  // spaces/+/-/parens) reads as a real number; anything else (a WeChat
+  // handle, "wechat: xyz", etc.) gets flagged so it's not mistaken for a
+  // WhatsApp number when someone's about to message it.
+  function looksLikePhoneNumber(raw) {
+    const digits = raw.replace(/[\s()+-]/g, "");
+    return digits.length > 0 && /^\d+$/.test(digits);
+  }
+
+  // Event Signups tab: a self-submitted contact often has no in-person
+  // relationship yet, so surfacing how to actually reach them (WhatsApp
+  // or Instagram) right on the row — not just buried in the click-to-
+  // expand detail view — is what makes them easy for a member to follow
+  // up with.
+  function contactSummary(c) {
+    const parts = [];
+    if (c.phone) {
+      const tag = looksLikePhoneNumber(c.phone) ? "" : " (WeChat)";
+      parts.push(escapeHtml(c.phone) + tag);
+    }
+    if (c.instagram) parts.push(`IG: ${escapeHtml(c.instagram)}`);
+    return parts.length ? parts.join(" · ") : `<span class="muted">No contact info</span>`;
+  }
+
   function renderEventSignupChips() {
     if (activeTab !== "online" || seasonEvents.length === 0) {
       eventSignupChipsEl.style.display = "none";
@@ -1523,6 +1549,7 @@
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
+        ${activeTab === "online" ? `<div class="contact-line">${contactSummary(c)}</div>` : ""}
         ${contactEventList.length > 0 ? `<div class="event-badges">${contactEventList.map(({ ev, status }) => `<span class="event-badge event-badge-${status}">${escapeHtml(ev.name)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
           ${detailFieldsHtml(c)}
