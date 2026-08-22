@@ -466,8 +466,6 @@
     border-radius: 999px;
     background: var(--info-bg);
     color: var(--info);
-    margin-left: 6px;
-    vertical-align: middle;
   }
   .unconnected-badge {
     display: inline-block;
@@ -479,8 +477,6 @@
     border-radius: 999px;
     background: var(--warn-bg);
     color: var(--warn);
-    margin-left: 6px;
-    vertical-align: middle;
   }
 
   /* Event Signups tab: which event(s) a contact is down for, colored by
@@ -630,6 +626,10 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
   }
 
   .row .connector {
