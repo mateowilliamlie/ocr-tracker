@@ -46,12 +46,16 @@
  * respondent. The connector is deliberately shown as two SEPARATE lines,
  * never merged: "Who they said connected them (form)" is exactly what the
  * respondent typed (or "(not given)" — it's the one optional Form
- * question), and "Point person on file (tracker)" is contacts.connector
- * from the matched tracker record (set via Quick Add or the tracker's own
- * Add Contact dialog). Showing both lets the team actually confirm they
- * agree instead of silently trusting one over the other; if they disagree,
- * the cross-check section flags it explicitly. Sent via MailApp, so no
- * extra credentials or setup beyond a valid Google account running the
+ * question), and "Point person on file (tracker)" is followupOwnerDisplay()
+ * on the matched tracker record — who's CURRENTLY responsible for
+ * following up, which can differ from contacts.connector (who originally
+ * connected them) once ownership's been reassigned via the tracker's own
+ * Edit dialog; that reassignment gets its own note when it applies. Showing
+ * both the form's answer and the tracker's current point person lets the
+ * team actually confirm they agree instead of silently trusting one over
+ * the other; if they disagree, the cross-check section flags it
+ * explicitly. Sent via MailApp, so no extra credentials or setup beyond a
+ * valid Google account running the
  * script (free quota: 100 emails/day on a plain Gmail account, 1,500/day
  * on Workspace — far above real signup volume).
  *
@@ -358,6 +362,24 @@ function sourceLabel(source) {
     : "Added manually by an OCR member (in-person conversation)";
 }
 
+// Mirrors index.html's followupOwnerDisplay — who's CURRENTLY responsible
+// for following up with this contact, which can differ from c.connector
+// (who originally connected them) once ownership's been reassigned via the
+// tracker's own Edit dialog. The Form's cross-check below compares against
+// this, not the raw connector, since this is what's actually operative.
+function followupOwnerDisplay(c) {
+  if (c.followup_owner_type === "suggested") return c.suggested_connection || "Suggested point person (not set)";
+  if (c.followup_owner_type === "other") return c.followup_owner_other || "";
+  return c.connector || "Current point person (not set)";
+}
+
+// True only when ownership was actually reassigned away from the default
+// (followup_owner_type unset just means point person === connector) AND
+// there's an original connector on record to contrast it with.
+function pointPersonDiffersFromConnector(c) {
+  return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
+}
+
 // Cross-check section content shared by the plain-text and HTML bodies:
 // a status ("ok"/"warn") plus one or more lines of detail.
 function crossCheckStatus(info) {
@@ -369,11 +391,19 @@ function crossCheckStatus(info) {
     const c = info.contact;
     lines.push(`How they entered the tracker: ${sourceLabel(c.source)}`);
     const formConnector = f.connector.trim().toLowerCase();
-    const trackerConnector = (c.connector || "").trim().toLowerCase();
+    const trackerPointPerson = followupOwnerDisplay(c).trim().toLowerCase();
 
-    if (formConnector && trackerConnector && formConnector !== trackerConnector) {
+    // Compared against the CURRENT point person, not the raw connector —
+    // ownership may have been reassigned since whoever originally connected
+    // them, so that's the value actually worth confirming the form against.
+    // Skip the "(not set)" placeholder text itself reading as a mismatch.
+    if (formConnector && trackerPointPerson && !trackerPointPerson.includes("(not set)") && formConnector !== trackerPointPerson) {
       lines.unshift(`They and the tracker disagree on who connected them — worth confirming which is right.`);
       status = "warn";
+    }
+
+    if (pointPersonDiffersFromConnector(c)) {
+      lines.push(`Point person was reassigned — originally connected by ${c.connector}, current point person is ${followupOwnerDisplay(c)}.`);
     }
   } else if (info.matchStatus === "created") {
     lines.push("Wasn't in the tracker yet — added automatically from their sign-up answers.");
@@ -401,10 +431,12 @@ function buildNotificationBody(info) {
     : `WhatsApp: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
   const crossCheck = crossCheckStatus(info);
   // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is who WE already have on
-  // record as their point person. They should usually agree, but showing
-  // both lets the team actually confirm that instead of assuming it.
-  const trackerConnector = info.matchStatus === "matched" ? (info.contact.connector || "(not recorded)") : null;
+  // say connected them; the tracker value is who's CURRENTLY the point
+  // person on record (which can differ from who originally connected them
+  // if ownership was reassigned — see crossCheck for that flag). They
+  // should usually agree with the form, but showing both lets the team
+  // actually confirm that instead of assuming it.
+  const trackerPointPerson = info.matchStatus === "matched" ? followupOwnerDisplay(info.contact) : null;
 
   const lines = [
     `${f.name || "(no name given)"} just signed up for "${event || "(no event given)"}" via the Google Form.`,
@@ -417,8 +449,8 @@ function buildNotificationBody(info) {
     `  ${contactLine}`,
     `  Who they said connected them (form): ${f.connector || "(not given)"}`,
   ];
-  if (trackerConnector !== null) {
-    lines.push(`  Point person on file (tracker): ${trackerConnector}`);
+  if (trackerPointPerson !== null) {
+    lines.push(`  Point person on file (tracker): ${trackerPointPerson}`);
   }
   lines.push("", "Tracker cross-check:", ...crossCheck.lines.map(l => `  ${l}`));
 
@@ -448,11 +480,16 @@ function buildNotificationHtml(info) {
       </tr>`;
 
   // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is who WE already have on
-  // record as their point person, shown only when there's a tracker
-  // record to compare against.
-  const trackerConnectorRow = info.matchStatus === "matched"
-    ? row("Point person on file (tracker)", info.contact.connector, null)
+  // say connected them; the tracker value is who's CURRENTLY the point
+  // person on record, shown only when there's a tracker record to compare
+  // against. Flags in a note when that's been reassigned away from who
+  // originally connected them, so it's not mistaken for a fresh mismatch.
+  const trackerPointPersonRow = info.matchStatus === "matched"
+    ? row(
+        "Point person on file (tracker)",
+        followupOwnerDisplay(info.contact),
+        pointPersonDiffersFromConnector(info.contact) ? `(reassigned from ${info.contact.connector})` : null
+      )
     : "";
 
   const crossCheckLinesHtml = crossCheck.lines.map(l => `<div style="margin-top:4px;">${escapeHtml(l)}</div>`).join("");
@@ -472,7 +509,7 @@ function buildNotificationHtml(info) {
       ${row("Major / School", f.major)}
       ${row(contactLabel, contactValue)}
       ${row("Who they said connected them (form)", f.connector, null)}
-      ${trackerConnectorRow}
+      ${trackerPointPersonRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
       <div style="font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.04em;">Tracker cross-check</div>
@@ -505,7 +542,7 @@ function supabaseHeaders() {
 }
 
 function findContactsByPhone(normalizedPhone) {
-  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,connector,source`;
+  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,connector,source,followup_owner_type,followup_owner_other,suggested_connection`;
   const res = UrlFetchApp.fetch(url, {
     method: "get",
     headers: supabaseHeaders(),
@@ -535,7 +572,7 @@ function parseAltContact(text) {
 // without a "Method:" prefix) and contacts.instagram, as a substring
 // rather than requiring an exact format match.
 function findContactsByHandle(handle) {
-  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,instagram,connector,source`;
+  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,instagram,connector,source,followup_owner_type,followup_owner_other,suggested_connection`;
   const res = UrlFetchApp.fetch(url, {
     method: "get",
     headers: supabaseHeaders(),

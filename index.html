@@ -488,6 +488,7 @@
   .event-badge-registered { background: var(--success-bg); color: var(--success); }
   .event-badge-attended { background: var(--info-bg); color: var(--info); }
   .contact-line { font-size: 13px; color: var(--text-muted); padding: 0 14px 10px; }
+  .connector-flag { font-size: 12px; color: var(--warn); background: var(--warn-bg); padding: 6px 14px; }
   .muted { color: var(--text-muted); }
   .event-chip {
     font-family: var(--font);
@@ -1534,12 +1535,13 @@
       wrap.innerHTML = `
         <div class="row">
           <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
-          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(c.connector || "—")}</span>
+          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
+        ${pointPersonDiffersFromConnector(c) ? `<div class="connector-flag">Connected by ${escapeHtml(c.connector)} — different from point person above, worth confirming</div>` : ""}
         ${activeTab === "online" ? `<div class="contact-line">${contactSummary(c)}</div>` : ""}
         ${contactEventList.length > 0 ? `<div class="event-badges">${contactEventList.map(({ ev, status }) => `<span class="event-badge event-badge-${status}">${escapeHtml(ev.name)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
@@ -1595,6 +1597,14 @@
     return c.connector || "Current point person (not set)";
   }
 
+  // The point person only ever differs from who originally connected them
+  // when ownership was explicitly reassigned (followup_owner_type isn't
+  // the default) — worth flagging so a member notices instead of assuming
+  // the two are always the same person.
+  function pointPersonDiffersFromConnector(c) {
+    return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
+  }
+
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
@@ -1607,8 +1617,9 @@
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
+      ["Connected by", c.connector],
       ["Suggest to connect with", c.suggested_connection],
-      ["Following up", followupOwnerDisplay(c)],
+      ["Point person", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
       ["Progress", c.progress],
       ["Other school (note)", c.other_campus_note]
