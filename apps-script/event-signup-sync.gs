@@ -555,6 +555,8 @@ function findContactsByHandle(handle) {
 // anyone who gave neither a WhatsApp number nor a usable alt-contact.
 function createContact(form, altContact) {
   const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
+  // TEMP DIAGNOSTIC — remove once the missing-Instagram mystery is solved.
+  Logger.log(`createContact: rawPhone="${form.rawPhone}" altContact.method="${altContact.method}" altContact.handle="${altContact.handle}" isInstagram=${isInstagram}`);
   const payload = {
     name: form.name,
     gender: form.gender || null,
