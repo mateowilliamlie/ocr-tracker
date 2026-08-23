@@ -44,7 +44,7 @@
  * The Form asks gender, nationality, year, major/school, and "Who
  * connected you?" directly, so the email reports those as typed by the
  * respondent. The connector is deliberately shown as two SEPARATE lines,
- * never merged: "Who they said connected them (form)" is exactly what the
+ * never merged: "Who connected you? (form response)" is exactly what the
  * respondent typed (or "(not given)" — it's the one optional Form
  * question), and "Point person on file (tracker)" is followupOwnerDisplay()
  * on the matched tracker record — who's CURRENTLY responsible for
@@ -464,7 +464,7 @@ function buildNotificationBody(info) {
     `  Year: ${f.year || "(not given)"}`,
     `  Major / School: ${f.major || "(not given)"}`,
     `  ${contactLine}`,
-    `  Who they said connected them (form): ${f.connector || "(not given)"}`,
+    `  Who connected you? (form response): ${f.connector || "(not given)"}`,
   ];
   if (trackerPointPerson !== null) {
     lines.push(`  Point person on file (tracker): ${trackerPointPerson}`);
@@ -525,7 +525,7 @@ function buildNotificationHtml(info) {
       ${row("Year", f.year)}
       ${row("Major / School", f.major)}
       ${row(contactLabel, contactValue)}
-      ${row("Who they said connected them (form)", f.connector, null)}
+      ${row("Who connected you? (form response)", f.connector, null)}
       ${trackerPointPersonRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
