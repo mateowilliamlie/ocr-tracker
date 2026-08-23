@@ -615,6 +615,16 @@
       return;
     }
 
+    // Contacts exist but no event has a date yet — the New Contacts line
+    // can still draw, but the 3 event-stage lines have nothing to plot and
+    // would otherwise disappear with zero explanation. Surface that
+    // distinctly rather than silently rendering a chart that looks like
+    // the events don't exist.
+    let noDatedEventsNotice = "";
+    if (!datedEvents.length && events.length) {
+      noDatedEventsNotice = `<text x="${width / 2}" y="16" text-anchor="middle" class="events-line-axis-label" style="font-weight:600;">Events don't have dates yet, so interested/signups/attended aren't shown here.</text>`;
+    }
+
     const eventDayNums = datedEvents.map(x => toDay(x.ev.event_date));
     const contactDayNums = Object.keys(newContactsByDay).map(Number);
     const allDayNums = eventDayNums.concat(contactDayNums);
@@ -679,7 +689,7 @@
       }
     }
 
-    svg.innerHTML = svgOut + tickLabels;
+    svg.innerHTML = noDatedEventsNotice + svgOut + tickLabels;
 
     document.getElementById("events-legend").innerHTML = `
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--info);"></span>Interested</span>
