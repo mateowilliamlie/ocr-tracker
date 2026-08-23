@@ -1556,8 +1556,8 @@
 
       wrap.innerHTML = `
         <div class="row">
-          <span class="name" data-toggle="${c.id}"><span class="row-index">${i + 1}.</span>${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
-          <span class="connector${isUnconnected(c) ? " unconnected" : ""}${!hasAssignedPointPerson(c) ? " unassigned" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
+          <span class="name" data-toggle="${c.id}"><span class="row-index">${i + 1}.</span>${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isFullyUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
+          <span class="connector${isFullyUnconnected(c) ? " unconnected" : ""}${!hasAssignedPointPerson(c) ? " unassigned" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
@@ -1603,11 +1603,26 @@
   // "Nigel", "Ignatius"...) if just .includes()'d.
   const NON_PERSON_CONNECTOR_WORDS = ["ig"];
 
-  function isUnconnected(c) {
-    const v = (c.connector || "").trim().toLowerCase();
+  function isUnconnectedValue(raw) {
+    const v = (raw || "").trim().toLowerCase();
     if (!v) return true;
     if (NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k))) return true;
     return NON_PERSON_CONNECTOR_WORDS.some(w => new RegExp(`\\b${w}\\b`).test(v));
+  }
+
+  // Whether contacts.connector SPECIFICALLY is a real person — used when
+  // deciding if that one field can stand in as the point person.
+  function isUnconnected(c) {
+    return isUnconnectedValue(c.connector);
+  }
+
+  // Whether we have NO idea who brought this person in via EITHER channel —
+  // outreach (contacts.connector) or their own event sign-up Form
+  // (contacts.last_form_connector). A real name in either one means
+  // they're not actually unconnected, just missing one of the two; only
+  // flag the "Unconnected" badge when both are empty/non-person.
+  function isFullyUnconnected(c) {
+    return isUnconnectedValue(c.connector) && isUnconnectedValue(c.last_form_connector);
   }
 
   function interestsSummary(c) {
