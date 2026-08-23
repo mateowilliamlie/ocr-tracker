@@ -475,14 +475,20 @@
   // than re-derived, so outreach-rate matches what the Unconnected badge means
   // everywhere else in the app. ----
   const NON_PERSON_CONNECTOR_KEYWORDS = [
-    "instagram", "social media", "facebook", "tiktok", "walked in", "walk-in",
+    "instagram", "insta", "social media", "facebook", "tiktok", "walked in", "walk-in",
     "word of mouth", "flyer", "poster", "randomly", "no one", "nobody", "n/a", "none", "google form"
   ];
+
+  // Checked as a whole word, not a substring like the keywords above —
+  // "ig" is short enough to falsely match plenty of real names ("Craig",
+  // "Nigel", "Ignatius"...) if just .includes()'d.
+  const NON_PERSON_CONNECTOR_WORDS = ["ig"];
 
   function isUnconnected(c) {
     const v = (c.connector || "").trim().toLowerCase();
     if (!v) return true;
-    return NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k));
+    if (NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k))) return true;
+    return NON_PERSON_CONNECTOR_WORDS.some(w => new RegExp(`\\b${w}\\b`).test(v));
   }
 
   // A contact has a *resolved* point person if:
