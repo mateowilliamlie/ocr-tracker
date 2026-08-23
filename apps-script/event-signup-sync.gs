@@ -616,6 +616,15 @@ function findContactsByHandle(handle) {
 // contacts.phone is NOT NULL in Supabase, so this must never end up
 // passing null there — an empty string satisfies the constraint for
 // anyone who gave neither a WhatsApp number nor a usable alt-contact.
+//
+// contacts.connector ("Outreached by" on the website) is deliberately left
+// unset here — it's purely day-outreach/website info (who met this person
+// in person and typed themselves into Quick Add/Add Contact/Edit), and
+// nobody outreached to someone who signed up cold through the Form. Their
+// own answer to "Who connected you?" goes to contacts.last_form_connector
+// instead, via the caller's updateLastFormConnector() call right after
+// this returns — never into connector, which would silently relabel form
+// data as if it were outreach data.
 function createContact(form, altContact) {
   const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
   const payload = {
@@ -626,7 +635,6 @@ function createContact(form, altContact) {
     year: form.year || null,
     phone: form.rawPhone || (isInstagram ? "" : (form.altContact || "")),
     instagram: isInstagram ? altContact.handle : null,
-    connector: form.connector || null,
     interest_event: true,
     source: "online",
     season_id: SEASON_ID,
