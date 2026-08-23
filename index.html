@@ -403,12 +403,6 @@
 
   #login-error { display: none; font-size: 13px; color: var(--danger); margin-bottom: 12px; }
 
-  .add-row {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-  }
-
   #auth-gate, #access-denied {
     display: flex;
     align-items: center;
@@ -467,8 +461,6 @@
     border-radius: 999px;
     background: var(--info-bg);
     color: var(--info);
-    margin-left: 6px;
-    vertical-align: middle;
   }
   .unconnected-badge {
     display: inline-block;
@@ -480,8 +472,6 @@
     border-radius: 999px;
     background: var(--warn-bg);
     color: var(--warn);
-    margin-left: 6px;
-    vertical-align: middle;
   }
 
   /* Event Signups tab: which event(s) a contact is down for, colored by
@@ -499,6 +489,11 @@
   .event-badge-registered { background: var(--success-bg); color: var(--success); }
   .event-badge-attended { background: var(--info-bg); color: var(--info); }
   .contact-line { font-size: 13px; color: var(--text-muted); padding: 0 14px 10px; }
+  /* Only when it directly follows the name row (no connector-flag warning
+     in between) — pulls it closer to the name, since .row's own bottom
+     padding otherwise left a bigger gap than a flag in between needs. */
+  .row + .contact-line { margin-top: -6px; }
+  .connector-flag { font-size: 12px; color: var(--warn); background: var(--warn-bg); padding: 6px 14px; margin-bottom: 8px; }
   .muted { color: var(--text-muted); }
   .event-chip {
     font-family: var(--font);
@@ -631,6 +626,10 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
   }
 
   .row .connector {
@@ -915,9 +914,6 @@
 
   <div id="app-content" style="display:none;">
   <a href="seasons.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Seasons</a>
-  <div class="add-row">
-    <button id="open-add" class="btn-primary">+ New</button>
-  </div>
 
   <div id="confirm-banner"></div>
 
@@ -1250,7 +1246,6 @@
     }, 160);
   }
 
-  const openBtn = document.getElementById("open-add");
   const cancelBtn = document.getElementById("cancel-btn");
   const form = document.getElementById("add-form");
   const submitBtn = document.getElementById("submit-btn");
@@ -1437,6 +1432,16 @@
       .filter(x => x.status !== null);
   }
 
+  // A contact met in person (source stays non-"online") can still later
+  // register for an event via the Form — matching an existing contact
+  // never touches `source`, since that's meant to record how they
+  // originally entered the tracker, not how every subsequent interaction
+  // happened. Event Signups should surface them too, not just contacts
+  // whose ORIGIN was the Form.
+  function hasAnyEventRegistration(c) {
+    return seasonEvents.some(ev => !!eventRegisteredMap[`${c.id}::${ev.id}`]);
+  }
+
   // "Phone / WeChat ID" is one free-text field — a run of digits (allowing
   // spaces/+/-/parens) reads as a real number; anything else (a WeChat
   // handle, "wechat: xyz", etc.) gets flagged so it's not mistaken for a
@@ -1487,7 +1492,7 @@
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
 
     if (activeTab === "online") {
-      list = list.filter(c => c.source === "online");
+      list = list.filter(c => c.source === "online" || hasAnyEventRegistration(c));
       if (eventSignupFilter !== "all") {
         list = list.filter(c => contactEventStatus(c, eventSignupFilter) !== null);
       }
@@ -1542,12 +1547,13 @@
       wrap.innerHTML = `
         <div class="row">
           <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
-          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(c.connector || "—")}</span>
+          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
+        ${connectorFlags(c).map(f => `<div class="connector-flag">${escapeHtml(f)}</div>`).join("")}
         ${activeTab === "online" ? `<div class="contact-line">${contactSummary(c)}</div>` : ""}
         ${contactEventList.length > 0 ? `<div class="event-badges">${contactEventList.map(({ ev, status }) => `<span class="event-badge event-badge-${status}">${escapeHtml(ev.name)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
@@ -1603,6 +1609,35 @@
     return c.connector || "Current point person (not set)";
   }
 
+  // The point person only ever differs from who originally connected them
+  // when ownership was explicitly reassigned (followup_owner_type isn't
+  // the default) — worth flagging so a member notices instead of assuming
+  // the two are always the same person.
+  function pointPersonDiffersFromConnector(c) {
+    return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
+  }
+
+  // Two independent things can disagree about who connected a contact:
+  // 1. Ownership was reassigned on the tracker itself (point person !=
+  //    original connector) — pointPersonDiffersFromConnector above.
+  // 2. What the respondent typed on their OWN event sign-up Form
+  //    (contacts.last_form_connector, saved by event-signup-sync.gs on
+  //    every submission) doesn't match who's currently the point person —
+  //    e.g. a member already met them in person and is their point person
+  //    on file, but the respondent separately named someone else on the
+  //    Form. Both are worth surfacing, not just whichever fires first.
+  function connectorFlags(c) {
+    const flags = [];
+    const pointPerson = followupOwnerDisplay(c);
+    if (pointPersonDiffersFromConnector(c)) {
+      flags.push(`Connected by ${c.connector} — different from point person above, worth confirming`);
+    }
+    if (c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
+      flags.push(`Per their event sign-up form, connected by ${c.last_form_connector} — different from point person above, worth confirming`);
+    }
+    return flags;
+  }
+
   function detailFieldsHtml(c) {
     const fields = [
       ["Nationality", c.nationality],
@@ -1615,8 +1650,10 @@
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
+      ["Connected by", c.connector],
+      ["Per their event sign-up form", c.last_form_connector],
       ["Suggest to connect with", c.suggested_connection],
-      ["Following up", followupOwnerDisplay(c)],
+      ["Point person", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
       ["Progress", c.progress],
       ["Other school (note)", c.other_campus_note]
@@ -1872,20 +1909,6 @@
   tabInPerson.addEventListener("click", () => setActiveTab("inperson"));
   tabOnline.addEventListener("click", () => setActiveTab("online"));
 
-  openBtn.addEventListener("click", () => {
-    editingId = null;
-    addDialogTitle.textContent = "Add a contact";
-    submitBtn.textContent = "Save contact";
-    form.reset();
-    form.campus.value = currentCampusId;
-    document.getElementById("other-campus-field").style.display = "none";
-    document.getElementById("followup-other-field").style.display = "none";
-    fpBirthday.clear();
-    fpReminderDate.clear();
-    renderEventInterestCheckboxes(new Set());
-    openDialog(dialog);
-  });
-
   cancelBtn.addEventListener("click", () => closeDialog(dialog));
 
   form.addEventListener("submit", async (e) => {
@@ -2034,7 +2057,6 @@
       concludeBtn.style.display = "inline-block";
       reopenBtn.style.display = "none";
     }
-    openBtn.style.display = (isAdmin || !seasonConcluded) ? "inline-block" : "none";
     render();
   }
 
