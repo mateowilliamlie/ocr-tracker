@@ -637,7 +637,8 @@
     font-size: 13px;
     color: var(--text-muted);
   }
-  .row .connector.unconnected {
+  .row .connector.unconnected,
+  .row .connector.unassigned {
     font-style: italic;
     opacity: 0.65;
   }
@@ -1026,7 +1027,8 @@
       <div class="field">
         <label for="f-followup-owner">Who's following up?</label>
         <select id="f-followup-owner" name="followup_owner_type">
-          <option value="connector">Current point person</option>
+          <option value="">Not yet assigned</option>
+          <option value="connector">Connector (who connected them)</option>
           <option value="suggested">Suggested point person</option>
           <option value="other">Other</option>
         </select>
@@ -1555,7 +1557,7 @@
       wrap.innerHTML = `
         <div class="row">
           <span class="name" data-toggle="${c.id}"><span class="row-index">${i + 1}.</span>${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
-          <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
+          <span class="connector${isUnconnected(c) ? " unconnected" : ""}${!hasAssignedPointPerson(c) ? " unassigned" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
@@ -1617,16 +1619,28 @@
     return list.length ? list.join(", ") : "—";
   }
 
+  // Deliberately never guesses — point person starts and stays blank until
+  // a member explicitly assigns one (even picking "Connector" is an
+  // explicit choice, not a fallback), so it's never mistaken for a
+  // confirmed assignment when nobody's actually looked at it yet.
+  const POINT_PERSON_UNSET = "Not yet assigned";
+
   function followupOwnerDisplay(c) {
-    if (c.followup_owner_type === "suggested") return c.suggested_connection || "Suggested point person (not set)";
-    if (c.followup_owner_type === "other") return c.followup_owner_other || "";
-    return c.connector || "Current point person (not set)";
+    if (c.followup_owner_type === "connector") return c.connector || POINT_PERSON_UNSET;
+    if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
+    if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
+    return POINT_PERSON_UNSET;
+  }
+
+  function hasAssignedPointPerson(c) {
+    return followupOwnerDisplay(c) !== POINT_PERSON_UNSET;
   }
 
   // The point person only ever differs from who originally connected them
-  // when ownership was explicitly reassigned (followup_owner_type isn't
-  // the default) — worth flagging so a member notices instead of assuming
-  // the two are always the same person.
+  // when ownership was explicitly assigned to someone else (suggested/
+  // other) — worth flagging so a member notices instead of assuming the
+  // two are always the same person. Assigning "connector" or leaving it
+  // unassigned can't disagree with the connector by definition.
   function pointPersonDiffersFromConnector(c) {
     return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
   }
@@ -1644,10 +1658,10 @@
     const flags = [];
     const pointPerson = followupOwnerDisplay(c);
     if (pointPersonDiffersFromConnector(c)) {
-      flags.push(`Connected by ${c.connector} — different from point person above, worth confirming`);
+      flags.push(`Outreached by ${c.connector} — different from point person above, worth confirming`);
     }
-    if (c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
-      flags.push(`Per their event sign-up form, connected by ${c.last_form_connector} — different from point person above, worth confirming`);
+    if (hasAssignedPointPerson(c) && c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
+      flags.push(`Who connected you? (their form): ${c.last_form_connector} — different from point person above, worth confirming`);
     }
     return flags;
   }
@@ -1664,8 +1678,8 @@
       ["Birthday", c.birthday ? formatDate(c.birthday) : ""],
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
-      ["Connected by", c.connector],
-      ["Per their event sign-up form", c.last_form_connector],
+      ["Outreached by", c.connector],
+      ["Who connected you?", c.last_form_connector],
       ["Suggest to connect with", c.suggested_connection],
       ["Point person", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
@@ -1772,7 +1786,7 @@
     form.instagram.value = c.instagram || "";
     form.faith_background.value = c.faith_background || "";
     form.suggested_connection.value = c.suggested_connection || "";
-    form.followup_owner_type.value = c.followup_owner_type || "connector";
+    form.followup_owner_type.value = c.followup_owner_type || "";
     document.getElementById("followup-other-field").style.display = form.followup_owner_type.value === "other" ? "block" : "none";
     form.followup_owner_other.value = c.followup_owner_other || "";
     form.interest_lg.checked = !!c.interest_lg;
@@ -1949,7 +1963,7 @@
       instagram: form.instagram.value.trim().replace(/^@/, "") || null,
       faith_background: form.faith_background.value || null,
       suggested_connection: form.suggested_connection.value.trim() || null,
-      followup_owner_type: form.followup_owner_type.value,
+      followup_owner_type: form.followup_owner_type.value || null,
       followup_owner_other: form.followup_owner_type.value === "other" ? (form.followup_owner_other.value.trim() || null) : null,
       interest_lg: form.interest_lg.checked,
       age: form.age.value ? parseInt(form.age.value, 10) : null,

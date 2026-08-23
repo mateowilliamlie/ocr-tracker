@@ -517,10 +517,14 @@
     return list.length ? list.join(", ") : "—";
   }
 
+  // Deliberately never guesses — point person starts and stays blank until
+  // a member explicitly assigns one, so it's never mistaken for a confirmed
+  // assignment when nobody's actually looked at it yet. Mirrors index.html.
   function followupOwnerDisplay(c) {
-    if (c.followup_owner_type === "suggested") return c.suggested_connection || "Suggested point person (not set)";
-    if (c.followup_owner_type === "other") return c.followup_owner_other || "";
-    return c.connector || "Current point person (not set)";
+    if (c.followup_owner_type === "connector") return c.connector || "Not yet assigned";
+    if (c.followup_owner_type === "suggested") return c.suggested_connection || "Not yet assigned";
+    if (c.followup_owner_type === "other") return c.followup_owner_other || "Not yet assigned";
+    return "Not yet assigned";
   }
 
   async function loadReminders() {

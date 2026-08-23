@@ -491,18 +491,16 @@
     return NON_PERSON_CONNECTOR_WORDS.some(w => new RegExp(`\\b${w}\\b`).test(v));
   }
 
-  // A contact has a *resolved* point person if:
-  //  - followup_owner_type is "connector" (or unset/legacy) and the connector
-  //    field is a real name (not blank, not a non-person phrase), OR
-  //  - followup_owner_type is "suggested" and suggested_connection is set, OR
-  //  - followup_owner_type is "other" and followup_owner_other is set.
-  // This mirrors followupOwnerDisplay()'s branches in index.html but returns
-  // a boolean instead of display text.
+  // A contact has a *resolved* point person only when a member has
+  // EXPLICITLY assigned one — unset/blank followup_owner_type means nobody's
+  // looked at it yet, not "assume the connector." Mirrors
+  // followupOwnerDisplay()'s branches in index.html but returns a boolean.
   function hasResolvedPointPerson(c) {
-    const type = c.followup_owner_type || "connector";
+    const type = c.followup_owner_type;
+    if (type === "connector") return !isUnconnected(c);
     if (type === "suggested") return !!(c.suggested_connection && c.suggested_connection.trim());
     if (type === "other") return !!(c.followup_owner_other && c.followup_owner_other.trim());
-    return !isUnconnected(c);
+    return false;
   }
 
   async function loadDashboardData() {

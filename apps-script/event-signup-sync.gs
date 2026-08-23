@@ -376,14 +376,18 @@ function sourceLabel(source) {
 }
 
 // Mirrors index.html's followupOwnerDisplay — who's CURRENTLY responsible
-// for following up with this contact, which can differ from c.connector
-// (who originally connected them) once ownership's been reassigned via the
-// tracker's own Edit dialog. The Form's cross-check below compares against
-// this, not the raw connector, since this is what's actually operative.
+// for following up with this contact. Deliberately never guesses from
+// contacts.connector: point person starts and stays unassigned until a
+// member explicitly picks one (even picking "Connector" is an explicit
+// choice), so this never reads as a confirmed assignment when nobody's
+// actually looked at it yet.
+const POINT_PERSON_UNSET = "Not yet assigned";
+
 function followupOwnerDisplay(c) {
-  if (c.followup_owner_type === "suggested") return c.suggested_connection || "Suggested point person (not set)";
-  if (c.followup_owner_type === "other") return c.followup_owner_other || "";
-  return c.connector || "Current point person (not set)";
+  if (c.followup_owner_type === "connector") return c.connector || POINT_PERSON_UNSET;
+  if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
+  if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
+  return POINT_PERSON_UNSET;
 }
 
 // True only when ownership was actually reassigned away from the default
@@ -409,8 +413,9 @@ function crossCheckStatus(info) {
     // Compared against the CURRENT point person, not the raw connector —
     // ownership may have been reassigned since whoever originally connected
     // them, so that's the value actually worth confirming the form against.
-    // Skip the "(not set)" placeholder text itself reading as a mismatch.
-    if (formConnector && trackerPointPerson && !trackerPointPerson.includes("(not set)") && formConnector !== trackerPointPerson) {
+    // Skip when nobody's assigned a point person yet — that's not a real
+    // disagreement, just nothing to compare against.
+    if (formConnector && trackerPointPerson && trackerPointPerson !== POINT_PERSON_UNSET.toLowerCase() && formConnector !== trackerPointPerson) {
       lines.unshift(`They and the tracker disagree on who connected them — worth confirming which is right.`);
       status = "warn";
     }
