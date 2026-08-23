@@ -631,6 +631,7 @@
     align-items: center;
     gap: 6px;
   }
+  .row-index { color: var(--text-muted); font-weight: 400; }
 
   .row .connector {
     font-size: 13px;
@@ -1537,7 +1538,7 @@
     }
     emptyStateEl.style.display = "none";
 
-    list.forEach(c => {
+    list.forEach((c, i) => {
       const wrap = document.createElement("div");
       wrap.className = "row-wrap";
 
@@ -1546,7 +1547,7 @@
 
       wrap.innerHTML = `
         <div class="row">
-          <span class="name" data-toggle="${c.id}">${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
+          <span class="name" data-toggle="${c.id}"><span class="row-index">${i + 1}.</span>${escapeHtml(c.name)}${c.source === "online" ? '<span class="source-badge">Online</span>' : ""}${isUnconnected(c) ? '<span class="unconnected-badge">Unconnected</span>' : ""}</span>
           <span class="connector${isUnconnected(c) ? " unconnected" : ""}">${escapeHtml(followupOwnerDisplay(c))}</span>
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}

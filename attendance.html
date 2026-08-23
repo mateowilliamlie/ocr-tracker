@@ -863,6 +863,8 @@
     border-radius: var(--radius);
     padding: 12px;
   }
+  .stat-card-overall { border-color: var(--accent); }
+  .stat-card.stat-card-overall .stat-card-label { color: var(--accent); font-weight: 700; }
   .stat-card .stat-card-label {
     font-size: 12px;
     color: var(--text-muted);
@@ -1315,6 +1317,17 @@
     return { interested, registered, attended };
   }
 
+  // Unique people across ALL events, not a sum of the per-event counts —
+  // someone registered for 3 events should count once here, not 3 times.
+  function overallCounts() {
+    const countUnique = map => contacts.filter(c => events.some(ev => map[`${c.id}::${ev.id}`])).length;
+    return {
+      interested: countUnique(interestMap),
+      registered: countUnique(registeredMap),
+      attended: countUnique(attendanceMap),
+    };
+  }
+
   // Highest stage reached wins the headline label — someone attended is
   // worth saying even if they were never marked registered (e.g. added at
   // the door), same idea for registered-without-interest.
@@ -1451,8 +1464,17 @@
     document.getElementById("matrix-scroll").style.display = "block";
     document.getElementById("event-drill-list").style.display = "none";
 
+    const overall = overallCounts();
     document.getElementById("event-stat-cards").innerHTML = `
       <div class="stat-card-grid">
+        <div class="stat-card stat-card-overall">
+          <p class="stat-card-label">Overall (unique people)</p>
+          <div class="stat-card-nums">
+            <div><p class="stat-num" style="color:var(--warn);">${overall.interested}</p><p class="stat-num-label" style="color:var(--warn);">interested</p></div>
+            <div><p class="stat-num" style="color:var(--success);">${overall.registered}</p><p class="stat-num-label" style="color:var(--success);">registered</p></div>
+            <div><p class="stat-num" style="color:var(--info);">${overall.attended}</p><p class="stat-num-label" style="color:var(--info);">attended</p></div>
+          </div>
+        </div>
         ${events.map(ev => {
           const { interested, registered, attended } = eventCounts(ev.id);
           return `
