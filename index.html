@@ -808,27 +808,33 @@
 
   @media (max-width: 520px) {
     .topbar {
-      grid-template-columns: 1fr;
+      grid-template-columns: auto 1fr auto;
       row-gap: 6px;
       padding: 8px 12px;
     }
     .theme-toggle-wrap {
       grid-column: 1;
-      justify-self: center;
+      justify-self: start;
     }
     .topbar-brand {
-      grid-column: 1;
+      grid-column: 2;
       justify-self: center;
     }
     .topbar-right {
-      grid-column: 1;
+      grid-column: 1 / -1;
       justify-self: end;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       justify-content: flex-end;
     }
     .admin-area {
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       justify-content: flex-end;
+    }
+    /* "Signed in as member/admin" is a nicety, not essential — dropping it
+       on mobile is what actually lets Quick Add and Sign out share one
+       line instead of the whole topbar-right row wrapping to a second. */
+    .admin-status {
+      display: none;
     }
     .topbar-brand .ocr-wordmark-fallback,
     #wordmark-fallback {
