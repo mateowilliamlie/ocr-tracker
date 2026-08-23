@@ -566,17 +566,20 @@
     renderActiveTab();
   });
 
-  // Total tab: 3 lines (interested / signups=registered / attended) across
-  // events in season order. SVG hand-built, no chart library, matching the
-  // rest of the app.
   // Total tab: x-axis is calendar days spanning the season's earliest to
   // latest event date (inclusive), not event index — so spacing reflects
   // real time gaps between events. Days without an event sit at 0 on all
   // 3 lines. Any day that does have an event gets the event's name as a
   // sub-label under its day-of-month tick.
+  //
+  // viewBox is set to the SVG's actual measured pixel size (not a fixed
+  // 560x190) so preserveAspectRatio="none" has nothing to distort — a
+  // mismatched viewBox vs. rendered box was stretching the chart.
   function renderTotalLineChart(perEventCounts) {
     const svg = document.getElementById("events-line-chart");
-    const width = 560, height = 190;
+    const width = svg.clientWidth || 560;
+    const height = svg.clientHeight || 190;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     const padTop = 26, padBottom = 40, padSide = 28;
 
     const datedEvents = events
@@ -651,7 +654,9 @@
   // instead of a line — same SVG area, same visual language.
   function renderSingleEventChart(counts) {
     const svg = document.getElementById("events-line-chart");
-    const width = 560, height = 180;
+    const width = svg.clientWidth || 560;
+    const height = svg.clientHeight || 190;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     const padTop = 26, padBottom = 26, padSide = 60;
     const plotHeight = height - padTop - padBottom;
     const maxCount = Math.max(counts.interested, counts.registered, counts.attended, 1);

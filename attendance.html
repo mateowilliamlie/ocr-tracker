@@ -6,6 +6,8 @@
 <title>OCR — Event Attendance</title>
 <script src="theme.js"></script>
 <script src="loading.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
@@ -1082,7 +1084,7 @@
         </div>
         <div class="field">
           <label for="f-event-date">Event date</label>
-          <input id="f-event-date" name="event_date" type="date" required />
+          <input id="f-event-date" name="event_date" type="text" placeholder="Select a date" required autocomplete="off" />
         </div>
         <div class="form-actions">
           <button type="button" id="add-event-cancel-btn" class="btn-ghost">Close</button>
@@ -1580,9 +1582,17 @@
   const addEventForm = document.getElementById("add-event-form");
   const addEventCancelBtn = document.getElementById("add-event-cancel-btn");
   const addEventSubmitBtn = document.getElementById("add-event-submit-btn");
+  const fpEventDate = flatpickr("#f-event-date", {
+    dateFormat: "Y-m-d",
+    altInput: true,
+    altFormat: "M j, Y",
+    allowInput: true,
+    disableMobile: true
+  });
 
   document.getElementById("open-add-event").addEventListener("click", () => {
     addEventForm.reset();
+    fpEventDate.clear();
     renderManageEventsList();
     openDialog(addEventDialog);
   });
@@ -1597,27 +1607,37 @@
     list.innerHTML = events.map(ev => `
       <div class="manage-event-row" data-event-id="${ev.id}" style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
         <span class="manage-event-name" style="flex:1; font-size:14px;">${escapeHtml(ev.name)}</span>
-        <input type="date" class="manage-event-date-input" data-event-id="${ev.id}" value="${ev.event_date || ""}" style="font-family:var(--font); font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:#FFFFFF; color:#1A1D23;" />
+        <input type="text" class="manage-event-date-input" data-event-id="${ev.id}" value="${ev.event_date || ""}" placeholder="No date" autocomplete="off" style="font-family:var(--font); font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:#FFFFFF; color:#1A1D23; width:110px;" />
         <button type="button" class="btn-ghost rename-event-btn" data-event-id="${ev.id}" style="padding:6px 12px; font-size:13px;">Rename</button>
       </div>
     `).join("");
-  }
 
-  document.getElementById("manage-events-list").addEventListener("change", async (e) => {
-    const dateInput = e.target.closest(".manage-event-date-input");
-    if (!dateInput) return;
-    const eventId = dateInput.dataset.eventId;
-    const newDate = dateInput.value || null;
-    try {
-      const { error } = await sb.from("events").update({ event_date: newDate }).eq("id", eventId);
-      if (error) throw error;
-      showBanner("Event date updated", false);
-      await loadEventsAndAttendance();
-      renderManageEventsList();
-    } catch (err) {
-      showBanner(`Couldn't update event date — ${err.message || "check your connection"}`, true);
-    }
-  });
+    // Dynamically-created rows, so flatpickr is (re-)attached per row after
+    // every render rather than once at page load — same pattern as the
+    // per-contact reminder-date picker in index.html.
+    list.querySelectorAll(".manage-event-date-input").forEach(input => {
+      flatpickr(input, {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "M j, Y",
+        allowInput: true,
+        disableMobile: true,
+        onChange: async (selectedDates, dateStr) => {
+          const eventId = input.dataset.eventId;
+          const newDate = dateStr || null;
+          try {
+            const { error } = await sb.from("events").update({ event_date: newDate }).eq("id", eventId);
+            if (error) throw error;
+            showBanner("Event date updated", false);
+            await loadEventsAndAttendance();
+            renderManageEventsList();
+          } catch (err) {
+            showBanner(`Couldn't update event date — ${err.message || "check your connection"}`, true);
+          }
+        }
+      });
+    });
+  }
 
   document.getElementById("manage-events-list").addEventListener("click", async (e) => {
     const renameBtn = e.target.closest(".rename-event-btn");
@@ -1676,6 +1696,7 @@
       });
       if (error) throw error;
       addEventForm.reset();
+      fpEventDate.clear();
       showBanner("Event added", false);
       await loadEventsAndAttendance();
       renderManageEventsList();
