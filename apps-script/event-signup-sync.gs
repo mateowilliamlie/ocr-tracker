@@ -46,15 +46,15 @@
  * respondent. The connector is deliberately shown as two SEPARATE lines,
  * never merged: "Who connected you? (form response)" is exactly what the
  * respondent typed (or "(not given)" — it's the one optional Form
- * question), and "Point person on file (tracker)" is followupOwnerDisplay()
- * on the matched tracker record — who's CURRENTLY responsible for
- * following up, which can differ from contacts.connector (who originally
- * connected them) once ownership's been reassigned via the tracker's own
- * Edit dialog; that reassignment gets its own note when it applies. Showing
- * both the form's answer and the tracker's current point person lets the
- * team actually confirm they agree instead of silently trusting one over
- * the other; if they disagree, the cross-check section flags it
- * explicitly. Sent via MailApp, so no extra credentials or setup beyond a
+ * question), and "Outreached by (tracker)" is contacts.connector on the
+ * matched tracker record — a member met them in person and recorded it
+ * via Quick Add/Add Contact/Edit, entirely separate from point person
+ * (who's currently assigned to follow up, a later and always-manual
+ * step this email doesn't report on). Showing the form's answer and the
+ * tracker's outreach record side by side lets the team actually confirm
+ * they agree instead of silently trusting one over the other; if they
+ * disagree, the cross-check section flags it explicitly. Sent via
+ * MailApp, so no extra credentials or setup beyond a
  * valid Google account running the
  * script (free quota: 100 emails/day on a plain Gmail account, 1,500/day
  * on Workspace — far above real signup volume).
@@ -374,28 +374,6 @@ function sourceLabel(source) {
     : "Added manually by an OCR member (in-person conversation)";
 }
 
-// Mirrors index.html's followupOwnerDisplay — who's CURRENTLY responsible
-// for following up with this contact. Deliberately never guesses from
-// contacts.connector: point person starts and stays unassigned until a
-// member explicitly picks one (even picking "Connector" is an explicit
-// choice), so this never reads as a confirmed assignment when nobody's
-// actually looked at it yet.
-const POINT_PERSON_UNSET = "Not yet assigned";
-
-function followupOwnerDisplay(c) {
-  if (c.followup_owner_type === "connector") return c.connector || POINT_PERSON_UNSET;
-  if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
-  if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
-  return POINT_PERSON_UNSET;
-}
-
-// True only when ownership was actually reassigned away from the default
-// (followup_owner_type unset just means point person === connector) AND
-// there's an original connector on record to contrast it with.
-function pointPersonDiffersFromConnector(c) {
-  return (c.followup_owner_type === "suggested" || c.followup_owner_type === "other") && !!c.connector;
-}
-
 // Cross-check section content shared by the plain-text and HTML bodies:
 // a status ("ok"/"warn") plus one or more lines of detail.
 function crossCheckStatus(info) {
@@ -407,20 +385,15 @@ function crossCheckStatus(info) {
     const c = info.contact;
     lines.push(`How they entered the tracker: ${sourceLabel(c.source)}`);
     const formConnector = f.connector.trim().toLowerCase();
-    const trackerPointPerson = followupOwnerDisplay(c).trim().toLowerCase();
+    const trackerOutreachedBy = (c.connector || "").trim().toLowerCase();
 
-    // Compared against the CURRENT point person, not the raw connector —
-    // ownership may have been reassigned since whoever originally connected
-    // them, so that's the value actually worth confirming the form against.
-    // Skip when nobody's assigned a point person yet — that's not a real
-    // disagreement, just nothing to compare against.
-    if (formConnector && trackerPointPerson && trackerPointPerson !== POINT_PERSON_UNSET.toLowerCase() && formConnector !== trackerPointPerson) {
+    // Compared against contacts.connector ("Outreached by" on the website —
+    // who a member met in person and recorded, separate from the tracker's
+    // point person assignment) since that's the same "who connected them"
+    // question the Form is asking, just from the tracker's own side.
+    if (formConnector && trackerOutreachedBy && formConnector !== trackerOutreachedBy) {
       lines.unshift(`They and the tracker disagree on who connected them — worth confirming which is right.`);
       status = "warn";
-    }
-
-    if (pointPersonDiffersFromConnector(c)) {
-      lines.push(`Point person was reassigned — originally connected by ${c.connector}, current point person is ${followupOwnerDisplay(c)}.`);
     }
   } else if (info.matchStatus === "created") {
     lines.push("Wasn't in the tracker yet — added automatically from their sign-up answers.");
@@ -448,12 +421,12 @@ function buildNotificationBody(info) {
     : `WhatsApp: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
   const crossCheck = crossCheckStatus(info);
   // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is who's CURRENTLY the point
-  // person on record (which can differ from who originally connected them
-  // if ownership was reassigned — see crossCheck for that flag). They
-  // should usually agree with the form, but showing both lets the team
-  // actually confirm that instead of assuming it.
-  const trackerPointPerson = info.matchStatus === "matched" ? followupOwnerDisplay(info.contact) : null;
+  // say connected them; the tracker value is contacts.connector
+  // ("Outreached by" on the website — a member met them in person and
+  // recorded it via Quick Add/Add Contact/Edit). They should usually
+  // agree with the form, but showing both lets the team actually confirm
+  // that instead of assuming it.
+  const trackerOutreachedBy = info.matchStatus === "matched" ? (info.contact.connector || "(not given)") : null;
 
   const lines = [
     `${f.name || "(no name given)"} just signed up for "${event || "(no event given)"}" via the Google Form.`,
@@ -466,8 +439,8 @@ function buildNotificationBody(info) {
     `  ${contactLine}`,
     `  Who connected you? (form response): ${f.connector || "(not given)"}`,
   ];
-  if (trackerPointPerson !== null) {
-    lines.push(`  Point person on file (tracker): ${trackerPointPerson}`);
+  if (trackerOutreachedBy !== null) {
+    lines.push(`  Outreached by (tracker): ${trackerOutreachedBy}`);
   }
   lines.push("", "Tracker cross-check:", ...crossCheck.lines.map(l => `  ${l}`));
 
@@ -497,16 +470,11 @@ function buildNotificationHtml(info) {
       </tr>`;
 
   // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is who's CURRENTLY the point
-  // person on record, shown only when there's a tracker record to compare
-  // against. Flags in a note when that's been reassigned away from who
-  // originally connected them, so it's not mistaken for a fresh mismatch.
-  const trackerPointPersonRow = info.matchStatus === "matched"
-    ? row(
-        "Point person on file (tracker)",
-        followupOwnerDisplay(info.contact),
-        pointPersonDiffersFromConnector(info.contact) ? `(reassigned from ${info.contact.connector})` : null
-      )
+  // say connected them; the tracker value is contacts.connector
+  // ("Outreached by" on the website), shown only when there's a tracker
+  // record to compare against.
+  const trackerOutreachedByRow = info.matchStatus === "matched"
+    ? row("Outreached by (tracker)", info.contact.connector, null)
     : "";
 
   const crossCheckLinesHtml = crossCheck.lines.map(l => `<div style="margin-top:4px;">${escapeHtml(l)}</div>`).join("");
@@ -526,7 +494,7 @@ function buildNotificationHtml(info) {
       ${row("Major / School", f.major)}
       ${row(contactLabel, contactValue)}
       ${row("Who connected you? (form response)", f.connector, null)}
-      ${trackerPointPersonRow}
+      ${trackerOutreachedByRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
       <div style="font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.04em;">Tracker cross-check</div>
