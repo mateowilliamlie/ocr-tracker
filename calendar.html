@@ -6,6 +6,7 @@
 <title>OCR — Calendar</title>
 <script src="theme.js"></script>
 <script src="loading.js"></script>
+<script src="nav.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
@@ -348,9 +349,6 @@
   </div>
 
   <div id="app-content" style="display:none;">
-    <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
-    <span id="calendar-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Calendar</span>
-
     <div id="confirm-banner"></div>
 
     <div id="calendar-loading-state" class="empty-state" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">Loading reminders…</div>
@@ -413,8 +411,6 @@
   }
 
   const adminArea = document.getElementById("admin-area");
-  const backLink = document.getElementById("back-link");
-  const calendarTitleLink = document.getElementById("calendar-title-link");
 
   const seasonId = new URLSearchParams(window.location.search).get("season");
   let currentCampusId = new URLSearchParams(window.location.search).get("campus");
@@ -476,9 +472,6 @@
     if (error || !data) return;
 
     if (!currentCampusId) currentCampusId = data.campus_id;
-    backLink.href = `index.html?season=${seasonId}&campus=${currentCampusId}`;
-    backLink.style.display = "inline-block";
-    calendarTitleLink.style.display = "inline-block";
     const brandLink = document.getElementById("brand-link");
     if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
 
@@ -809,8 +802,6 @@
       hidePageLoader();
     }
   }
-
-  backLink.addEventListener("click", () => showPageLoader());
 
   initAuthState();
 

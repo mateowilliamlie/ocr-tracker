@@ -6,6 +6,7 @@
 <title>OCR — Event Attendance</title>
 <script src="theme.js"></script>
 <script src="loading.js"></script>
+<script src="nav.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1031,9 +1032,6 @@
   </div>
 
   <div id="app-content" style="display:none;">
-  <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
-  <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Event Attendance</span>
-
   <div class="add-row">
     <button id="open-add-event" class="btn-primary" style="display:none;">Manage Events</button>
   </div>
@@ -1162,8 +1160,6 @@
   }
 
   const adminArea = document.getElementById("admin-area");
-  const backLink = document.getElementById("back-link");
-  const attendanceTitleLink = document.getElementById("attendance-title-link");
 
   const seasonId = new URLSearchParams(window.location.search).get("season");
   let currentCampusId = new URLSearchParams(window.location.search).get("campus");
@@ -1232,9 +1228,6 @@
     if (error || !data) return;
 
     if (!currentCampusId) currentCampusId = data.campus_id;
-    backLink.href = `index.html?season=${seasonId}&campus=${currentCampusId}`;
-    backLink.style.display = "inline-block";
-    attendanceTitleLink.style.display = "inline-block";
     const brandLink = document.getElementById("brand-link");
     if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
 
@@ -1788,8 +1781,6 @@
       hidePageLoader();
     }
   }
-
-  backLink.addEventListener("click", () => showPageLoader());
 
   initAuthState();
 </script>

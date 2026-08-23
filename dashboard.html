@@ -6,6 +6,7 @@
 <title>OCR — Dashboard</title>
 <script src="theme.js"></script>
 <script src="loading.js"></script>
+<script src="nav.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@800&display=swap" rel="stylesheet">
@@ -312,9 +313,6 @@
   </div>
 
   <div id="app-content" style="display:none;">
-    <a href="index.html" id="back-link" class="breadcrumb" style="display:none;">&larr; Tracker</a>
-    <span id="attendance-title-link" class="breadcrumb" style="display:none; margin-left:8px; color:var(--text);">Attendance</span>
-
     <div id="confirm-banner"></div>
 
     <h1 class="dash-heading" id="dash-season-heading">Dashboard</h1>
@@ -388,8 +386,6 @@
   }
 
   const adminArea = document.getElementById("admin-area");
-  const backLink = document.getElementById("back-link");
-  const attendanceTitleLink = document.getElementById("attendance-title-link");
 
   const seasonId = new URLSearchParams(window.location.search).get("season");
   let currentCampusId = new URLSearchParams(window.location.search).get("campus");
@@ -454,10 +450,6 @@
     if (error || !data) return null;
 
     if (!currentCampusId) currentCampusId = data.campus_id;
-    backLink.href = `index.html?season=${seasonId}&campus=${currentCampusId}`;
-    backLink.style.display = "inline-block";
-    attendanceTitleLink.style.display = "inline-block";
-    attendanceTitleLink.onclick = () => { window.location.href = `attendance.html?season=${seasonId}&campus=${currentCampusId}`; };
     const brandLink = document.getElementById("brand-link");
     if (brandLink) brandLink.href = `seasons.html?campus=${currentCampusId}`;
 
@@ -836,8 +828,6 @@
       hidePageLoader();
     }
   }
-
-  backLink.addEventListener("click", () => showPageLoader());
 
   initAuthState();
 
