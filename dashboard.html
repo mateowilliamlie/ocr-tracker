@@ -222,9 +222,11 @@
   .events-line-path.line-interested { stroke: var(--info); }
   .events-line-path.line-signups { stroke: var(--warn); }
   .events-line-path.line-attended { stroke: var(--accent); }
+  .events-line-path.line-new-contacts { stroke: var(--success); stroke-dasharray: 4 3; }
   .events-line-dot.dot-interested { fill: var(--info); }
   .events-line-dot.dot-signups { fill: var(--warn); }
   .events-line-dot.dot-attended { fill: var(--accent); }
+  .events-line-dot.dot-new-contacts { fill: var(--success); }
   .events-line-dot-label { font-size: 10px; fill: var(--text); font-weight: 700; }
   .events-line-axis-label { font-size: 10px; fill: var(--text-muted); }
   .events-bar { }
@@ -571,6 +573,17 @@
   // viewBox is set to the SVG's actual measured pixel size (not a fixed
   // 560x190) so preserveAspectRatio="none" has nothing to distort — a
   // mismatched viewBox vs. rendered box was stretching the chart.
+  // Total tab: x-axis is calendar days, spanning the earliest of (first
+  // contact added, first event date) to the latest of (last contact added,
+  // last event date) — a union of the two, not just event dates. Days
+  // without an event sit at 0 on those 3 lines. A 4th line ("New contacts")
+  // is bucketed from contacts.created_at independently of events. Any day
+  // that does have an event gets the event's name as a sub-label under its
+  // day-of-month tick.
+  //
+  // viewBox is set to the SVG's actual measured pixel size (not a fixed
+  // 560x190) so preserveAspectRatio="none" has nothing to distort — a
+  // mismatched viewBox vs. rendered box was stretching the chart.
   function renderTotalLineChart(perEventCounts) {
     const svg = document.getElementById("events-line-chart");
     const width = svg.clientWidth || 560;
@@ -582,44 +595,74 @@
       .map((ev, i) => ({ ev, counts: perEventCounts[i] }))
       .filter(x => x.ev.event_date);
 
-    if (!events.length) {
-      svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No events yet this season.</text>`;
-      document.getElementById("events-legend").innerHTML = "";
-      return;
-    }
-    if (!datedEvents.length) {
-      svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No event dates set yet — add dates on the Attendance page.</text>`;
-      document.getElementById("events-legend").innerHTML = "";
-      return;
-    }
-
     const dayMs = 24 * 60 * 60 * 1000;
     const toDay = (dateStr) => Math.floor(new Date(dateStr + "T00:00:00").getTime() / dayMs);
-    const dayNums = datedEvents.map(x => toDay(x.ev.event_date));
-    const minDay = Math.min(...dayNums);
-    const maxDay = Math.max(...dayNums);
+    const toDayFromTimestamp = (isoStr) => Math.floor(new Date(isoStr).getTime() / dayMs);
+
+    // Bucket contacts by the calendar day they were added, independent of
+    // events entirely — this is the "day tracking" piece: pulled straight
+    // from contacts.created_at.
+    const contactsWithDates = contacts.filter(c => c.created_at);
+    const newContactsByDay = {};
+    contactsWithDates.forEach(c => {
+      const day = toDayFromTimestamp(c.created_at);
+      newContactsByDay[day] = (newContactsByDay[day] || 0) + 1;
+    });
+
+    if (!datedEvents.length && !contactsWithDates.length) {
+      svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="events-line-axis-label">No dated events or contacts yet.</text>`;
+      document.getElementById("events-legend").innerHTML = "";
+      return;
+    }
+
+    const eventDayNums = datedEvents.map(x => toDay(x.ev.event_date));
+    const contactDayNums = Object.keys(newContactsByDay).map(Number);
+    const allDayNums = eventDayNums.concat(contactDayNums);
+    const minDay = Math.min(...allDayNums);
+    const maxDay = Math.max(...allDayNums);
     const span = Math.max(maxDay - minDay, 1);
 
-    const maxCount = Math.max(...datedEvents.flatMap(x => [x.counts.interested, x.counts.registered, x.counts.attended]), 1);
+    const maxEventCount = datedEvents.length
+      ? Math.max(...datedEvents.flatMap(x => [x.counts.interested, x.counts.registered, x.counts.attended]))
+      : 0;
+    const maxContactCount = contactDayNums.length ? Math.max(...contactDayNums.map(d => newContactsByDay[d])) : 0;
+    const maxCount = Math.max(maxEventCount, maxContactCount, 1);
     const plotWidth = width - padSide * 2;
     const plotHeight = height - padTop - padBottom;
     const xForDay = (day) => padSide + ((day - minDay) / span) * plotWidth;
     const yFor = (count) => padTop + plotHeight - (count / maxCount) * plotHeight;
 
-    const series = [
-      { key: "interested", cls: "interested" },
-      { key: "signups", dataKey: "registered", cls: "signups" },
-      { key: "attended", cls: "attended" }
-    ];
-
     let svgOut = "";
-    series.forEach(s => {
-      const dataKey = s.dataKey || s.key;
-      const points = datedEvents.map(x => ({ x: xForDay(toDay(x.ev.event_date)), y: yFor(x.counts[dataKey]), count: x.counts[dataKey] }));
+
+    // The 3 event-stage lines only have points on days that actually have
+    // a dated event — no event, no point, so the line only connects real
+    // event days (same behavior as before this change).
+    if (datedEvents.length) {
+      const series = [
+        { key: "interested", cls: "interested" },
+        { key: "signups", dataKey: "registered", cls: "signups" },
+        { key: "attended", cls: "attended" }
+      ];
+      series.forEach(s => {
+        const dataKey = s.dataKey || s.key;
+        const points = datedEvents.map(x => ({ x: xForDay(toDay(x.ev.event_date)), y: yFor(x.counts[dataKey]) }));
+        const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
+        const dots = points.map(pt => `<circle class="events-line-dot dot-${s.cls}" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"></circle>`).join("");
+        svgOut += `<path class="events-line-path line-${s.cls}" d="${pathD}"></path>${dots}`;
+      });
+    }
+
+    // New-contacts line: one point per day in range, 0 on days nobody was
+    // added — connects across the full span, unlike the event lines.
+    if (contactDayNums.length) {
+      const points = [];
+      for (let day = minDay; day <= maxDay; day++) {
+        points.push({ x: xForDay(day), y: yFor(newContactsByDay[day] || 0) });
+      }
       const pathD = points.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
-      const dots = points.map(pt => `<circle class="events-line-dot dot-${s.cls}" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="3.5"></circle>`).join("");
-      svgOut += `<path class="events-line-path line-${s.cls}" d="${pathD}"></path>${dots}`;
-    });
+      const dots = contactDayNums.map(day => `<circle class="events-line-dot dot-new-contacts" cx="${xForDay(day).toFixed(1)}" cy="${yFor(newContactsByDay[day]).toFixed(1)}" r="3.5"></circle>`).join("");
+      svgOut += `<path class="events-line-path line-new-contacts" d="${pathD}"></path>${dots}`;
+    }
 
     // Day ticks: every day in the range gets a day-of-month number; days
     // with an event also get the event's name as a sub-label beneath it.
@@ -642,6 +685,7 @@
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--info);"></span>Interested</span>
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--warn);"></span>Signups</span>
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--accent);"></span>Attended</span>
+      <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--success);"></span>New contacts</span>
     `;
   }
 
