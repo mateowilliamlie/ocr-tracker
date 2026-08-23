@@ -58,8 +58,8 @@
 
     var tabs = [
       { file: "index.html", label: "Tracker" },
-      { file: "attendance.html", label: "Attendance" },
       { file: "calendar.html", label: "Calendar" },
+      { file: "attendance.html", label: "Attendance" },
       { file: "dashboard.html", label: "Dashboard" }
     ];
 
