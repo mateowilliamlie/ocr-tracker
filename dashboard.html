@@ -589,7 +589,7 @@
     const width = svg.clientWidth || 560;
     const height = svg.clientHeight || 190;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    const padTop = 26, padBottom = 40, padSide = 28;
+    const padTop = 26, padBottom = 52, padSide = 28;
 
     const datedEvents = events
       .map((ev, i) => ({ ev, counts: perEventCounts[i] }))
@@ -674,6 +674,31 @@
       svgOut += `<path class="events-line-path line-new-contacts" d="${pathD}"></path>${dots}`;
     }
 
+    // Wraps a label onto up to 2 lines by word boundary rather than
+    // truncating with an ellipsis — only falls back to a hard cut if a
+    // single word alone is still too long for one line (rare).
+    function wrapLabel(name, maxCharsPerLine) {
+      const words = name.split(" ");
+      const lines = [];
+      let current = "";
+      for (const word of words) {
+        const candidate = current ? current + " " + word : word;
+        if (candidate.length <= maxCharsPerLine) {
+          current = candidate;
+        } else {
+          if (current) lines.push(current);
+          current = word;
+        }
+        if (lines.length === 2) break;
+      }
+      if (current && lines.length < 2) lines.push(current);
+      if (lines.length > 2) lines.length = 2;
+      if (lines[1] && lines[1].length > maxCharsPerLine) {
+        lines[1] = lines[1].slice(0, maxCharsPerLine - 1) + "…";
+      }
+      return lines;
+    }
+
     // Day ticks: every day in the range gets a day-of-month number; days
     // with an event also get the event's name as a sub-label beneath it.
     let tickLabels = "";
@@ -682,10 +707,12 @@
       const dateObj = new Date(day * dayMs);
       const dayNum = dateObj.getUTCDate();
       const evOnDay = datedEvents.find(x2 => toDay(x2.ev.event_date) === day);
-      tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 26}" text-anchor="middle">${dayNum}</text>`;
+      tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 38}" text-anchor="middle">${dayNum}</text>`;
       if (evOnDay) {
-        const name = evOnDay.ev.name.length > 10 ? evOnDay.ev.name.slice(0, 9) + "…" : evOnDay.ev.name;
-        tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 10}" text-anchor="middle" style="font-weight:700;">${escapeHtml(name)}</text>`;
+        const lines = wrapLabel(evOnDay.ev.name, 12);
+        lines.forEach((line, i) => {
+          tickLabels += `<text class="events-line-axis-label" x="${x.toFixed(1)}" y="${height - 22 + i * 12}" text-anchor="middle" style="font-weight:700;">${escapeHtml(line)}</text>`;
+        });
       }
     }
 
