@@ -789,11 +789,16 @@
     document.getElementById("dash-body").style.display = "none";
     try {
       await loadDashboardData();
+      // dash-body must be visible BEFORE renderActiveTab() runs — it
+      // measures svg.clientWidth to size the chart's viewBox, and an
+      // element inside a display:none ancestor always measures 0, which
+      // silently fell back to a hardcoded 560x190 and stretched the chart
+      // to fit whatever the real (much larger) box turned out to be.
+      document.getElementById("dash-loading-state").style.display = "none";
+      document.getElementById("dash-body").style.display = "block";
       activeTab = "total";
       renderTabs();
       renderActiveTab();
-      document.getElementById("dash-loading-state").style.display = "none";
-      document.getElementById("dash-body").style.display = "block";
     } catch (err) {
       document.getElementById("dash-loading-state").textContent = `Couldn't load dashboard data — ${err.message || "check your connection"}`;
     }
