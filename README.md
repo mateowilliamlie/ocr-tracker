@@ -402,6 +402,12 @@ update contacts set followup_owner_type = null where followup_owner_type = 'conn
 ```
 This is safe to run even after some contacts have gotten a *genuine* explicit "Connector" assignment going forward (post-upgrade) — just run it once, immediately after deploying this change, before anyone has a chance to make a new explicit "Connector" choice that this would incorrectly wipe out.
 
+**Important — also check the column's own default.** If `contacts.followup_owner_type` has a database-level `default 'connector'` left over from before this change existed, Postgres applies it to *every new insert* that doesn't explicitly specify the field — silently undoing this feature for every contact created after you run the cleanup above, not just the ones that existed before it. Quick Add and `event-signup-sync.gs` now explicitly send `followup_owner_type: null` on creation as a safeguard, but the column's own default should still be removed at the source:
+```sql
+alter table contacts alter column followup_owner_type drop default;
+```
+`followupOwnerDisplay()` also never shows a `"connector"`-type assignment whose value is actually a non-person phrase (`isUnconnected` — "instagram", "ig", blank, etc.) as if it were a real point person's name, even if that got set some other way.
+
 ### Setup
 
 1. If `contacts.gender` or `contacts.instagram` don't exist yet, run `alter table contacts add column gender text;` and `alter table contacts add column instagram text;` once in Supabase's SQL Editor — the auto-create path below needs them. If `event_attendance` doesn't have both `registered` and `attended` yet, see the migration above.

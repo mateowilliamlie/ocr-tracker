@@ -120,12 +120,11 @@ const Q_EVENT = "Which event would you like to sign up for?";
 const Q_ALT_CONTACT = "If you don't have WhatsApp, how can we contact you?";
 const Q_CONNECTOR = "Who connected you?";
 
-// Notified on every Form submission. Replace the Ryan placeholder with his
-// real address once it's available.
+// Notified on every Form submission.
 const NOTIFY_EMAILS = [
   "fausfaviola@gmail.com",
   "jaristia1412@gmail.com",
-  "ryan-PLACEHOLDER@example.com", // TODO: replace with Ryan's real email
+  "rchud2007@gmail.com",
 ];
 
 // === End of config ===
@@ -635,6 +634,7 @@ function createContact(form, altContact) {
     year: form.year || null,
     phone: form.rawPhone || (isInstagram ? "" : (form.altContact || "")),
     instagram: isInstagram ? altContact.handle : null,
+    followup_owner_type: null, // point person always starts unassigned — never inferred from connector
     interest_event: true,
     source: "online",
     season_id: SEASON_ID,

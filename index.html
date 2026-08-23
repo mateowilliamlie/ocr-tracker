@@ -1626,7 +1626,10 @@
   const POINT_PERSON_UNSET = "Not yet assigned";
 
   function followupOwnerDisplay(c) {
-    if (c.followup_owner_type === "connector") return c.connector || POINT_PERSON_UNSET;
+    // Even an explicit "Connector" choice shouldn't show a non-person value
+    // (isUnconnected — "instagram", "ig", a blank connector, etc.) as if it
+    // were a real point person's name.
+    if (c.followup_owner_type === "connector") return (c.connector && !isUnconnected(c)) ? c.connector : POINT_PERSON_UNSET;
     if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
     if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
     return POINT_PERSON_UNSET;

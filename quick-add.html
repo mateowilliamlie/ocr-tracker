@@ -395,6 +395,7 @@
         phone: phone,
         instagram: document.getElementById("f-instagram").value.trim().replace(/^@/, "") || null,
         connector: connector || null,
+        followup_owner_type: null, // point person always starts unassigned — never inferred from connector
         progress: document.getElementById("f-note").value.trim() || null,
         other_campus_note: document.getElementById("f-other-campus").value.trim() || null,
         interest_lg: document.getElementById("f-interest-lg").checked,
