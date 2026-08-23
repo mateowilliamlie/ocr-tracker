@@ -43,6 +43,12 @@
       "  color: var(--text);",
       "  font-weight: 600;",
       "  border-bottom-color: var(--accent);",
+      "}",
+      "@media (max-width: 520px) {",
+      "  .ocr-tabnav-item {",
+      "    padding: 8px 14px;",
+      "    font-size: 12px;",
+      "  }",
       "}"
     ].join("\n");
     document.head.appendChild(style);
