@@ -1335,7 +1335,7 @@
     const interested = !!interestMap[`${contactId}::${eventId}`];
     const registered = !!registeredMap[`${contactId}::${eventId}`];
     const attended = !!attendanceMap[`${contactId}::${eventId}`];
-    if (attended) return `<span style="color:var(--info);">Attended${registered ? " (was registered)" : ""}</span>`;
+    if (attended) return `<span style="color:var(--info);">Confirmed Attending${registered ? " (was registered)" : ""}</span>`;
     if (registered) return `<span style="color:var(--success);">Registered, not yet confirmed</span>`;
     if (interested) return `<span style="color:var(--warn);">Interested, not registered</span>`;
     return `<span style="color:var(--text-muted);">No response</span>`;
