@@ -41,10 +41,11 @@
  * read from.
  *
  * Notification email: every submission also emails NOTIFY_EMAILS below.
- * The Form asks gender, nationality, year, major/school, and "Who
- * connected you?" directly, so the email reports those as typed by the
- * respondent. The connector is deliberately shown as two SEPARATE lines,
- * never merged: "Who connected you? (form response)" is exactly what the
+ * The Form asks gender, nationality, year, major/school, and "How did you
+ * get connected?" (social media handle like "Instagram", or a person's
+ * name) directly, so the email reports those as typed by the respondent.
+ * The connector is deliberately shown as two SEPARATE lines, never
+ * merged: "How they got connected (form response)" is exactly what the
  * respondent typed (or "(not given)" — it's the one optional Form
  * question), and "Outreached by (tracker)" is contacts.connector on the
  * matched tracker record — a member met them in person and recorded it
@@ -118,7 +119,7 @@ const Q_YEAR = "Year";
 const Q_MAJOR = "Major (if you don't have one, put your school)";
 const Q_EVENT = "Which event would you like to sign up for?";
 const Q_ALT_CONTACT = "If you don't have WhatsApp, how can we contact you?";
-const Q_CONNECTOR = "Who connected you?";
+const Q_CONNECTOR = "How did you get connected?";
 
 // Notified on every Form submission.
 const NOTIFY_EMAILS = [
@@ -437,7 +438,7 @@ function buildNotificationBody(info) {
     `  Year: ${f.year || "(not given)"}`,
     `  Major / School: ${f.major || "(not given)"}`,
     `  ${contactLine}`,
-    `  Who connected you? (form response): ${f.connector || "(not given)"}`,
+    `  How they got connected (form response): ${f.connector || "(not given)"}`,
   ];
   if (trackerOutreachedBy !== null) {
     lines.push(`  Outreached by (tracker): ${trackerOutreachedBy}`);
@@ -493,7 +494,7 @@ function buildNotificationHtml(info) {
       ${row("Year", f.year)}
       ${row("Major / School", f.major)}
       ${row(contactLabel, contactValue)}
-      ${row("Who connected you? (form response)", f.connector, null)}
+      ${row("How they got connected (form response)", f.connector, null)}
       ${trackerOutreachedByRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
@@ -588,10 +589,11 @@ function findContactsByHandle(handle) {
 // unset here — it's purely day-outreach/website info (who met this person
 // in person and typed themselves into Quick Add/Add Contact/Edit), and
 // nobody outreached to someone who signed up cold through the Form. Their
-// own answer to "Who connected you?" goes to contacts.last_form_connector
-// instead, via the caller's updateLastFormConnector() call right after
-// this returns — never into connector, which would silently relabel form
-// data as if it were outreach data.
+// own answer to "How did you get connected?" goes to
+// contacts.last_form_connector instead, via the caller's
+// updateLastFormConnector() call right after this returns — never into
+// connector, which would silently relabel form data as if it were
+// outreach data.
 function createContact(form, altContact) {
   const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
   const payload = {
@@ -622,7 +624,7 @@ function createContact(form, altContact) {
   return JSON.parse(res.getContentText())[0];
 }
 
-// Saves what THIS respondent typed for "Who connected you?" onto the
+// Saves what THIS respondent typed for "How did you get connected?" onto the
 // matched/created contact's own record (contacts.last_form_connector),
 // separate from contacts.connector (the tracker's own point-person field,
 // set via Quick Add/Add Contact/Edit) — the two can legitimately disagree

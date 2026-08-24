@@ -1747,7 +1747,7 @@
       flags.push(`Outreached by ${c.connector} — different from point person above, worth confirming`);
     }
     if (hasAssignedPointPerson(c) && c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
-      flags.push(`Who connected you? (their form): ${c.last_form_connector} — different from point person above, worth confirming`);
+      flags.push(`How they got connected (their form): ${c.last_form_connector} — different from point person above, worth confirming`);
     }
     return flags;
   }
@@ -1765,7 +1765,7 @@
       ["Faith background", c.faith_background],
       ["Interested in", interestsSummary(c)],
       ["Outreached by", c.connector],
-      ["Who connected you?", c.last_form_connector],
+      ["How they got connected (form)", c.last_form_connector],
       ["Suggest to connect with", c.suggested_connection],
       ["Point person", followupOwnerDisplay(c)],
       ["Reminder note", c.reminder_note],
