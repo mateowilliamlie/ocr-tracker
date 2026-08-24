@@ -109,6 +109,7 @@ create table contacts (
   progress text,               -- freeform notes (originally named "other")
   reminder_date date,
   reminder_note text,
+  followed_up boolean default false, -- added later; run `alter table contacts add column followed_up boolean default false;` if missing
   source text default 'member', -- 'member' or 'online'
   other_campus_note text,      -- free-text note when the contact's real school
                                 -- isn't one of the tracked campuses; does not affect routing

@@ -601,7 +601,7 @@
 
   .col-headers {
     display: grid;
-    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    grid-template-columns: 2fr 1.3fr 1.1fr 0.9fr 36px;
     gap: 8px;
     padding: 10px 14px;
     font-size: 11px;
@@ -617,7 +617,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: 2fr 1.4fr 1.8fr 36px;
+    grid-template-columns: 2fr 1.3fr 1.1fr 0.9fr 36px;
     gap: 8px;
     align-items: center;
     padding: 12px 14px;
@@ -676,6 +676,25 @@
   .row select.reminder-select.has-reminder-future {
     background-color: var(--info-bg);
     color: var(--info);
+    border-color: transparent;
+  }
+
+  .row button.followedup-toggle {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .row button.followedup-toggle.yes {
+    background-color: var(--success-bg);
+    color: var(--success);
     border-color: transparent;
   }
 
@@ -849,7 +868,7 @@
 
     .toolbar { flex-wrap: wrap; }
     #search-input { flex: 1 1 100%; }
-    .col-headers, .row { grid-template-columns: 1.5fr 1.1fr 1.5fr 32px; }
+    .col-headers, .row { grid-template-columns: 1.5fr 1fr 0.9fr 0.8fr 32px; }
     .detail { grid-template-columns: 1fr 1fr; }
     .row-2 { grid-template-columns: 1fr; }
 
@@ -952,7 +971,7 @@
 
   <div class="board">
     <div class="col-headers">
-      <span>Name</span><span>Point person</span><span>Reminder</span><span></span>
+      <span>Name</span><span>Point person</span><span>Reminder</span><span>Followed up</span><span></span>
     </div>
     <div id="rows"></div>
     <div id="loading-state" class="empty-state">Loading contacts…</div>
@@ -1610,6 +1629,7 @@
           <select class="reminder-select ${reminderClass(c.reminder_date)}" data-id="${c.id}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>
             ${reminderOptionsHtml(c)}
           </select>
+          <button type="button" class="followedup-toggle ${c.followed_up ? "yes" : "no"}" data-followedup="${c.id}" data-value="${c.followed_up ? "true" : "false"}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>${c.followed_up ? "Yes" : "No"}</button>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
         ${connectorFlags(c).map(f => `<div class="connector-flag">${escapeHtml(f)}</div>`).join("")}
@@ -1827,6 +1847,21 @@
     }
   }
 
+  async function toggleFollowedUp(id, nextValue) {
+    try {
+      const { error } = await sb.from("contacts").update({ followed_up: nextValue }).eq("id", id);
+      if (error) throw error;
+      const c = contacts.find(x => x.id === id);
+      if (c) c.followed_up = nextValue;
+      render();
+    } catch (err) {
+      const friendly = /row-level security/i.test(err.message || "")
+        ? "This season has concluded — only dev/campus admin can make changes."
+        : (err.message || "check your connection");
+      showBanner(`Couldn't update follow-up status — ${friendly}`, true);
+    }
+  }
+
   function openEditDialog(c) {
     editingId = c.id;
     addDialogTitle.textContent = "Edit contact";
@@ -1867,6 +1902,18 @@
   }
 
   rowsEl.addEventListener("click", (e) => {
+    const followedUpBtn = e.target.closest("[data-followedup]");
+    if (followedUpBtn) {
+      if (!isAdmin && seasonConcluded) {
+        showBanner("This season has concluded — follow-up status is locked for members.", true);
+        return;
+      }
+      const id = followedUpBtn.dataset.followedup;
+      const nextValue = followedUpBtn.dataset.value !== "true";
+      toggleFollowedUp(id, nextValue);
+      return;
+    }
+
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
       const c = contacts.find(x => x.id === editBtn.dataset.edit);
