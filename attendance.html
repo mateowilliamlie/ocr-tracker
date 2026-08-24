@@ -1472,7 +1472,7 @@
           <div class="stat-card-nums">
             <div><p class="stat-num" style="color:var(--warn);">${overall.interested}</p><p class="stat-num-label" style="color:var(--warn);">interested</p></div>
             <div><p class="stat-num" style="color:var(--success);">${overall.registered}</p><p class="stat-num-label" style="color:var(--success);">registered</p></div>
-            <div><p class="stat-num" style="color:var(--info);">${overall.attended}</p><p class="stat-num-label" style="color:var(--info);">attended</p></div>
+            <div><p class="stat-num" style="color:var(--info);">${overall.attended}</p><p class="stat-num-label" style="color:var(--info);">confirmed attending</p></div>
           </div>
         </div>
         ${events.map(ev => {
@@ -1483,7 +1483,7 @@
               <div class="stat-card-nums">
                 <div><p class="stat-num" style="color:var(--warn);">${interested}</p><p class="stat-num-label" style="color:var(--warn);">interested</p></div>
                 <div><p class="stat-num" style="color:var(--success);">${registered}</p><p class="stat-num-label" style="color:var(--success);">registered</p></div>
-                <div><p class="stat-num" style="color:var(--info);">${attended}</p><p class="stat-num-label" style="color:var(--info);">attended</p></div>
+                <div><p class="stat-num" style="color:var(--info);">${attended}</p><p class="stat-num-label" style="color:var(--info);">confirmed attending</p></div>
               </div>
             </div>
           `;
@@ -1494,7 +1494,7 @@
       <div class="att-legend">
         <span><span class="att-legend-swatch" style="background:var(--warn-bg);"></span>Interested</span>
         <span><span class="att-legend-swatch" style="background:var(--success-bg);"></span>Registered</span>
-        <span><span class="att-legend-swatch" style="background:var(--info-bg);"></span>Attended</span>
+        <span><span class="att-legend-swatch" style="background:var(--info-bg);"></span>Confirmed Attending</span>
         <span>Click any third to toggle</span>
       </div>
     `;
@@ -1542,7 +1542,7 @@
       <div class="stat-card-grid">
         <div class="stat-card"><p class="stat-card-label" style="color:var(--warn);">Interested</p><p class="stat-num" style="color:var(--warn); font-size:24px;">${interested}</p></div>
         <div class="stat-card"><p class="stat-card-label" style="color:var(--success);">Registered</p><p class="stat-num" style="color:var(--success); font-size:24px;">${registered}</p></div>
-        <div class="stat-card"><p class="stat-card-label" style="color:var(--info);">Attended</p><p class="stat-num" style="color:var(--info); font-size:24px;">${attended}</p></div>
+        <div class="stat-card"><p class="stat-card-label" style="color:var(--info);">Confirmed Attending</p><p class="stat-num" style="color:var(--info); font-size:24px;">${attended}</p></div>
       </div>
     `;
     document.getElementById("event-legend").innerHTML = ""; // no color-key legend needed in this single-event view
@@ -1566,7 +1566,7 @@
             <span class="drill-status">${statusLabel(c.id, eventId)}</span>
             <button type="button" class="drill-toggle-btn ${isInterested ? "on-interest" : ""}" data-kind="interest" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isInterested}">Interested</button>
             <button type="button" class="drill-toggle-btn ${isRegistered ? "on-registered" : ""}" data-kind="register" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isRegistered}">Registered</button>
-            <button type="button" class="drill-toggle-btn ${isAttended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isAttended}">Attended</button>
+            <button type="button" class="drill-toggle-btn ${isAttended ? "on-attend" : ""}" data-kind="attend" data-contact-id="${c.id}" data-event-id="${eventId}" data-on="${isAttended}">Confirmed Attending</button>
           </div>
         </div>
       `;
