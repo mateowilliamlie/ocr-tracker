@@ -1696,9 +1696,9 @@
     return list.length ? list.join(", ") : "—";
   }
 
-  // Deliberately never guesses — point person starts and stays blank until
-  // a member explicitly assigns one (even picking "Connector" is an
-  // explicit choice, not a fallback), so it's never mistaken for a
+  // For an Event Signup (self-submitted, nobody outreached to them yet),
+  // point person still starts and stays blank until a member explicitly
+  // assigns one — no fallback to guess from, so it's never mistaken for a
   // confirmed assignment when nobody's actually looked at it yet.
   const POINT_PERSON_UNSET = "Not yet assigned";
 
@@ -1709,6 +1709,12 @@
     if (c.followup_owner_type === "connector") return (c.connector && !isUnconnected(c)) ? c.connector : POINT_PERSON_UNSET;
     if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
     if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
+    // Daytime Outreach contacts (source !== "online") default straight to
+    // whoever outreached to them — a member already met them in person, so
+    // there's no separate "who's following up" step to do unless someone
+    // explicitly reassigns it above (suggested/other, or picking Connector
+    // by hand also lands here, just via the branch above instead).
+    if (c.source !== "online" && c.connector && !isUnconnected(c)) return c.connector;
     return POINT_PERSON_UNSET;
   }
 
