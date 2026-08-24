@@ -584,12 +584,33 @@
   // viewBox is set to the SVG's actual measured pixel size (not a fixed
   // 560x190) so preserveAspectRatio="none" has nothing to distort — a
   // mismatched viewBox vs. rendered box was stretching the chart.
+  // Picks a "nice" round step (1/2/5 × a power of 10) and rounds the axis
+  // max up to a multiple of it, so the y-axis reads like 0/5/10/15 rather
+  // than a jagged raw max — and expands automatically as data grows, no
+  // hardcoded scale anywhere.
+  function niceYAxis(maxValue, targetTicks) {
+    const safeMax = Math.max(maxValue, 1);
+    const rawStep = safeMax / targetTicks;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const residual = rawStep / magnitude;
+    let step;
+    if (residual > 5) step = 10 * magnitude;
+    else if (residual > 2) step = 5 * magnitude;
+    else if (residual > 1) step = 2 * magnitude;
+    else step = magnitude;
+    step = Math.max(1, Math.round(step)); // counts are always whole numbers
+    const niceMax = Math.ceil(safeMax / step) * step;
+    const ticks = [];
+    for (let v = 0; v <= niceMax; v += step) ticks.push(v);
+    return { niceMax, ticks };
+  }
+
   function renderTotalLineChart(perEventCounts) {
     const svg = document.getElementById("events-line-chart");
     const width = svg.clientWidth || 560;
     const height = svg.clientHeight || 190;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    const padTop = 26, padBottom = 52, padSide = 28;
+    const padTop = 26, padBottom = 52, padLeft = 34, padRight = 16;
 
     const datedEvents = events
       .map((ev, i) => ({ ev, counts: perEventCounts[i] }))
@@ -637,10 +658,20 @@
       : 0;
     const maxContactCount = contactDayNums.length ? Math.max(...contactDayNums.map(d => newContactsByDay[d])) : 0;
     const maxCount = Math.max(maxEventCount, maxContactCount, 1);
-    const plotWidth = width - padSide * 2;
+    const { niceMax, ticks: yTicks } = niceYAxis(maxCount, 4);
+    const plotWidth = width - padLeft - padRight;
     const plotHeight = height - padTop - padBottom;
-    const xForDay = (day) => padSide + ((day - minDay) / span) * plotWidth;
-    const yFor = (count) => padTop + plotHeight - (count / maxCount) * plotHeight;
+    const xForDay = (day) => padLeft + ((day - minDay) / span) * plotWidth;
+    const yFor = (count) => padTop + plotHeight - (count / niceMax) * plotHeight;
+
+    // Y-axis: gridline + number at each "nice" tick, expands automatically
+    // as niceMax grows with the data — never a fixed scale.
+    let yAxisOut = "";
+    yTicks.forEach(tick => {
+      const y = yFor(tick);
+      yAxisOut += `<line x1="${padLeft.toFixed(1)}" y1="${y.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"></line>`;
+      yAxisOut += `<text class="events-line-axis-label" x="${(padLeft - 8).toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="end">${tick}</text>`;
+    });
 
     let svgOut = "";
 
@@ -716,7 +747,7 @@
       }
     }
 
-    svg.innerHTML = noDatedEventsNotice + svgOut + tickLabels;
+    svg.innerHTML = yAxisOut + noDatedEventsNotice + svgOut + tickLabels;
 
     document.getElementById("events-legend").innerHTML = `
       <span class="events-legend-item"><span class="events-legend-swatch" style="background:var(--info);"></span>Interested</span>
@@ -734,21 +765,29 @@
     const width = svg.clientWidth || 560;
     const height = svg.clientHeight || 190;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    const padTop = 26, padBottom = 26, padSide = 60;
+    const padTop = 26, padBottom = 26, padLeft = 44, padRight = 44;
     const plotHeight = height - padTop - padBottom;
     const maxCount = Math.max(counts.interested, counts.registered, counts.attended, 1);
+    const { niceMax, ticks: yTicks } = niceYAxis(maxCount, 4);
+
+    let yAxisOut = "";
+    yTicks.forEach(tick => {
+      const y = padTop + plotHeight - (tick / niceMax) * plotHeight;
+      yAxisOut += `<line x1="${padLeft.toFixed(1)}" y1="${y.toFixed(1)}" x2="${(width - padRight).toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"></line>`;
+      yAxisOut += `<text class="events-line-axis-label" x="${(padLeft - 8).toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="end">${tick}</text>`;
+    });
 
     const bars = [
       { label: "Interested", value: counts.interested, cls: "interested" },
       { label: "Signups", value: counts.registered, cls: "signups" },
       { label: "Attended", value: counts.attended, cls: "attended" }
     ];
-    const colWidth = (width - padSide * 2) / bars.length;
+    const colWidth = (width - padLeft - padRight) / bars.length;
     const barWidth = Math.min(colWidth * 0.5, 60);
 
     const barsOut = bars.map((b, i) => {
-      const colCenter = padSide + colWidth * i + colWidth / 2;
-      const barHeight = (b.value / maxCount) * plotHeight;
+      const colCenter = padLeft + colWidth * i + colWidth / 2;
+      const barHeight = (b.value / niceMax) * plotHeight;
       const y = padTop + plotHeight - barHeight;
       return `
         <rect class="events-line-dot dot-${b.cls}" x="${(colCenter - barWidth / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(barHeight, 2).toFixed(1)}" rx="4"></rect>
@@ -757,7 +796,7 @@
       `;
     }).join("");
 
-    svg.innerHTML = barsOut;
+    svg.innerHTML = yAxisOut + barsOut;
     document.getElementById("events-legend").innerHTML = "";
   }
 
