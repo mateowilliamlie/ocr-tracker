@@ -555,6 +555,7 @@
 
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 16px;
   }
@@ -575,7 +576,7 @@
     outline-offset: 1px;
   }
 
-  #sort-select {
+  #sort-select, .filter-select {
     font-family: var(--font);
     font-size: 14px;
     padding: 9px 34px 9px 14px;
@@ -940,6 +941,12 @@
       <option value="recent">Most recent</option>
       <option value="reminder">Soonest reminder</option>
     </select>
+    <select id="gender-filter-select" class="filter-select">
+      <option value="all">All genders</option>
+    </select>
+    <select id="point-person-filter-select" class="filter-select">
+      <option value="all">All point persons</option>
+    </select>
     <button id="followups-toggle" class="toggle-btn">Follow-ups only</button>
   </div>
 
@@ -1265,6 +1272,8 @@
   const emptyStateEl = document.getElementById("empty-state");
   const searchInput = document.getElementById("search-input");
   const sortSelect = document.getElementById("sort-select");
+  const genderFilterSelect = document.getElementById("gender-filter-select");
+  const pointPersonFilterSelect = document.getElementById("point-person-filter-select");
   const followupsToggle = document.getElementById("followups-toggle");
   const adminArea = document.getElementById("admin-area");
   const loginDialog = document.getElementById("login-dialog");
@@ -1295,6 +1304,8 @@
   let followupsOnly = false;
   let activeTab = "all";
   let eventSignupFilter = "all";
+  let genderFilter = "all";
+  let pointPersonFilter = "all";
   const eventSignupChipsEl = document.getElementById("event-signup-chips");
   const tabAll = document.getElementById("tab-all");
   const tabInPerson = document.getElementById("tab-inperson");
@@ -1497,6 +1508,36 @@
     render();
   });
 
+  // Options are rebuilt from the full `contacts` list (not the filtered
+  // one) every render, so picking a gender/point person never hides the
+  // other choices — and a freshly added value shows up without a reload.
+  // Gender is free text (no fixed enum), so the option list is whatever
+  // values are actually in use rather than a hardcoded set.
+  function rebuildFilterOptions(selectEl, values, allLabel, currentValue) {
+    const optionsHtml = `<option value="all">${escapeHtml(allLabel)}</option>` +
+      values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    selectEl.innerHTML = optionsHtml;
+    selectEl.value = values.includes(currentValue) ? currentValue : "all";
+    return selectEl.value;
+  }
+
+  function renderFilterSelects() {
+    const genders = [...new Set(contacts.map(c => (c.gender || "").trim()).filter(Boolean))].sort();
+    genderFilter = rebuildFilterOptions(genderFilterSelect, genders, "All genders", genderFilter);
+
+    const pointPersons = [...new Set(contacts.map(followupOwnerDisplay))].sort();
+    pointPersonFilter = rebuildFilterOptions(pointPersonFilterSelect, pointPersons, "All point persons", pointPersonFilter);
+  }
+
+  genderFilterSelect.addEventListener("change", () => {
+    genderFilter = genderFilterSelect.value;
+    render();
+  });
+  pointPersonFilterSelect.addEventListener("change", () => {
+    pointPersonFilter = pointPersonFilterSelect.value;
+    render();
+  });
+
   function getFilteredSorted() {
     const q = searchInput.value.trim().toLowerCase();
     let list = contacts.filter(c => c.name.toLowerCase().includes(q));
@@ -1508,6 +1549,13 @@
       }
     } else if (activeTab === "inperson") {
       list = list.filter(c => c.source !== "online");
+    }
+
+    if (genderFilter !== "all") {
+      list = list.filter(c => (c.gender || "").trim() === genderFilter);
+    }
+    if (pointPersonFilter !== "all") {
+      list = list.filter(c => followupOwnerDisplay(c) === pointPersonFilter);
     }
 
     if (followupsOnly) {
@@ -1526,6 +1574,7 @@
   }
 
   function render() {
+    renderFilterSelects();
     const list = getFilteredSorted();
     rowsEl.innerHTML = "";
 
