@@ -412,9 +412,6 @@ function crossCheckStatus(info) {
 function buildNotificationBody(info) {
   const f = info.form;
   const event = eventLabelsDisplay(f.eventLabel);
-  const contactLine = f.rawPhone
-    ? `Phone: ${f.rawPhone}`
-    : `Phone: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
   const crossCheck = crossCheckStatus(info);
   const trackerOutreachedBy = info.matchStatus === "matched" ? (info.contact.connector || "(not given)") : null;
 
@@ -426,8 +423,9 @@ function buildNotificationBody(info) {
     `  Gender: ${f.gender || "(not given)"}`,
     `  Country: ${f.country || "(not given)"}`,
     `  Major: ${f.major || "(not given)"}`,
-    `  ${contactLine}`,
+    `  Phone: ${f.rawPhone || "(not given)"}`,
     `  Preferred contact methods: ${f.altMethods || "(not given)"}`,
+    `  Other contact info (form): ${f.altContact || "(not given)"}`,
     `  Who connected you? (form response): (not given — this Form doesn't ask)`,
     `  Questions/comments: ${f.questions || "(none)"}`,
   ];
@@ -448,8 +446,6 @@ function escapeHtml(str) {
 function buildNotificationHtml(info) {
   const f = info.form;
   const event = eventLabelsDisplay(f.eventLabel);
-  const contactLabel = f.rawPhone ? "Phone" : "Contact (no phone given)";
-  const contactValue = f.rawPhone || f.altContact || "(not given)";
   const crossCheck = crossCheckStatus(info);
   const crossCheckColor = crossCheck.status === "ok"
     ? { bg: "#DCFCE7", fg: "#15803D" }
@@ -480,8 +476,9 @@ function buildNotificationHtml(info) {
       ${row("Gender", f.gender)}
       ${row("Country", f.country)}
       ${row("Major", f.major)}
-      ${row(contactLabel, contactValue)}
+      ${row("Phone", f.rawPhone)}
       ${row("Preferred contact methods", f.altMethods)}
+      ${row("Other contact info (form)", f.altContact)}
       ${row("Questions/comments", f.questions)}
       ${trackerOutreachedByRow}
     </table>
@@ -566,16 +563,19 @@ function findContactsByHandle(handle) {
 }
 
 // Which contact methods someone has (the checkbox question, separate from
-// the actual handle) and any questions/comments have no dedicated
-// contacts.* column, so they're folded into contacts.progress as a short
-// note instead of being silently dropped. Only called on CREATE (see
-// createContact() below) — never appended to an existing contact's
+// the actual handle), the raw "Information of other contact methods"
+// answer, and any questions/comments have no dedicated contacts.* column
+// (WeChat/email/Other have nowhere else to live — only Instagram gets its
+// own field, see createContact() below), so they're folded into
+// contacts.progress as a short note instead of being silently dropped.
+// Only called on CREATE — never appended to an existing contact's
 // progress notes on a match, so it can't clobber something a member
 // already wrote there by hand.
 function buildExtraNotes(form) {
   const lines = [];
   if (form.country) lines.push(`Country: ${form.country}`);
   if (form.altMethods) lines.push(`Preferred contact methods: ${form.altMethods}`);
+  if (form.altContact) lines.push(`Other contact info: ${form.altContact}`);
   if (form.questions) lines.push(`Questions/comments: ${form.questions}`);
   return lines.length ? lines.join("\n") : null;
 }
@@ -583,10 +583,21 @@ function buildExtraNotes(form) {
 // Called when nobody in the tracker matches this respondent's phone number
 // — creates them directly from their Form answers (source: "online", same
 // tag signup.html self-submissions get) instead of leaving a member to
-// notice the email and Quick Add them by hand. An Instagram alt-contact
-// answer goes into contacts.instagram (its own field on the website); any
-// other method (WeChat, email, or no method at all) falls back to the
-// same contacts.phone field Quick Add's "Phone / WeChat ID" already uses.
+// notice the email and Quick Add them by hand.
+//
+// Unlike HKU's/CUHK's scripts (where the alt-contact question is a
+// fallback ONLY consulted when phone is missing), HKBU's phone question is
+// REQUIRED — so isInstagram must NOT be gated on `!form.rawPhone`, or an
+// Instagram handle in "Information of other contact methods" would always
+// be silently dropped (this was a real bug: nearly every respondent has a
+// phone number, so the Instagram extraction below never ran). An Instagram
+// alt-contact answer always goes into contacts.instagram (its own field on
+// the website) regardless of whether a phone was also given; any other
+// method (WeChat, email, or no method at all) still falls back to
+// contacts.phone ONLY when phone itself is missing — same field Quick
+// Add's "Phone / WeChat ID" already uses — and is also preserved verbatim
+// in buildExtraNotes() above either way, so a WeChat/email answer is never
+// lost outright even without a dedicated column for it.
 // contacts.phone is NOT NULL in Supabase, so this must never end up
 // passing null there — an empty string satisfies the constraint for
 // anyone who gave neither a usable phone nor a usable alt-contact.
@@ -597,7 +608,7 @@ function buildExtraNotes(form) {
 // doesn't have a "How did you get connected?" question at all, so there's
 // no last_form_connector to save either.
 function createContact(form, altContact) {
-  const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
+  const isInstagram = altContact.method.toLowerCase() === "instagram";
   const payload = {
     name: form.name,
     gender: form.gender || null,
