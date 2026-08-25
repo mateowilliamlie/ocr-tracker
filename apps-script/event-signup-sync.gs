@@ -84,17 +84,32 @@
  * clearing Match Status and reprocessing everything, which could create
  * a duplicate contact for anyone who signed up with no WhatsApp number).
  *
- * Duplicate check: a row that was "Added new contact:" (no phone match at
- * the time) can end up a genuine duplicate of someone met in person during
- * outreach — e.g. they were added with no phone yet, signed up via the
- * Form separately, and only later did a member manually add their phone
- * to the original outreach contact. Run findPotentialDuplicates() any
- * time to re-check every already-resolved row against CURRENT contacts
- * data and log any whose best match now has a different name than what
- * was originally recorded. Read-only — it never merges or deletes
- * anything; a flagged pair still needs a member to look at both records
- * and merge them by hand (move the event registration/interest rows onto
- * the real contact, then delete the duplicate).
+ * Duplicate check + merge: a row that was "Added new contact:" (no phone
+ * match at the time) can end up a genuine duplicate of someone met in
+ * person during outreach — e.g. they were added with no phone yet, signed
+ * up via the Form separately, and only later did a member manually add
+ * their phone to the original outreach contact. Every resolved row now
+ * also gets its Contact ID written next to it (writeContactId(), so a
+ * later re-check can tell "different contact" apart from "same contact,
+ * just a nickname/typo in the name"). Use the "OCR Tracker" menu that
+ * appears in the Sheet's menu bar once this script is attached (added by
+ * onOpen() near the bottom of this file):
+ *   - "Check for potential duplicates" runs findPotentialDuplicates(),
+ *     which re-matches every resolved row against current contacts data
+ *     and writes a "Potential Duplicate" flag onto any row whose best
+ *     match is no longer the contact it originally resolved to.
+ *   - Select a flagged row, then "Merge duplicate on selected row" runs
+ *     mergeDuplicateForSelectedRow() — shows exactly which contact would
+ *     be kept vs. deleted and asks for confirmation before doing anything.
+ * Merging moves the duplicate's event registration/interest rows and any
+ * blank fields onto the kept contact first, then deletes the duplicate —
+ * this is NOT reversible, so the confirmation dialog is the only safety
+ * net; read it before saying yes. Both menu items can also be run
+ * directly from the Apps Script editor's function dropdown, and
+ * mergeDuplicateContacts()/performContactMerge() further down remain
+ * available for merging an explicit pair of ids by hand (e.g. for a
+ * legacy row from before Contact ID existed, which the menu item can't
+ * safely handle on its own).
  */
 
 // === CONFIG — fill these in before using ===
@@ -260,6 +275,7 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
       statusText += ` — unrecognized event "${form.eventLabel}", not marked registered`;
     }
     writeStatus(sheet, row, statusText);
+    writeContactId(sheet, row, contact.id);
     if (sendEmail) notifySignup({ form, matchStatus, contact, eventIds });
   } catch (err) {
     writeStatus(sheet, row, `Error: ${err.message || err}`);
@@ -374,13 +390,26 @@ function backfillMissingEvents() {
 // there unnoticed.
 //
 // This re-matches EVERY row (unlike backfillExistingResponses, which
-// skips already-resolved rows) using CURRENT contacts data, and logs any
-// row whose best current match has a different name than what's recorded
-// in the Match Status column. Deliberately READ-ONLY — it never creates,
-// matches, merges, or deletes anything; it only reports so a member can
-// look at the two contacts and decide how to merge them by hand (move the
-// event registration/interest rows onto the real contact, then delete the
-// duplicate — there's no safe way to automate that decision).
+// skips already-resolved rows) using CURRENT contacts data, and flags any
+// row whose best current match is a DIFFERENT contact than what this row
+// originally resolved to. For rows with a stored Contact ID (written by
+// writeContactId() since that tracking was added), the comparison is
+// exact-id, not name text — two different people can share a name, so
+// only an id is a safe enough signal to offer the one-click merge below.
+// Flags into a "Potential Duplicate" column right on the row (format:
+// `DUPLICATE? original=<id> current=<id> ("<name>")`), which is what
+// "Merge duplicate on selected row" (see the onOpen() menu near the
+// bottom of this file) reads back out — select the flagged row, run that
+// menu item, and it'll ask you to confirm before merging.
+//
+// Rows from before Contact ID existed have no reliable id to offer a
+// menu-driven merge for (a name string alone isn't a safe thing to
+// delete a contact based on), so those are still flagged by name as a
+// fallback, prefixed "REVIEW (legacy row)" — read the log and use
+// mergeDuplicateContacts() with explicit ids for those instead.
+//
+// Deliberately READ-ONLY beyond writing that one flag column — it never
+// merges or deletes anything itself.
 function findPotentialDuplicates() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESPONSES_SHEET_NAME);
   if (!sheet) throw new Error(`No sheet named "${RESPONSES_SHEET_NAME}" — check RESPONSES_SHEET_NAME in the CONFIG block.`);
@@ -391,6 +420,7 @@ function findPotentialDuplicates() {
   const phoneCol = headers.indexOf(Q_PHONE);
   const altContactCol = headers.indexOf(Q_ALT_CONTACT);
   const statusCol = headers.indexOf("Match Status");
+  const contactIdCol = headers.indexOf("Contact ID");
   if (phoneCol === -1) {
     throw new Error("Couldn't find the phone column — check Q_PHONE matches the Sheet's header row.");
   }
@@ -409,7 +439,9 @@ function findPotentialDuplicates() {
     const recordedName = recordedNameFrom(currentStatus);
     if (!recordedName) continue; // unresolved/error/multiple-match rows aren't this function's job
 
-    const who = nameCol !== -1 ? String(data[i][nameCol] || "") : `row ${i + 1}`;
+    const rowNum = i + 1;
+    const who = nameCol !== -1 ? String(data[i][nameCol] || "") : `row ${rowNum}`;
+    const recordedId = contactIdCol !== -1 ? String(data[i][contactIdCol] || "").trim() : "";
     const phone = normalizePhone(String(data[i][phoneCol] || ""));
     const altHandle = altContactCol !== -1 ? parseAltContact(String(data[i][altContactCol] || "")).handle : "";
 
@@ -419,19 +451,331 @@ function findPotentialDuplicates() {
     }
     checked++;
 
-    if (matches.length === 1 && matches[0].name.trim().toLowerCase() !== recordedName.toLowerCase()) {
+    if (matches.length > 1) {
+      flagged.push(`${who} (row ${rowNum}): now matches ${matches.length} contacts (${matches.map(m => m.name).join(", ")}) — review manually.`);
+      writeColumn(sheet, rowNum, "Potential Duplicate", `MULTIPLE MATCHES — review manually: ${matches.map(m => m.name).join(", ")}`);
+    } else if (matches.length === 1 && recordedId && matches[0].id !== recordedId) {
       flagged.push(
-        `${who} (row ${i + 1}): now matches "${matches[0].name}" (id ${matches[0].id}), ` +
-        `but was originally recorded as "${recordedName}" — check for a duplicate contact and merge by hand.`
+        `${who} (row ${rowNum}): now matches "${matches[0].name}" (id ${matches[0].id}), ` +
+        `originally resolved to contact id ${recordedId} — check for a duplicate and merge.`
       );
-    } else if (matches.length > 1) {
-      flagged.push(`${who} (row ${i + 1}): now matches ${matches.length} contacts (${matches.map(m => m.name).join(", ")}) — review manually.`);
+      writeColumn(sheet, rowNum, "Potential Duplicate", `DUPLICATE? original=${recordedId} current=${matches[0].id} ("${matches[0].name}")`);
+    } else if (matches.length === 1 && !recordedId && matches[0].name.trim().toLowerCase() !== recordedName.toLowerCase()) {
+      flagged.push(
+        `${who} (row ${rowNum}): now matches "${matches[0].name}" (id ${matches[0].id}), ` +
+        `but was originally recorded as "${recordedName}" (legacy row, no stored id) — check for a duplicate and merge by hand.`
+      );
+      writeColumn(sheet, rowNum, "Potential Duplicate", `REVIEW (legacy row): now matches "${matches[0].name}" (id ${matches[0].id}) instead of "${recordedName}"`);
+    } else {
+      writeColumn(sheet, rowNum, "Potential Duplicate", "");
     }
     Utilities.sleep(150); // gentle pacing against Supabase rate limits
   }
 
   Logger.log(`Checked ${checked} resolved row(s). ` +
-    (flagged.length ? `${flagged.length} potential duplicate(s):\n${flagged.join("\n")}` : "No potential duplicates found."));
+    (flagged.length
+      ? `${flagged.length} potential duplicate(s) — also written into the "Potential Duplicate" column on each flagged row:\n${flagged.join("\n")}`
+      : "No potential duplicates found."));
+}
+
+// Which of a duplicate pair's fields are safe to copy onto the primary —
+// but ONLY when the primary's own value is blank, so this can never
+// clobber something a member already entered. Deliberately excludes:
+// name/phone/source/season_id (the primary's own identity — the whole
+// point of picking a primary), reminder_date/reminder_note/followed_up
+// (member-driven workflow state that has no business coming from a
+// throwaway auto-created duplicate), and followup_owner_type/other
+// (point person must stay explicitly assigned by a member, never
+// silently inferred via a merge — same rule createContact() already
+// follows for brand-new contacts).
+const MERGE_FILLABLE_FIELDS = [
+  "nationality", "gender", "course", "age", "year", "birthday",
+  "instagram", "faith_background", "suggested_connection",
+  "connector", "last_form_connector",
+];
+const MERGE_BOOLEAN_OR_FIELDS = ["interest_event", "interest_lg", "interest_church"];
+
+function fetchContact(id) {
+  const res = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${id}&select=*`, {
+    method: "get", headers: supabaseHeaders(), muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) throw new Error(`contact fetch failed: ${res.getContentText()}`);
+  const rows = JSON.parse(res.getContentText());
+  if (!rows.length) throw new Error(`No contact found with id ${id}`);
+  return rows[0];
+}
+
+function isBlank(v) {
+  return v === null || v === undefined || v === "";
+}
+
+// Builds ONLY the fields that need to change on the primary — an empty
+// object means the primary already had everything, nothing to PATCH.
+function buildMergedContactPayload(primary, duplicate) {
+  const payload = {};
+  MERGE_FILLABLE_FIELDS.forEach(f => {
+    if (isBlank(primary[f]) && !isBlank(duplicate[f])) payload[f] = duplicate[f];
+  });
+  MERGE_BOOLEAN_OR_FIELDS.forEach(f => {
+    if (duplicate[f] && !primary[f]) payload[f] = true;
+  });
+  if (duplicate.progress && duplicate.progress.trim()) {
+    const dupNote = `[Merged from duplicate contact ${duplicate.id}]\n${duplicate.progress.trim()}`;
+    payload.progress = primary.progress ? `${primary.progress}\n\n${dupNote}` : dupNote;
+  }
+  return payload;
+}
+
+function fetchEventAttendance(contactId) {
+  const res = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/event_attendance?contact_id=eq.${contactId}&select=*`, {
+    method: "get", headers: supabaseHeaders(), muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) throw new Error(`event_attendance fetch failed: ${res.getContentText()}`);
+  return JSON.parse(res.getContentText());
+}
+
+function fetchEventInterest(contactId) {
+  const res = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/event_interest?contact_id=eq.${contactId}&select=*`, {
+    method: "get", headers: supabaseHeaders(), muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) throw new Error(`event_interest fetch failed: ${res.getContentText()}`);
+  return JSON.parse(res.getContentText());
+}
+
+// event_attendance's primary key is (contact_id, event_id), so a straight
+// reassignment can't just PATCH contact_id when the primary ALREADY has a
+// row for that same event — that would collide. Two cases:
+//   - Primary has no row for this event yet -> just reassign the
+//     duplicate's row directly (keeps its own updated_at history).
+//   - Primary already has a row -> OR the registered/attended flags
+//     together (true means it genuinely happened under one identity or
+//     the other, so this can only ever promote false -> true, never the
+//     reverse), then delete the now-redundant duplicate row.
+function mergeEventAttendance(primaryId, duplicateId) {
+  const primaryByEvent = {};
+  fetchEventAttendance(primaryId).forEach(r => { primaryByEvent[r.event_id] = r; });
+
+  fetchEventAttendance(duplicateId).forEach(dupRow => {
+    const existing = primaryByEvent[dupRow.event_id];
+    if (!existing) {
+      const res = UrlFetchApp.fetch(
+        `${SUPABASE_URL}/rest/v1/event_attendance?contact_id=eq.${duplicateId}&event_id=eq.${dupRow.event_id}`,
+        {
+          method: "patch",
+          contentType: "application/json",
+          headers: supabaseHeaders(),
+          payload: JSON.stringify({ contact_id: primaryId }),
+          muteHttpExceptions: true,
+        }
+      );
+      if (res.getResponseCode() >= 300) throw new Error(`event_attendance reassign failed: ${res.getContentText()}`);
+      return;
+    }
+
+    const mergedRegistered = existing.registered || dupRow.registered;
+    const mergedAttended = existing.attended || dupRow.attended;
+    if (mergedRegistered !== existing.registered || mergedAttended !== existing.attended) {
+      const res = UrlFetchApp.fetch(
+        `${SUPABASE_URL}/rest/v1/event_attendance?contact_id=eq.${primaryId}&event_id=eq.${dupRow.event_id}`,
+        {
+          method: "patch",
+          contentType: "application/json",
+          headers: supabaseHeaders(),
+          payload: JSON.stringify({ registered: mergedRegistered, attended: mergedAttended }),
+          muteHttpExceptions: true,
+        }
+      );
+      if (res.getResponseCode() >= 300) throw new Error(`event_attendance flag-merge failed: ${res.getContentText()}`);
+    }
+    const delRes = UrlFetchApp.fetch(
+      `${SUPABASE_URL}/rest/v1/event_attendance?contact_id=eq.${duplicateId}&event_id=eq.${dupRow.event_id}`,
+      { method: "delete", headers: supabaseHeaders(), muteHttpExceptions: true }
+    );
+    if (delRes.getResponseCode() >= 300) throw new Error(`event_attendance duplicate-row delete failed: ${delRes.getContentText()}`);
+  });
+}
+
+// event_interest has no status column, just a (contact_id, event_id) row
+// meaning "interested" — so reassigning is a plain insert under the
+// primary's id per duplicate row, and a 409 (primary already interested
+// in that event) is expected, not an error, same as markInterested()
+// above treats it. The duplicate's own rows are cleared afterward so
+// deleting the duplicate contact below can't hit a foreign-key error.
+function mergeEventInterest(primaryId, duplicateId) {
+  fetchEventInterest(duplicateId).forEach(dupRow => {
+    const res = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/event_interest`, {
+      method: "post",
+      contentType: "application/json",
+      headers: supabaseHeaders(),
+      payload: JSON.stringify({ contact_id: primaryId, event_id: dupRow.event_id }),
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300 && res.getResponseCode() !== 409) {
+      throw new Error(`event_interest reassign failed: ${res.getContentText()}`);
+    }
+  });
+  const delRes = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/event_interest?contact_id=eq.${duplicateId}`, {
+    method: "delete", headers: supabaseHeaders(), muteHttpExceptions: true,
+  });
+  if (delRes.getResponseCode() >= 300) throw new Error(`event_interest duplicate cleanup failed: ${delRes.getContentText()}`);
+}
+
+// Merges a confirmed duplicate pair (found via findPotentialDuplicates(),
+// then eyeballed by a member — this function never guesses which contact
+// is the "real" one) and DELETES the duplicate contact. This is
+// destructive and NOT reversible from within the script, so:
+//   - It takes no parameters and is never called by any other function
+//     here — edit PRIMARY_CONTACT_ID/DUPLICATE_CONTACT_ID below by hand
+//     and run it deliberately from the Apps Script editor each time,
+//     rather than something that could fire automatically.
+//   - It refuses to run at all until both ids are actually filled in.
+//   - Event attendance/registration/interest are fully moved onto the
+//     primary first (see mergeEventAttendance/mergeEventInterest above)
+//     before the duplicate contact itself is deleted, so nothing about
+//     what they signed up for or attended is lost.
+//   - Any blank field on the primary gets filled from the duplicate (see
+//     MERGE_FILLABLE_FIELDS above) — never overwrites something the
+//     primary already had.
+// Before running: open both contacts in the tracker yourself and confirm
+// they really are the same person and which one should survive as
+// PRIMARY_CONTACT_ID. There is no undo once the duplicate is deleted.
+function mergeDuplicateContacts() {
+  const PRIMARY_CONTACT_ID = "REPLACE_WITH_PRIMARY_CONTACT_ID";
+  const DUPLICATE_CONTACT_ID = "REPLACE_WITH_DUPLICATE_CONTACT_ID";
+
+  if (PRIMARY_CONTACT_ID.startsWith("REPLACE_WITH") || DUPLICATE_CONTACT_ID.startsWith("REPLACE_WITH")) {
+    throw new Error("Edit PRIMARY_CONTACT_ID / DUPLICATE_CONTACT_ID inside mergeDuplicateContacts() before running.");
+  }
+  performContactMerge(PRIMARY_CONTACT_ID, DUPLICATE_CONTACT_ID);
+}
+
+// The actual merge mechanics, shared by mergeDuplicateContacts() (manual,
+// edit-the-constants entry point above) and mergeDuplicateForSelectedRow()
+// (menu-driven entry point below). Throws on any failure partway through
+// so the caller's error surfaces rather than leaving a silent partial
+// merge — see each step's own comment (mergeEventAttendance,
+// mergeEventInterest, buildMergedContactPayload) for what "merge" means
+// for that piece of data.
+function performContactMerge(primaryId, duplicateId) {
+  if (primaryId === duplicateId) {
+    throw new Error("Primary and duplicate are the same contact — nothing to merge.");
+  }
+
+  const primary = fetchContact(primaryId);
+  const duplicate = fetchContact(duplicateId);
+  Logger.log(`Merging "${duplicate.name}" (${duplicateId}) into "${primary.name}" (${primaryId})...`);
+
+  mergeEventAttendance(primaryId, duplicateId);
+  Logger.log("Event attendance/registration merged.");
+
+  mergeEventInterest(primaryId, duplicateId);
+  Logger.log("Event interest merged.");
+
+  const fieldPayload = buildMergedContactPayload(primary, duplicate);
+  if (Object.keys(fieldPayload).length) {
+    const res = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${primaryId}`, {
+      method: "patch",
+      contentType: "application/json",
+      headers: supabaseHeaders(),
+      payload: JSON.stringify(fieldPayload),
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) throw new Error(`primary contact field merge failed: ${res.getContentText()}`);
+    Logger.log(`Filled in on primary: ${Object.keys(fieldPayload).join(", ")}`);
+  } else {
+    Logger.log("No blank fields to fill in on primary from the duplicate.");
+  }
+
+  const delRes = UrlFetchApp.fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${duplicateId}`, {
+    method: "delete", headers: supabaseHeaders(), muteHttpExceptions: true,
+  });
+  if (delRes.getResponseCode() >= 300) throw new Error(`duplicate contact delete failed: ${delRes.getContentText()}`);
+
+  Logger.log(`Done — "${duplicate.name}" merged into "${primary.name}" and the duplicate record was deleted.`);
+  return { primary, duplicate };
+}
+
+// Adds a "OCR Tracker" menu to the Sheet's menu bar (shows automatically
+// whenever the Sheet is opened — this is a Google Apps Script "simple
+// trigger", no installable trigger needed for onOpen specifically). This
+// is what makes the duplicate flag actionable right from the Sheet
+// instead of needing the script editor at all.
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("OCR Tracker")
+    .addItem("Check for potential duplicates", "findPotentialDuplicates")
+    .addItem("Merge duplicate on selected row", "mergeDuplicateForSelectedRow")
+    .addToUi();
+}
+
+// Run after selecting a cell in a row that findPotentialDuplicates()
+// flagged (its "Potential Duplicate" column starts with "DUPLICATE?" —
+// the "REVIEW (legacy row)"/"MULTIPLE MATCHES" flags aren't handled here,
+// see findPotentialDuplicates()'s own comment for why). Reads the two
+// contact ids straight off that cell, shows exactly who'll be kept vs.
+// deleted and asks for confirmation, then calls performContactMerge()
+// only if you confirm. The "current" match (found by re-matching this
+// row's phone/alt-contact against contacts data right now) is always
+// treated as the primary to KEEP, and "original" (whoever this row
+// resolved to back when it first ran) as the duplicate to remove — that
+// matches the actual bug this exists for (met in person with no phone
+// yet -> signed up separately -> phone added to the real contact later),
+// but double-check the confirmation dialog names the right two people
+// before saying yes regardless.
+function mergeDuplicateForSelectedRow() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESPONSES_SHEET_NAME);
+  if (!sheet) { ui.alert(`No sheet named "${RESPONSES_SHEET_NAME}" — check RESPONSES_SHEET_NAME in the CONFIG block.`); return; }
+
+  const activeSheet = SpreadsheetApp.getActiveSheet();
+  if (activeSheet.getSheetId() !== sheet.getSheetId()) {
+    ui.alert(`Select a row on the "${RESPONSES_SHEET_NAME}" sheet first.`);
+    return;
+  }
+  const row = activeSheet.getActiveRange().getRow();
+  if (row === 1) { ui.alert("That's the header row — select an actual response row instead."); return; }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const dupCol = headers.indexOf("Potential Duplicate") + 1;
+  if (dupCol === 0) { ui.alert('No "Potential Duplicate" column yet — run "Check for potential duplicates" first.'); return; }
+
+  const cellText = String(sheet.getRange(row, dupCol).getValue() || "");
+  const m = /^DUPLICATE\? original=(\S+) current=(\S+) \("(.+)"\)$/.exec(cellText);
+  if (!m) {
+    ui.alert(
+      cellText
+        ? `This row's flag isn't a mergeable duplicate:\n\n"${cellText}"\n\nSee findPotentialDuplicates()'s comment — legacy rows and multiple-match rows need manual handling instead.`
+        : "This row isn't flagged as a potential duplicate. Run \"Check for potential duplicates\" first if you haven't yet."
+    );
+    return;
+  }
+
+  const originalId = m[1], currentId = m[2], currentName = m[3];
+  let original;
+  try {
+    original = fetchContact(originalId);
+  } catch (err) {
+    ui.alert(`Couldn't look up the original contact (id ${originalId}): ${err.message || err}`);
+    return;
+  }
+
+  const response = ui.alert(
+    "Merge duplicate contact?",
+    `This row originally created/matched "${original.name}" (id ${originalId}), but re-matching it now finds ` +
+    `"${currentName}" (id ${currentId}) instead — that's almost always the real, pre-existing contact.\n\n` +
+    `KEEP: "${currentName}"\nDELETE: "${original.name}" (its event sign-ups and any info it has get moved onto "${currentName}" first)\n\n` +
+    `This cannot be undone. Continue?`,
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) { Logger.log("Merge cancelled by user."); return; }
+
+  try {
+    performContactMerge(currentId, originalId);
+    writeColumn(sheet, row, "Potential Duplicate", `MERGED: "${original.name}" (${originalId}) -> "${currentName}" (${currentId})`);
+    ui.alert(`Done — "${original.name}" was merged into "${currentName}" and deleted.`);
+  } catch (err) {
+    ui.alert(`Merge failed: ${err.message || err}\n\nCheck the Executions log for details on how far it got.`);
+  }
 }
 
 // Never throws — a Mail failure shouldn't clobber the Match Status write
@@ -811,13 +1155,30 @@ function markInterested(contactId, eventId) {
   }
 }
 
-function writeStatus(sheet, row, text) {
+// Shared by writeStatus/writeContactId/writePotentialDuplicate below —
+// finds (or creates) a column by its header name and writes one cell.
+function writeColumn(sheet, row, headerName, text) {
   const lastCol = sheet.getLastColumn();
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  let col = headers.indexOf("Match Status") + 1;
+  let col = headers.indexOf(headerName) + 1;
   if (col === 0) {
     col = lastCol + 1;
-    sheet.getRange(1, col).setValue("Match Status");
+    sheet.getRange(1, col).setValue(headerName);
   }
   sheet.getRange(row, col).setValue(text);
+}
+
+function writeStatus(sheet, row, text) {
+  writeColumn(sheet, row, "Match Status", text);
+}
+
+// Written every time a row resolves to a real contact (matched or
+// created). The Match Status column only ever recorded a NAME — not
+// precise enough to safely automate anything later, since two different
+// people can share a name. Having the actual id on the row is what makes
+// findPotentialDuplicates()/the "Merge duplicate on selected row" menu
+// item (see near the bottom of this file) able to identify a duplicate
+// pair exactly rather than guessing from text.
+function writeContactId(sheet, row, contactId) {
+  writeColumn(sheet, row, "Contact ID", contactId);
 }
