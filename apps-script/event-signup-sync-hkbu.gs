@@ -1,23 +1,36 @@
 /**
- * Bridges the "WE ARE HERE @ HKUST" Google Form to the OCR Contact Tracker's
- * Supabase database, so an event RSVP doesn't require manually re-checking the
- * respondent off in attendance.html — and so a respondent nobody has met yet
- * still ends up in the tracker instead of only existing as a Form row.
+ * Bridges the "LIFE Group @HKBU Welcoming Activities 2026" Google Form to
+ * the OCR Contact Tracker's Supabase database — the HKBU counterpart to
+ * event-signup-sync.gs (HKUST's Form/Sheet), event-signup-sync-hku.gs
+ * (HKU's), and event-signup-sync-cuhk.gs (CUHK's). Same underlying idea and
+ * same Supabase project, but HKBU's Form has its own shape (one Name field,
+ * "Which country are you from?" instead of "Nationality", optional Gender,
+ * no "How did you get connected?" question, and contact info split across
+ * TWO questions — a checkbox list of which methods someone has, plus a
+ * separate freeform field for the actual handle/number), so this is its
+ * own script rather than one shared file trying to configure around four
+ * different shapes.
  *
- * Setup: see the "Event Sign-up Sync" section in README.md. Short version —
- * paste this into Extensions > Apps Script on the Form's linked response
- * Sheet, fill in the CONFIG block below, store the service role key in
- * Script Properties (never here in the code), then add an installable
- * "On form submit" trigger pointing at onFormSubmit.
+ * Setup: paste this into Extensions > Apps Script on HKBU's OWN Form's
+ * linked response Sheet (a separate Sheet from HKUST's/HKU's/CUHK's — Apps
+ * Script is per-Sheet, this doesn't share a deployment with the other
+ * three scripts). Fill in the CONFIG block below, store the service role
+ * key in Script Properties (never here in the code — same key as the
+ * other scripts can be reused, it's the same Supabase project), then add
+ * an installable "On form submit" trigger pointing at onFormSubmit.
  *
- * Matching: primarily by normalized WhatsApp number against contacts.phone,
- * scoped to SEASON_ID. When there's no WhatsApp match (or no WhatsApp
- * given at all), falls back to the "If you don't have WhatsApp..." answer
- * — the Form requires that in "ContactMethod: Username" format (e.g.
- * "Instagram: username123"), and the parsed handle is checked as a
- * substring against both contacts.phone (a member may have typed a
- * WeChat/Instagram handle into Quick Add's "Phone / WeChat ID" field,
- * with or without the method prefix) and contacts.instagram.
+ * Matching: primarily by normalized phone number against contacts.phone,
+ * scoped to SEASON_ID. When there's no phone match (or no phone given at
+ * all — Contact Number is actually a required Form question here, but
+ * this still degrades gracefully same as the other scripts), falls back
+ * to the "Information of other contact methods" answer — like HKU's/
+ * CUHK's Form, HKBU's doesn't require a strict "ContactMethod: Username"
+ * format, so parseAltContact() treats anything with no colon as a bare
+ * handle with an empty method (falls back to contacts.phone rather than
+ * the dedicated contacts.instagram field in that case). The separate
+ * "Other preferred contact methods" checkbox question (email/Instagram/
+ * WeChat/Other) is just which channels someone has, not the actual handle
+ * — it isn't used for matching, only saved as a note (see buildExtraNotes).
  *   - Exactly one match -> that's them, just mark them registered.
  *   - Zero matches -> nobody's added this person before, so a new contact
  *     is created directly from their Form answers (source: "online"), then
@@ -31,58 +44,59 @@
  * more than one — every recognized event gets marked registered, not just
  * the first one in their answer.
  *
- * Registered vs. attended: submitting the Form only means someone signed
- * up (event_attendance.registered). It is NOT the same as showing up —
- * that's event_attendance.attended, confirmed separately by whoever's
- * checking people in at the actual event via attendance.html. This script
- * never sets `attended` itself. It also inserts an event_interest row
+ * Event matching is deliberately CASE-INSENSITIVE here, unlike the other
+ * three scripts — HKBU's option text mixes "LIFE GROUP TASTER" (all caps)
+ * with "Island Day"/"We Are Here to Discover" (title case) and is full of
+ * emoji clutter, so matching on an exact-case substring would be fragile.
+ * See matchedEventLabels() below.
+ *
+ * Registered vs. attended: submitting the Form only means someone signed up
+ * (event_attendance.registered). It is NOT the same as showing up — that's
+ * event_attendance.attended, confirmed separately by whoever's checking
+ * people in at the actual event via attendance.html. This script never
+ * sets `attended` itself. It also inserts an event_interest row
  * (markInterested) for the same event, since signing up clearly implies
  * interest — that's what the tracker's own per-event interest checkboxes
  * read from.
  *
- * Notification email: every submission also emails NOTIFY_EMAILS below.
- * The Form asks gender, nationality, year, major/school, and "How did you
- * get connected?" (social media handle like "Instagram", or a person's
- * name) directly, so the email reports those as typed by the respondent.
- * The connector is deliberately shown as two SEPARATE lines, never
- * merged: "How they got connected (form response)" is exactly what the
- * respondent typed (or "(not given)" — it's the one optional Form
- * question), and "Outreached by (tracker)" is contacts.connector on the
- * matched tracker record — a member met them in person and recorded it
- * via Quick Add/Add Contact/Edit, entirely separate from point person
- * (who's currently assigned to follow up, a later and always-manual
- * step this email doesn't report on). Showing the form's answer and the
- * tracker's outreach record side by side lets the team actually confirm
- * they agree instead of silently trusting one over the other; if they
- * disagree, the cross-check section flags it explicitly. Sent via
- * MailApp, so no extra credentials or setup beyond a
- * valid Google account running the
- * script (free quota: 100 emails/day on a plain Gmail account, 1,500/day
- * on Workspace — far above real signup volume).
+ * Extra Form-only info (which contact methods someone has, and any
+ * questions/comments) has no dedicated contacts.* column, so it's folded
+ * into contacts.progress as a short note instead of being silently
+ * dropped — only on CREATE, never appended to an existing (matched)
+ * contact's progress notes, so it can't clobber something a member
+ * already wrote there by hand.
  *
- * Schema note: contacts.gender and contacts.instagram must exist for the
- * auto-create path to store them — run this once in Supabase's SQL
- * Editor if they don't yet:
- *   alter table contacts add column gender text;
- *   alter table contacts add column instagram text;
+ * Notification email: every submission also emails NOTIFY_EMAILS below.
+ * Same two-separate-lines treatment as HKUST's script for the connector —
+ * except HKBU's Form doesn't ask "How did you get connected?" at all, so
+ * that line always reads "(not given)" here; "Outreached by (tracker)"
+ * still shows contacts.connector on a matched contact, since that's set
+ * independently via Quick Add/Add Contact/Edit, not from this Form. Sent
+ * via MailApp, so no extra credentials beyond a valid Google account
+ * running the script (free quota: 100 emails/day on a plain Gmail
+ * account, 1,500/day on Workspace — far above real signup volume).
+ *
+ * Schema note: this Form reuses columns the other scripts' setup already
+ * required (contacts.gender, contacts.instagram) — no new migration
+ * needed if any of those is already running.
  *
  * Backfill: the trigger only ever fires on new submissions, so responses
- * from before this script (or this matching/auto-create logic) existed
- * were never processed. Run backfillExistingResponses() once manually
- * (Apps Script editor -> pick it from the function dropdown -> Run) to
- * catch those up; it skips rows already resolved to "Matched:" or "Added
- * new contact:", but reprocesses anything else — including a stale
- * pre-auto-create "No Match" status from an older version of this script.
+ * from before this script existed were never processed. Run
+ * backfillExistingResponses() once manually (Apps Script editor -> pick it
+ * from the function dropdown -> Run) to catch those up; it skips rows
+ * already resolved to "Matched:" or "Added new contact:", but reprocesses
+ * anything else.
  *
- * If you already ran a backfill before the multi-event fix above existed,
- * rows that picked 2+ events may have only gotten the first one marked
- * attended, and now carry a "Matched:"/"Added new contact:" status that
- * backfillExistingResponses() will skip. Run backfillMissingEvents()
- * once to fix just that gap — it only marks additional events for a
- * contact it can already find by phone, it never creates/matches a new
- * one, so it's safe even for rows that were auto-created (unlike
- * clearing Match Status and reprocessing everything, which could create
- * a duplicate contact for anyone who signed up with no WhatsApp number).
+ * If you already ran a backfill before some events existed in
+ * EVENT_ID_BY_LABEL, rows that picked events added later may have only
+ * gotten some of their choices marked registered, and now carry a
+ * "Matched:"/"Added new contact:" status that backfillExistingResponses()
+ * will skip. Run backfillMissingEvents() once to fix just that gap — it
+ * only marks additional events for a contact it can already find by
+ * phone, it never creates/matches a new one, so it's safe even for rows
+ * that were auto-created (unlike clearing Match Status and reprocessing
+ * everything, which could create a duplicate contact for anyone who
+ * signed up with no usable phone).
  */
 
 // === CONFIG — fill these in before using ===
@@ -91,55 +105,65 @@ const SUPABASE_URL = "https://xyoniqfmujidoxpgcjlo.supabase.co";
 
 // The tab name of the Form's response Sheet (bottom tab in Google Sheets).
 // Only used by backfillExistingResponses() below — the live onFormSubmit
-// trigger always gets the right sheet from the event object itself.
+// trigger always gets the right sheet from the event object itself. Google
+// Forms defaults new response Sheets to this name — check HKBU's actual
+// Sheet tab and update if it's been renamed.
 const RESPONSES_SHEET_NAME = "Form Responses 1";
 
-// HKUST's current season id (Supabase Table Editor -> seasons -> copy the
-// row's id). Must be updated whenever a new season starts.
-const SEASON_ID = "9b1d4bec-e28c-4729-bf7f-7ec9cad42ab3";
+// TODO: HKBU's season id (Supabase Table Editor -> seasons -> copy the
+// row's id, after creating an HKBU campus + season via campuses.html /
+// seasons.html if one doesn't exist yet). Must be updated whenever a new
+// season starts.
+const SEASON_ID = "REPLACE_WITH_HKBU_SEASON_ID";
 
-// Maps each event to its Supabase id (Table Editor -> events -> copy each
-// row's id for the events belonging to SEASON_ID above). The Form's event
-// question answer text includes the full description ("BBQ Night: Wed,
-// Aug 26, 7PM @HKUST BBQ Pit - Grill, chat..."), not just the event name,
-// so matching below is done by "answer starts with this label", not exact
-// equality — keep these labels as just the short event name.
+// TODO: maps each event to its Supabase id (Table Editor -> events -> copy
+// each row's id for the events belonging to SEASON_ID above — create the 4
+// events for this season first via attendance.html's "Manage Events"). The
+// Form's event question answer text includes the full option text (emoji,
+// dates, and a "Details:" paragraph), not just the short label, so
+// matching below is done by "answer includes this label" (case-
+// insensitive — see matchedEventLabels()), not exact equality — keep
+// these keys as just the short event name.
 const EVENT_ID_BY_LABEL = {
-  "BBQ Night": "bef8839f-6337-4e07-8d99-84efb4e2df9a",
-  "Speed Friending": "cd553f56-63cb-4633-91da-4d94e1f23f1f",
-  "Color Wars": "b14eee2e-14a2-4b69-9dc9-1ff80af4521d",
+  "LIFE Group Taster": "REPLACE_WITH_LIFE_GROUP_TASTER_EVENT_ID",
+  "Island Day": "REPLACE_WITH_ISLAND_DAY_EVENT_ID",
+  "We Are Here to Discover": "REPLACE_WITH_WE_ARE_HERE_TO_DISCOVER_EVENT_ID",
+  "First LIFE Group of the Semester": "REPLACE_WITH_FIRST_LIFE_GROUP_EVENT_ID",
 };
 
-// Exact Form question titles — must match the Form verbatim.
-const Q_NAME = "Full Name";
+// Exact Form question titles — must match the Form verbatim (getAnswer()
+// below falls back to a prefix match, so a minor later edit to add
+// instructions/typo-fixes to a question won't silently break this).
+const Q_NAME = "Name";
+const Q_YEAR = "Year of study";
 const Q_GENDER = "Gender";
-const Q_NATIONALITY = "Nationality";
-const Q_PHONE = "WhatsApp Number";
-const Q_YEAR = "Year";
-const Q_MAJOR = "Major (if you don't have one, put your school)";
-const Q_EVENT = "Which event would you like to sign up for?";
-const Q_ALT_CONTACT = "If you don't have WhatsApp, how can we contact you?";
-const Q_CONNECTOR = "How did you get connected?";
+const Q_COUNTRY = "Which country are you from?";
+const Q_MAJOR = "Your Major";
+const Q_PHONE = "Contact Number (WhatsApp enabled)";
+const Q_ALT_METHODS = "Other preferred contact methods";
+const Q_ALT_CONTACT = "Information of other contact methods";
+const Q_EVENT = "Which of the following activities are you interested in joining?";
+const Q_QUESTIONS = "Do you have any questions or comments?";
 
 // Notified on every Form submission.
 const NOTIFY_EMAILS = [
-  "fausfaviola@gmail.com",
-  // "jaristia1412@gmail.com",
-  // "rchud2007@gmail.com",
+  "faviolafaustina@gmail.com",
 ];
 
 // === End of config ===
 
 // The event question is a checkboxes field, so picking more than one event
-// gives an answer like "BBQ Night: Wed, Aug 26...vibes with us!, Speed
-// Friending: Fri, Aug 28...find your community" — Google Forms joins
-// multiple selections with ", ", and each option's own text already has
-// commas in it, so a naive split on "," would shred it. Instead, check for
-// each configured label as a substring (followed by ":", matching the
-// "Label: description" shape every option uses) — this finds every event
-// they picked regardless of order or how many.
+// gives an answer like "✝️ LIFE GROUP TASTER 💬 🎸 27 Aug (Thu)\nDetails:
+// ..., 🏝️ Island Day (Sai Kung) 🌊 ☀️ 29 Aug (Sat)\nDetails: ..." — Google
+// Forms joins multiple selections with ", ", and each option's own text
+// already has commas (and newlines) in it, so a naive split on "," would
+// shred it. Instead, check for each configured label as a
+// CASE-INSENSITIVE substring — this finds every event they picked
+// regardless of order, how many, or whether Google Forms' own option text
+// capitalization ("LIFE GROUP TASTER" vs "Island Day") is consistent.
 function matchedEventLabels(answerText) {
-  return Object.keys(EVENT_ID_BY_LABEL).filter(l => answerText.includes(`${l}:`));
+  const lower = answerText.toLowerCase();
+  return Object.keys(EVENT_ID_BY_LABEL).filter(l => lower.includes(l.toLowerCase()));
 }
 
 function matchedEventIds(answerText) {
@@ -167,15 +191,9 @@ function onFormSubmit(e) {
 // a backfilled row is processed identically to a real-time one.
 function processResponseRow(namedValues, sheet, row, sendEmail) {
   // Exact match first (the common case, and the fast path). Falls back to
-  // "actual key starts with this Q_ constant" because someone editing a
-  // Form question to add usage instructions or a typo fix (e.g. appending
-  // "\nPlease type in the format of..." to the alt-contact question) changes
-  // its exact title — this happened for real: Q_ALT_CONTACT stopped
-  // matching the moment that instructional text was added to the question,
-  // so getAnswer() silently returned "" and every alt-contact answer
-  // (Instagram/WeChat/email) was lost even though respondents typed one.
-  // The Q_ constants only need to stay a prefix of the real question now,
-  // not match it exactly — much less likely to break on a wording tweak.
+  // "actual key starts with this Q_ constant" so a later Form edit that
+  // appends usage instructions or fixes a typo in a question doesn't
+  // silently break matching for that field.
   const getAnswer = title => {
     let v = namedValues[title];
     if (!v) {
@@ -187,14 +205,16 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
 
   const form = {
     name: getAnswer(Q_NAME).trim(),
-    gender: getAnswer(Q_GENDER).trim(),
-    nationality: getAnswer(Q_NATIONALITY).trim(),
     year: getAnswer(Q_YEAR).trim(),
+    gender: getAnswer(Q_GENDER).trim(),
+    country: getAnswer(Q_COUNTRY).trim(),
     major: getAnswer(Q_MAJOR).trim(),
     eventLabel: getAnswer(Q_EVENT).trim(),
     rawPhone: getAnswer(Q_PHONE).trim(),
+    altMethods: getAnswer(Q_ALT_METHODS).trim(),
     altContact: getAnswer(Q_ALT_CONTACT).trim(),
-    connector: getAnswer(Q_CONNECTOR).trim(),
+    questions: getAnswer(Q_QUESTIONS).trim(),
+    connector: "", // this Form doesn't ask "How did you get connected?" at all
   };
   const phone = normalizePhone(form.rawPhone);
   const altContact = parseAltContact(form.altContact);
@@ -205,11 +225,11 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
     if (phone) {
       matches = findContactsByPhone(phone);
     }
-    // No WhatsApp match (or no WhatsApp given at all) — try the alt-contact
-    // handle (e.g. "Instagram: username123") against the tracker's phone
-    // field, since that's the only field on that side that could hold it.
-    // Only for handles with enough characters to mean something — a
-    // one/two-character handle risks matching unrelated phone numbers.
+    // No phone match (or no phone given at all) — try the alt-contact
+    // handle against the tracker's phone field, since that's the only
+    // field on that side that could hold it. Only for handles with enough
+    // characters to mean something — a one/two-character handle risks
+    // matching unrelated phone numbers.
     if (matches.length === 0 && altContact.handle.length >= 3) {
       matches = findContactsByHandle(altContact.handle);
     }
@@ -225,19 +245,6 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
     const matchStatus = contact ? "matched" : "created";
     if (!contact) {
       contact = createContact(form, altContact);
-    }
-
-    // A MATCHED contact's own tracker record (contacts.connector) might be
-    // stale or simply about someone different from who they said connected
-    // them on the Form — e.g. a member met them in person and is already
-    // their point person, but the respondent separately named someone else
-    // here. That form answer was previously only visible in this one-time
-    // email/Sheet row; saving it lets the website show both side by side
-    // instead of silently losing the form's answer once this email scrolls
-    // out of an inbox. Always the LATEST form answer, so a second
-    // submission overwrites rather than stacking.
-    if (form.connector) {
-      updateLastFormConnector(contact.id, form.connector);
     }
 
     let statusText = matchStatus === "matched" ? `Matched: ${contact.name}` : `Added new contact: ${contact.name}`;
@@ -259,8 +266,7 @@ function processResponseRow(namedValues, sheet, row, sendEmail) {
 // Sheet rows nobody's tracker record ever picked up. Run this manually
 // once (select it in the dropdown next to Run, click Run) — it's safe to
 // re-run since rows already resolved to "Matched:"/"Added new contact:"
-// are skipped (anything else, including a stale pre-auto-create "No
-// Match" status, gets reprocessed).
+// are skipped (anything else gets reprocessed).
 //
 // Emails are OFF by default here on purpose — you don't want a flood of
 // catch-up notifications for people who signed up weeks ago. Pass `true`
@@ -277,10 +283,6 @@ function backfillExistingResponses() {
 
   let processed = 0;
   for (let i = 1; i < data.length; i++) {
-    // Only skip rows the CURRENT logic already resolved to a real contact —
-    // not rows carrying a stale status from an older script version (e.g.
-    // "No Match — not found in tracker, add manually", written before the
-    // auto-create path existed). Those need reprocessing, not skipping.
     const currentStatus = statusCol !== -1 ? String(data[i][statusCol] || "") : "";
     if (/^(Matched:|Added new contact:)/.test(currentStatus)) continue;
     const namedValues = {};
@@ -292,17 +294,18 @@ function backfillExistingResponses() {
   Logger.log(`Backfill done — processed ${processed} row(s).`);
 }
 
-// One-off fix for rows that picked MORE THAN ONE event but, under the
-// multi-event bug (fixed above), only got registered for the
-// first one. Deliberately narrower than backfillExistingResponses: this
-// NEVER creates or matches a new contact — it only looks up an existing
-// contact by phone and marks any additional events found. That makes it
-// safe to run even on rows that already got auto-created, since it can't
-// produce a duplicate contact the way clearing Match Status and
-// reprocessing everything could for anyone who signed up with no
-// WhatsApp number (there'd be no phone to match them back to their own
-// record, so it'd create a second one instead of fixing anything).
-// Rows with no phone are logged for manual follow-up instead of guessed.
+// One-off fix for rows that picked MORE THAN ONE event but only got some
+// of them marked (e.g. an event was added to EVENT_ID_BY_LABEL after this
+// row was first processed). Deliberately narrower than
+// backfillExistingResponses: this NEVER creates or matches a new contact —
+// it only looks up an existing contact by phone and marks any additional
+// events found. That makes it safe to run even on rows that already got
+// auto-created, since it can't produce a duplicate contact the way
+// clearing Match Status and reprocessing everything could for anyone who
+// signed up with no usable phone (there'd be nothing to match them back to
+// their own record, so it'd create a second one instead of fixing
+// anything). Rows with no phone are logged for manual follow-up instead of
+// guessed.
 function backfillMissingEvents() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESPONSES_SHEET_NAME);
   if (!sheet) throw new Error(`No sheet named "${RESPONSES_SHEET_NAME}" — check RESPONSES_SHEET_NAME in the CONFIG block.`);
@@ -357,7 +360,7 @@ function notifySignup(info) {
     if (!NOTIFY_EMAILS.length) return;
     const name = info.form.name || "(no name given)";
     const event = eventLabelsDisplay(info.form.eventLabel);
-    const subject = `OCR Event Sign-up: ${name}` + (event ? ` — ${event}` : "");
+    const subject = `LIFE @ HKBU Sign-up: ${name}` + (event ? ` — ${event}` : "");
     MailApp.sendEmail({
       to: NOTIFY_EMAILS.join(","),
       subject,
@@ -376,7 +379,10 @@ function sourceLabel(source) {
 }
 
 // Cross-check section content shared by the plain-text and HTML bodies:
-// a status ("ok"/"warn") plus one or more lines of detail.
+// a status ("ok"/"warn") plus one or more lines of detail. This Form
+// doesn't ask "How did you get connected?", so there's no form-vs-tracker
+// connector comparison here (unlike HKUST's script) — just the entry
+// method and any multi-match/unrecognized-event flags.
 function crossCheckStatus(info) {
   const f = info.form;
   const lines = [];
@@ -385,17 +391,6 @@ function crossCheckStatus(info) {
   if (info.matchStatus === "matched") {
     const c = info.contact;
     lines.push(`How they entered the tracker: ${sourceLabel(c.source)}`);
-    const formConnector = f.connector.trim().toLowerCase();
-    const trackerOutreachedBy = (c.connector || "").trim().toLowerCase();
-
-    // Compared against contacts.connector ("Outreached by" on the website —
-    // who a member met in person and recorded, separate from the tracker's
-    // point person assignment) since that's the same "who connected them"
-    // question the Form is asking, just from the tracker's own side.
-    if (formConnector && trackerOutreachedBy && formConnector !== trackerOutreachedBy) {
-      lines.unshift(`They and the tracker disagree on who connected them — worth confirming which is right.`);
-      status = "warn";
-    }
   } else if (info.matchStatus === "created") {
     lines.push("Wasn't in the tracker yet — added automatically from their sign-up answers.");
   } else if (info.matchStatus === "multiple") {
@@ -418,27 +413,23 @@ function buildNotificationBody(info) {
   const f = info.form;
   const event = eventLabelsDisplay(f.eventLabel);
   const contactLine = f.rawPhone
-    ? `WhatsApp: ${f.rawPhone}`
-    : `WhatsApp: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
+    ? `Phone: ${f.rawPhone}`
+    : `Phone: (not given) — alternate contact: ${f.altContact || "(not given)"}`;
   const crossCheck = crossCheckStatus(info);
-  // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is contacts.connector
-  // ("Outreached by" on the website — a member met them in person and
-  // recorded it via Quick Add/Add Contact/Edit). They should usually
-  // agree with the form, but showing both lets the team actually confirm
-  // that instead of assuming it.
   const trackerOutreachedBy = info.matchStatus === "matched" ? (info.contact.connector || "(not given)") : null;
 
   const lines = [
     `${f.name || "(no name given)"} just signed up for "${event || "(no event given)"}" via the Google Form.`,
     "",
     "Sign-up details:",
+    `  Year of study: ${f.year || "(not given)"}`,
     `  Gender: ${f.gender || "(not given)"}`,
-    `  Nationality: ${f.nationality || "(not given)"}`,
-    `  Year: ${f.year || "(not given)"}`,
-    `  Major / School: ${f.major || "(not given)"}`,
+    `  Country: ${f.country || "(not given)"}`,
+    `  Major: ${f.major || "(not given)"}`,
     `  ${contactLine}`,
-    `  How they got connected (form response): ${f.connector || "(not given)"}`,
+    `  Preferred contact methods: ${f.altMethods || "(not given)"}`,
+    `  Who connected you? (form response): (not given — this Form doesn't ask)`,
+    `  Questions/comments: ${f.questions || "(none)"}`,
   ];
   if (trackerOutreachedBy !== null) {
     lines.push(`  Outreached by (tracker): ${trackerOutreachedBy}`);
@@ -457,7 +448,7 @@ function escapeHtml(str) {
 function buildNotificationHtml(info) {
   const f = info.form;
   const event = eventLabelsDisplay(f.eventLabel);
-  const contactLabel = f.rawPhone ? "WhatsApp" : "Contact (no WhatsApp given)";
+  const contactLabel = f.rawPhone ? "Phone" : "Contact (no phone given)";
   const contactValue = f.rawPhone || f.altContact || "(not given)";
   const crossCheck = crossCheckStatus(info);
   const crossCheckColor = crossCheck.status === "ok"
@@ -470,10 +461,6 @@ function buildNotificationHtml(info) {
         <td style="padding:7px 0; color:#1A1D23; font-size:14px;">${escapeHtml(value) || "<span style=\"color:#9AA0AC;\">(not given)</span>"}${note ? ` <span style="color:#9AA0AC; font-size:11px;">${escapeHtml(note)}</span>` : ""}</td>
       </tr>`;
 
-  // Always shown separately, never merged — the form answer is what THEY
-  // say connected them; the tracker value is contacts.connector
-  // ("Outreached by" on the website), shown only when there's a tracker
-  // record to compare against.
   const trackerOutreachedByRow = info.matchStatus === "matched"
     ? row("Outreached by (tracker)", info.contact.connector, null)
     : "";
@@ -483,18 +470,19 @@ function buildNotificationHtml(info) {
   return `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto;">
   <div style="background:#A8452F; color:#FFFFFF; padding:18px 22px; border-radius:14px 14px 0 0;">
-    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; opacity:0.85;">OCR Event Sign-up</div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; opacity:0.85;">LIFE @ HKBU Sign-up</div>
     <div style="font-size:21px; font-weight:700; margin-top:4px;">${escapeHtml(f.name) || "(no name given)"}</div>
     ${event ? `<div style="font-size:14px; margin-top:2px; opacity:0.92;">${escapeHtml(event)}</div>` : ""}
   </div>
   <div style="border:1px solid #E2E4E9; border-top:none; border-radius:0 0 14px 14px; padding:20px 22px;">
     <table style="width:100%; border-collapse:collapse;">
+      ${row("Year of study", f.year)}
       ${row("Gender", f.gender)}
-      ${row("Nationality", f.nationality)}
-      ${row("Year", f.year)}
-      ${row("Major / School", f.major)}
+      ${row("Country", f.country)}
+      ${row("Major", f.major)}
       ${row(contactLabel, contactValue)}
-      ${row("How they got connected (form response)", f.connector, null)}
+      ${row("Preferred contact methods", f.altMethods)}
+      ${row("Questions/comments", f.questions)}
       ${trackerOutreachedByRow}
     </table>
     <div style="margin-top:16px; padding:12px 14px; border-radius:10px; background:${crossCheckColor.bg}; color:${crossCheckColor.fg}; font-size:13px; line-height:1.5;">
@@ -523,12 +511,12 @@ function supabaseHeaders() {
     // browser-issued; UrlFetchApp's default User-Agent starts with
     // "Mozilla/5.0" and trips that heuristic even though this call is
     // genuinely server-side, so override it explicitly.
-    "User-Agent": "ocr-tracker-event-signup-sync/1.0 (Google Apps Script)",
+    "User-Agent": "ocr-tracker-event-signup-sync-hkbu/1.0 (Google Apps Script)",
   };
 }
 
 function findContactsByPhone(normalizedPhone) {
-  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,connector,source,followup_owner_type,followup_owner_other,suggested_connection`;
+  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,connector,source`;
   const res = UrlFetchApp.fetch(url, {
     method: "get",
     headers: supabaseHeaders(),
@@ -541,10 +529,13 @@ function findContactsByPhone(normalizedPhone) {
   return rows.filter(c => normalizePhone(c.phone) === normalizedPhone);
 }
 
-// The Form's "If you don't have WhatsApp..." question now asks for
-// "ContactMethod: Username" (e.g. "Instagram: username123"). Splits on the
-// first colon; if there's no colon at all (old-format or malformed
-// answers), the whole thing is treated as the handle with an empty method.
+// HKBU's "Information of other contact methods" question doesn't require
+// the strict "ContactMethod: Username" format HKUST's Form does. Splits on
+// the first colon if there is one (someone might still type "Instagram:
+// handle"); if there's no colon at all, the whole thing is treated as the
+// handle with an empty method — which falls back to contacts.phone rather
+// than the dedicated contacts.instagram field, same graceful degradation
+// HKU's/CUHK's scripts already have for a malformed answer.
 function parseAltContact(text) {
   const raw = String(text || "").trim();
   const idx = raw.indexOf(":");
@@ -552,13 +543,13 @@ function parseAltContact(text) {
   return { method: raw.slice(0, idx).trim(), handle: raw.slice(idx + 1).trim() };
 }
 
-// Fallback match for respondents with no WhatsApp number: checks the
-// handle against both contacts.phone (a member may have typed a WeChat/
-// Instagram handle into Quick Add's "Phone / WeChat ID" field, with or
-// without a "Method:" prefix) and contacts.instagram, as a substring
-// rather than requiring an exact format match.
+// Fallback match for respondents with no usable phone: checks the handle
+// against both contacts.phone (a member may have typed a WeChat/Instagram
+// handle into Quick Add's "Phone / WeChat ID" field, with or without a
+// "Method:" prefix) and contacts.instagram, as a substring rather than
+// requiring an exact format match.
 function findContactsByHandle(handle) {
-  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,instagram,connector,source,followup_owner_type,followup_owner_other,suggested_connection`;
+  const url = `${SUPABASE_URL}/rest/v1/contacts?season_id=eq.${SEASON_ID}&select=id,name,phone,instagram,connector,source`;
   const res = UrlFetchApp.fetch(url, {
     method: "get",
     headers: supabaseHeaders(),
@@ -574,6 +565,21 @@ function findContactsByHandle(handle) {
   );
 }
 
+// Which contact methods someone has (the checkbox question, separate from
+// the actual handle) and any questions/comments have no dedicated
+// contacts.* column, so they're folded into contacts.progress as a short
+// note instead of being silently dropped. Only called on CREATE (see
+// createContact() below) — never appended to an existing contact's
+// progress notes on a match, so it can't clobber something a member
+// already wrote there by hand.
+function buildExtraNotes(form) {
+  const lines = [];
+  if (form.country) lines.push(`Country: ${form.country}`);
+  if (form.altMethods) lines.push(`Preferred contact methods: ${form.altMethods}`);
+  if (form.questions) lines.push(`Questions/comments: ${form.questions}`);
+  return lines.length ? lines.join("\n") : null;
+}
+
 // Called when nobody in the tracker matches this respondent's phone number
 // — creates them directly from their Form answers (source: "online", same
 // tag signup.html self-submissions get) instead of leaving a member to
@@ -583,27 +589,24 @@ function findContactsByHandle(handle) {
 // same contacts.phone field Quick Add's "Phone / WeChat ID" already uses.
 // contacts.phone is NOT NULL in Supabase, so this must never end up
 // passing null there — an empty string satisfies the constraint for
-// anyone who gave neither a WhatsApp number nor a usable alt-contact.
+// anyone who gave neither a usable phone nor a usable alt-contact.
 //
 // contacts.connector ("Outreached by" on the website) is deliberately left
-// unset here — it's purely day-outreach/website info (who met this person
-// in person and typed themselves into Quick Add/Add Contact/Edit), and
-// nobody outreached to someone who signed up cold through the Form. Their
-// own answer to "How did you get connected?" goes to
-// contacts.last_form_connector instead, via the caller's
-// updateLastFormConnector() call right after this returns — never into
-// connector, which would silently relabel form data as if it were
-// outreach data.
+// unset here, same as the other two flexible-form scripts — nobody
+// outreached to someone who signed up cold through the Form. This Form
+// doesn't have a "How did you get connected?" question at all, so there's
+// no last_form_connector to save either.
 function createContact(form, altContact) {
   const isInstagram = !form.rawPhone && altContact.method.toLowerCase() === "instagram";
   const payload = {
     name: form.name,
     gender: form.gender || null,
-    nationality: form.nationality || null,
+    nationality: form.country || null,
     course: form.major || null,
     year: form.year || null,
     phone: form.rawPhone || (isInstagram ? "" : (form.altContact || "")),
     instagram: isInstagram ? altContact.handle : null,
+    progress: buildExtraNotes(form),
     followup_owner_type: null, // point person always starts unassigned — never inferred from connector
     interest_event: true,
     source: "online",
@@ -622,34 +625,6 @@ function createContact(form, altContact) {
     throw new Error(`contact create failed: ${res.getContentText()}`);
   }
   return JSON.parse(res.getContentText())[0];
-}
-
-// Saves what THIS respondent typed for "How did you get connected?" onto the
-// matched/created contact's own record (contacts.last_form_connector),
-// separate from contacts.connector (the tracker's own point-person field,
-// set via Quick Add/Add Contact/Edit) — the two can legitimately disagree
-// (a member's already the point person on file, but the respondent named
-// someone else), and the website flags that instead of one silently
-// overwriting the other. Never throws: a failure here shouldn't block the
-// registration/interest writes, which matter more.
-function updateLastFormConnector(contactId, formConnector) {
-  try {
-    const res = UrlFetchApp.fetch(
-      `${SUPABASE_URL}/rest/v1/contacts?id=eq.${contactId}`,
-      {
-        method: "patch",
-        contentType: "application/json",
-        headers: supabaseHeaders(),
-        payload: JSON.stringify({ last_form_connector: formConnector }),
-        muteHttpExceptions: true,
-      }
-    );
-    if (res.getResponseCode() >= 300) {
-      Logger.log(`updateLastFormConnector: non-fatal write failure for contact ${contactId}: ${res.getContentText()}`);
-    }
-  } catch (err) {
-    Logger.log(`updateLastFormConnector: non-fatal error for contact ${contactId}: ${err}`);
-  }
 }
 
 // Signing up via the Form means they've REGISTERED for the event — it does
