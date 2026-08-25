@@ -1536,12 +1536,26 @@
     const optionsHtml = `<option value="all">${escapeHtml(allLabel)}</option>` +
       values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     selectEl.innerHTML = optionsHtml;
-    selectEl.value = values.includes(currentValue) ? currentValue : "all";
+    const match = values.find(v => v.toLowerCase() === String(currentValue).toLowerCase());
+    selectEl.value = match || "all";
     return selectEl.value;
   }
 
+  // Gender is free text, so "Male"/"male"/"MALE" are all the same answer
+  // typed differently — dedupe case-insensitively (keeping whichever
+  // casing was seen first) so the dropdown offers one option per gender,
+  // not one per casing variant.
+  function dedupeCaseInsensitive(values) {
+    const seen = new Map();
+    values.forEach(v => {
+      const key = v.toLowerCase();
+      if (!seen.has(key)) seen.set(key, v);
+    });
+    return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  }
+
   function renderFilterSelects() {
-    const genders = [...new Set(contacts.map(c => (c.gender || "").trim()).filter(Boolean))].sort();
+    const genders = dedupeCaseInsensitive(contacts.map(c => (c.gender || "").trim()).filter(Boolean));
     genderFilter = rebuildFilterOptions(genderFilterSelect, genders, "All genders", genderFilter);
 
     const pointPersons = [...new Set(contacts.map(followupOwnerDisplay))].sort();
@@ -1571,7 +1585,8 @@
     }
 
     if (genderFilter !== "all") {
-      list = list.filter(c => (c.gender || "").trim() === genderFilter);
+      const gf = genderFilter.toLowerCase();
+      list = list.filter(c => (c.gender || "").trim().toLowerCase() === gf);
     }
     if (pointPersonFilter !== "all") {
       list = list.filter(c => followupOwnerDisplay(c) === pointPersonFilter);
