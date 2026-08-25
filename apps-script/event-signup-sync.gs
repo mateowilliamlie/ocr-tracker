@@ -83,6 +83,18 @@
  * one, so it's safe even for rows that were auto-created (unlike
  * clearing Match Status and reprocessing everything, which could create
  * a duplicate contact for anyone who signed up with no WhatsApp number).
+ *
+ * Duplicate check: a row that was "Added new contact:" (no phone match at
+ * the time) can end up a genuine duplicate of someone met in person during
+ * outreach — e.g. they were added with no phone yet, signed up via the
+ * Form separately, and only later did a member manually add their phone
+ * to the original outreach contact. Run findPotentialDuplicates() any
+ * time to re-check every already-resolved row against CURRENT contacts
+ * data and log any whose best match now has a different name than what
+ * was originally recorded. Read-only — it never merges or deletes
+ * anything; a flagged pair still needs a member to look at both records
+ * and merge them by hand (move the event registration/interest rows onto
+ * the real contact, then delete the duplicate).
  */
 
 // === CONFIG — fill these in before using ===
@@ -348,6 +360,78 @@ function backfillMissingEvents() {
 
   Logger.log(`Fixed missing events for ${fixed} row(s).` +
     (needsManualCheck.length ? ` Needs manual check: ${needsManualCheck.join("; ")}` : ""));
+}
+
+// Catches the case where a row was originally "Added new contact:" (or
+// "Matched:") because the respondent's phone/alt-contact didn't match
+// anyone in the tracker AT THE TIME — e.g. they were met in person during
+// outreach with no phone recorded yet, then separately signed up via the
+// Form (creating a second, duplicate "online" contact), and only later did
+// a member manually add their phone number to the original outreach
+// contact. From that point on, re-matching this row would find the
+// ORIGINAL contact, not the duplicate the Form actually created — but
+// nothing re-checks old rows automatically, so the duplicate just sits
+// there unnoticed.
+//
+// This re-matches EVERY row (unlike backfillExistingResponses, which
+// skips already-resolved rows) using CURRENT contacts data, and logs any
+// row whose best current match has a different name than what's recorded
+// in the Match Status column. Deliberately READ-ONLY — it never creates,
+// matches, merges, or deletes anything; it only reports so a member can
+// look at the two contacts and decide how to merge them by hand (move the
+// event registration/interest rows onto the real contact, then delete the
+// duplicate — there's no safe way to automate that decision).
+function findPotentialDuplicates() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RESPONSES_SHEET_NAME);
+  if (!sheet) throw new Error(`No sheet named "${RESPONSES_SHEET_NAME}" — check RESPONSES_SHEET_NAME in the CONFIG block.`);
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const nameCol = headers.indexOf(Q_NAME);
+  const phoneCol = headers.indexOf(Q_PHONE);
+  const altContactCol = headers.indexOf(Q_ALT_CONTACT);
+  const statusCol = headers.indexOf("Match Status");
+  if (phoneCol === -1) {
+    throw new Error("Couldn't find the phone column — check Q_PHONE matches the Sheet's header row.");
+  }
+
+  // "Matched: Jane Lee" / "Added new contact: Jane Lee — 2 events" -> "Jane Lee"
+  const recordedNameFrom = statusText => {
+    const m = /^(?:Matched|Added new contact):\s*(.+?)(?:\s*—.*)?$/.exec(statusText);
+    return m ? m[1].trim() : null;
+  };
+
+  const flagged = [];
+  let checked = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const currentStatus = statusCol !== -1 ? String(data[i][statusCol] || "") : "";
+    const recordedName = recordedNameFrom(currentStatus);
+    if (!recordedName) continue; // unresolved/error/multiple-match rows aren't this function's job
+
+    const who = nameCol !== -1 ? String(data[i][nameCol] || "") : `row ${i + 1}`;
+    const phone = normalizePhone(String(data[i][phoneCol] || ""));
+    const altHandle = altContactCol !== -1 ? parseAltContact(String(data[i][altContactCol] || "")).handle : "";
+
+    let matches = phone ? findContactsByPhone(phone) : [];
+    if (matches.length === 0 && altHandle.length >= 3) {
+      matches = findContactsByHandle(altHandle);
+    }
+    checked++;
+
+    if (matches.length === 1 && matches[0].name.trim().toLowerCase() !== recordedName.toLowerCase()) {
+      flagged.push(
+        `${who} (row ${i + 1}): now matches "${matches[0].name}" (id ${matches[0].id}), ` +
+        `but was originally recorded as "${recordedName}" — check for a duplicate contact and merge by hand.`
+      );
+    } else if (matches.length > 1) {
+      flagged.push(`${who} (row ${i + 1}): now matches ${matches.length} contacts (${matches.map(m => m.name).join(", ")}) — review manually.`);
+    }
+    Utilities.sleep(150); // gentle pacing against Supabase rate limits
+  }
+
+  Logger.log(`Checked ${checked} resolved row(s). ` +
+    (flagged.length ? `${flagged.length} potential duplicate(s):\n${flagged.join("\n")}` : "No potential duplicates found."));
 }
 
 // Never throws — a Mail failure shouldn't clobber the Match Status write
