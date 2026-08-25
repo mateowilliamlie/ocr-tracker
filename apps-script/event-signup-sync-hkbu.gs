@@ -114,7 +114,7 @@ const RESPONSES_SHEET_NAME = "Form Responses 1";
 // row's id, after creating an HKBU campus + season via campuses.html /
 // seasons.html if one doesn't exist yet). Must be updated whenever a new
 // season starts.
-const SEASON_ID = "REPLACE_WITH_HKBU_SEASON_ID";
+const SEASON_ID = "7f7adcd9-47cf-4479-a96e-f92042e7d493";
 
 // TODO: maps each event to its Supabase id (Table Editor -> events -> copy
 // each row's id for the events belonging to SEASON_ID above — create the 4
@@ -125,10 +125,10 @@ const SEASON_ID = "REPLACE_WITH_HKBU_SEASON_ID";
 // insensitive — see matchedEventLabels()), not exact equality — keep
 // these keys as just the short event name.
 const EVENT_ID_BY_LABEL = {
-  "LIFE Group Taster": "REPLACE_WITH_LIFE_GROUP_TASTER_EVENT_ID",
-  "Island Day": "REPLACE_WITH_ISLAND_DAY_EVENT_ID",
-  "We Are Here to Discover": "REPLACE_WITH_WE_ARE_HERE_TO_DISCOVER_EVENT_ID",
-  "First LIFE Group of the Semester": "REPLACE_WITH_FIRST_LIFE_GROUP_EVENT_ID",
+  "LIFE Group Taster": "df0536e0-f5c9-4dad-9a2b-e6a24c92f236",
+  "Island Day": "61ae3925-6c91-4357-ad0e-12b1602529f4",
+  "We Are Here to Discover": "f4639a64-c997-4934-9c9c-1c6b1c28b47e",
+  "First LIFE Group of the Semester": "638771b4-486e-4ea2-87d7-18b1aa01be96",
 };
 
 // Exact Form question titles — must match the Form verbatim (getAnswer()
