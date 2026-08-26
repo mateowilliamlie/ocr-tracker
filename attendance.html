@@ -451,6 +451,7 @@
 
   .toolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 16px;
   }
@@ -471,7 +472,7 @@
     outline-offset: 1px;
   }
 
-  #sort-select {
+  #sort-select, .filter-select {
     font-family: var(--font);
     font-size: 14px;
     padding: 9px 34px 9px 14px;
@@ -1053,6 +1054,9 @@
     <div id="event-stat-cards" style="margin-bottom:12px;"></div>
     <div class="toolbar" id="attendance-search-toolbar" style="display:none; margin-bottom:12px;">
       <input id="search-input" type="text" placeholder="Search by name" />
+      <select id="point-person-filter-select" class="filter-select">
+        <option value="all">All point persons</option>
+      </select>
     </div>
     <div id="event-legend" style="margin-bottom:12px;"></div>
     <div id="matrix-scroll" style="overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);">
@@ -1187,6 +1191,37 @@
   let registeredMap = {}; // "registered" — signed up in advance (e.g. via the Gform)
   let interestMap = {};
   let activeEventFilter = "all";
+  let pointPersonFilter = "all";
+
+  // Same "who's actually the point person" logic as index.html, ported
+  // here so the filter means the same thing on both pages — see that
+  // file's comments for the full rationale (kept short here on purpose).
+  const NON_PERSON_CONNECTOR_KEYWORDS = [
+    "instagram", "insta", "social media", "facebook", "tiktok", "walked in", "walk-in",
+    "word of mouth", "flyer", "poster", "randomly", "no one", "nobody", "n/a", "none", "google form"
+  ];
+  const NON_PERSON_CONNECTOR_WORDS = ["ig"];
+
+  function isUnconnectedValue(raw) {
+    const v = (raw || "").trim().toLowerCase();
+    if (!v) return true;
+    if (NON_PERSON_CONNECTOR_KEYWORDS.some(k => v.includes(k))) return true;
+    return NON_PERSON_CONNECTOR_WORDS.some(w => new RegExp(`\\b${w}\\b`).test(v));
+  }
+
+  function isUnconnected(c) {
+    return isUnconnectedValue(c.connector);
+  }
+
+  const POINT_PERSON_UNSET = "Not yet assigned";
+
+  function followupOwnerDisplay(c) {
+    if (c.followup_owner_type === "connector") return (c.connector && !isUnconnected(c)) ? c.connector : POINT_PERSON_UNSET;
+    if (c.followup_owner_type === "suggested") return c.suggested_connection || POINT_PERSON_UNSET;
+    if (c.followup_owner_type === "other") return c.followup_owner_other || POINT_PERSON_UNSET;
+    if (c.source !== "online" && c.connector && !isUnconnected(c)) return c.connector;
+    return POINT_PERSON_UNSET;
+  }
 
   function getIsAdminFromSession(session) {
     const role = session && session.user && session.user.app_metadata && session.user.app_metadata.role;
@@ -1303,8 +1338,23 @@
   // Filter/sort state for the matrix view
   function getSearchFilteredContacts() {
     const q = (document.getElementById("search-input")?.value || "").trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter(c => c.name.toLowerCase().includes(q));
+    let list = q ? contacts.filter(c => c.name.toLowerCase().includes(q)) : contacts;
+    if (pointPersonFilter !== "all") {
+      list = list.filter(c => followupOwnerDisplay(c) === pointPersonFilter);
+    }
+    return list;
+  }
+
+  // Rebuilt from the full `contacts` list (not the search-filtered one)
+  // every render, so filtering to a point person never hides the other
+  // choices in the dropdown itself.
+  function renderPointPersonFilterOptions() {
+    const select = document.getElementById("point-person-filter-select");
+    const pointPersons = [...new Set(contacts.map(followupOwnerDisplay))].sort();
+    select.innerHTML = `<option value="all">All point persons</option>` +
+      pointPersons.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+    select.value = pointPersons.includes(pointPersonFilter) ? pointPersonFilter : "all";
+    pointPersonFilter = select.value;
   }
 
   function eventCounts(eventId) {
@@ -1443,6 +1493,7 @@
       document.getElementById("event-chips").style.display = "flex";
       document.getElementById("attendance-search-toolbar").style.display = "flex";
       renderEventChips();
+      renderPointPersonFilterOptions();
       if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
     }
   }
@@ -1590,6 +1641,11 @@
   document.getElementById("event-drill-list").addEventListener("click", handleCellClick);
 
   document.getElementById("search-input").addEventListener("input", () => {
+    if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
+  });
+
+  document.getElementById("point-person-filter-select").addEventListener("change", (e) => {
+    pointPersonFilter = e.target.value;
     if (activeEventFilter === "all") renderMatrixAll(); else renderMatrixSingleEvent(activeEventFilter);
   });
 
