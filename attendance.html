@@ -1679,6 +1679,7 @@
       <div class="manage-event-row" data-event-id="${ev.id}" style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
         <span class="manage-event-name" style="flex:1; font-size:14px;">${escapeHtml(ev.name)}</span>
         <input type="text" class="manage-event-date-input" data-event-id="${ev.id}" value="${ev.event_date || ""}" placeholder="No date" autocomplete="off" style="font-family:var(--font); font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:#FFFFFF; color:#1A1D23; width:110px;" />
+        <button type="button" class="btn-ghost clear-event-date-btn" data-event-id="${ev.id}" title="Clear date" aria-label="Clear date" style="padding:5px 9px; font-size:13px; line-height:1;">✕</button>
         <button type="button" class="btn-ghost rename-event-btn" data-event-id="${ev.id}" style="padding:6px 12px; font-size:13px;">Rename</button>
       </div>
     `).join("");
@@ -1694,10 +1695,16 @@
         allowInput: true,
         disableMobile: true,
         onChange: async (selectedDates, dateStr) => {
+          // Only write a real, fully-parsed date here. An empty/partial
+          // dateStr (e.g. manual typing via allowInput that didn't match
+          // Y-m-d) used to fall through to `dateStr || null`, silently
+          // wiping event_date — which then dropped the event from the
+          // dashboard's Total chart with no warning. Clearing a date is
+          // now only possible via the explicit ✕ button below.
+          if (!dateStr) return;
           const eventId = input.dataset.eventId;
-          const newDate = dateStr || null;
           try {
-            const { error } = await sb.from("events").update({ event_date: newDate }).eq("id", eventId);
+            const { error } = await sb.from("events").update({ event_date: dateStr }).eq("id", eventId);
             if (error) throw error;
             showBanner("Event date updated", false);
             await loadEventsAndAttendance();
@@ -1709,6 +1716,21 @@
       });
     });
   }
+
+  document.getElementById("manage-events-list").addEventListener("click", async (e) => {
+    const clearBtn = e.target.closest(".clear-event-date-btn");
+    if (!clearBtn) return;
+    const eventId = clearBtn.dataset.eventId;
+    try {
+      const { error } = await sb.from("events").update({ event_date: null }).eq("id", eventId);
+      if (error) throw error;
+      showBanner("Event date cleared", false);
+      await loadEventsAndAttendance();
+      renderManageEventsList();
+    } catch (err) {
+      showBanner(`Couldn't clear event date — ${err.message || "check your connection"}`, true);
+    }
+  });
 
   document.getElementById("manage-events-list").addEventListener("click", async (e) => {
     const renameBtn = e.target.closest(".rename-event-btn");
