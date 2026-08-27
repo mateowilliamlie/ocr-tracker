@@ -494,6 +494,10 @@
      padding otherwise left a bigger gap than a flag in between needs. */
   .row + .contact-line { margin-top: -6px; }
   .connector-flag { font-size: 12px; color: var(--warn); background: var(--warn-bg); padding: 6px 14px; margin-bottom: 8px; }
+  /* The "their form named someone else" flag is a different kind of mismatch
+     from ownership reassignment — colour it blue so it doesn't blend in with
+     the yellow "Unconnected" badge / reassignment flag. */
+  .connector-flag.connector-flag-form { color: var(--info); background: var(--info-bg); }
   .muted { color: var(--text-muted); }
   .event-chip {
     font-family: var(--font);
@@ -1507,9 +1511,15 @@
   }
 
   function renderEventSignupChips() {
-    if (activeTab !== "online" || seasonEvents.length === 0) {
+    if (seasonEvents.length === 0) {
       eventSignupChipsEl.style.display = "none";
       return;
+    }
+    // A filter left pointing at an event that's no longer in the active
+    // season (season switched) would silently hide every row — fall back
+    // to "all" so it can't get stuck on a stale event.
+    if (eventSignupFilter !== "all" && !seasonEvents.some(ev => ev.id === eventSignupFilter)) {
+      eventSignupFilter = "all";
     }
     eventSignupChipsEl.style.display = "flex";
     const chip = (label, isActive, filterValue) =>
@@ -1577,11 +1587,14 @@
 
     if (activeTab === "online") {
       list = list.filter(c => c.source === "online" || hasAnyEventRegistration(c));
-      if (eventSignupFilter !== "all") {
-        list = list.filter(c => contactEventStatus(c, eventSignupFilter) !== null);
-      }
     } else if (activeTab === "inperson") {
       list = list.filter(c => c.source !== "online");
+    }
+
+    // Event filter (chip row) applies on every tab — narrow to contacts
+    // with any engagement (interested/registered/attended) for that event.
+    if (eventSignupFilter !== "all") {
+      list = list.filter(c => contactEventStatus(c, eventSignupFilter) !== null);
     }
 
     if (genderFilter !== "all") {
@@ -1619,7 +1632,9 @@
     }
     if (list.length === 0) {
       emptyStateEl.style.display = "block";
-      emptyStateEl.textContent = activeTab === "online"
+      emptyStateEl.textContent = eventSignupFilter !== "all"
+        ? "No contacts for that event."
+        : activeTab === "online"
         ? "No event signups yet."
         : activeTab === "inperson"
         ? "No in-person contacts yet."
@@ -1635,7 +1650,7 @@
       wrap.className = "row-wrap";
 
       const isOpen = openDetailId === c.id;
-      const contactEventList = activeTab === "online" ? contactEvents(c) : [];
+      const contactEventList = (activeTab === "online" || eventSignupFilter !== "all") ? contactEvents(c) : [];
 
       wrap.innerHTML = `
         <div class="row">
@@ -1647,7 +1662,7 @@
           <button type="button" class="followedup-toggle ${c.followed_up ? "yes" : "no"}" data-followedup="${c.id}" data-value="${c.followed_up ? "true" : "false"}" ${(!isAdmin && seasonConcluded) ? "disabled" : ""}>${c.followed_up ? "Yes" : "No"}</button>
           <button class="chevron ${isOpen ? "open" : ""}" data-toggle="${c.id}" aria-label="Toggle details">⌄</button>
         </div>
-        ${connectorFlags(c).map(f => `<div class="connector-flag">${escapeHtml(f)}</div>`).join("")}
+        ${connectorFlags(c).map(f => `<div class="connector-flag ${f.cls}">${escapeHtml(f.text)}</div>`).join("")}
         ${activeTab === "online" ? `<div class="contact-line">${contactSummary(c)}</div>` : ""}
         ${contactEventList.length > 0 ? `<div class="event-badges">${contactEventList.map(({ ev, status }) => `<span class="event-badge event-badge-${status}">${escapeHtml(ev.name)}</span>`).join("")}</div>` : ""}
         <div class="detail ${isOpen ? "open" : ""}" id="detail-${c.id}">
@@ -1759,10 +1774,10 @@
     const flags = [];
     const pointPerson = followupOwnerDisplay(c);
     if (pointPersonDiffersFromConnector(c)) {
-      flags.push(`Outreached by ${c.connector} — different from point person above, worth confirming`);
+      flags.push({ cls: "", text: `Outreached by ${c.connector} — different from point person above, worth confirming` });
     }
     if (hasAssignedPointPerson(c) && c.last_form_connector && c.last_form_connector.trim().toLowerCase() !== pointPerson.trim().toLowerCase()) {
-      flags.push(`How they got connected (their form): ${c.last_form_connector} — different from point person above, worth confirming`);
+      flags.push({ cls: "connector-flag-form", text: `How they got connected (their form): ${c.last_form_connector} — different from point person above, worth confirming` });
     }
     return flags;
   }
@@ -2054,7 +2069,6 @@
 
   function setActiveTab(tab) {
     activeTab = tab;
-    eventSignupFilter = "all";
     tabAll.classList.toggle("active", tab === "all");
     tabInPerson.classList.toggle("active", tab === "inperson");
     tabOnline.classList.toggle("active", tab === "online");
